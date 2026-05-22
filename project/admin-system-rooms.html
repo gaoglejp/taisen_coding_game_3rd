@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ルーム一覧 | システム管理 | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330; --admin-accent:#7c3aed; --admin-accent-soft:#ede9fe;
+    --room-admin-accent:#0891b2;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 1px 2px rgba(31,35,48,.04), 0 1px 1px rgba(31,35,48,.03);
+    --shadow-md: 0 8px 24px rgba(31,35,48,.08), 0 2px 6px rgba(31,35,48,.04);
+    --shadow-lg: 0 24px 64px rgba(31,35,48,.18), 0 8px 16px rgba(31,35,48,.08);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--admin-accent); outline-offset: 2px; }
+  button { font: inherit; }
+  a { color: var(--p1-ink); }
+
+  /* ============ Topbar (admin dark) ============ */
+  .topbar {
+    background: var(--admin-bg);
+    color: #e5e7eb;
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid #0f1117;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(180deg, #2a2e3c, #1a1c25);
+    color: #e5e7eb;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 13px;
+    border: 1px solid #3a3e4d;
+  }
+  .brand-text {
+    font-weight: 700; font-size: 14px;
+    color: #f3f4f6;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .brand-text .tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    background: var(--admin-accent);
+    color: #fff;
+    border-radius: 4px;
+    letter-spacing: .04em;
+    font-weight: 600;
+  }
+  .breadcrumb {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: #9ca3af;
+    padding-left: 16px;
+    margin-left: 8px;
+    border-left: 1px solid #3a3e4d;
+  }
+  .breadcrumb strong { color: #e5e7eb; font-weight: 600; }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .admin-chip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 12px 5px 5px;
+    background: #2a2e3c;
+    border: 1px solid #3a3e4d;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #e5e7eb;
+  }
+  .admin-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--admin-accent);
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .role-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 4px;
+    letter-spacing: .04em;
+    background: var(--admin-accent);
+    color: #fff;
+  }
+  .top-link {
+    color: #9ca3af;
+    background: transparent;
+    border: 1px solid #3a3e4d;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .top-link:hover { color: #f3f4f6; background: #2a2e3c; }
+
+  /* ============ Scope banner ============ */
+  .scope-banner {
+    background: #fdfaf0;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .scope-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    display: grid; place-items: center;
+    font-weight: 700;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .scope-banner strong { color: var(--ink); font-weight: 600; }
+  .scope-banner .sep { color: var(--line-2); margin: 0 4px; }
+
+  /* ============ Layout ============ */
+  .shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    align-items: stretch;
+    min-height: calc(100vh - 100px);
+  }
+
+  /* Side nav */
+  .sidenav {
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    padding: 18px 14px;
+    position: sticky;
+    top: 0;
+    align-self: start;
+  }
+  .nav-section-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    padding: 8px 10px 6px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    margin-bottom: 2px;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg); color: var(--ink); }
+  .nav-item.active {
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+    border-color: #ddd6fe;
+    font-weight: 600;
+  }
+  .nav-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .nav-item.active .nav-icon {
+    background: var(--admin-accent);
+    border-color: var(--admin-accent);
+    color: #fff;
+  }
+  .nav-divider {
+    height: 1px;
+    background: var(--line);
+    margin: 10px 6px;
+  }
+  .nav-footnote {
+    margin-top: auto;
+    padding: 10px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    background: var(--bg);
+    margin: 16px 4px 0;
+  }
+
+  /* Main */
+  .main { padding: 24px 32px 24px; min-width: 0; }
+  .page-head {
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 20px;
+    margin-bottom: 18px;
+  }
+  .page-head h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -.01em;
+  }
+  .page-head .sub {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .page-counters {
+    display: flex; gap: 8px; align-items: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .counter-pill {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 11px;
+  }
+  .counter-pill strong { color: var(--ink); }
+
+  /* Toolbar */
+  .toolbar {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow-sm);
+  }
+  .search-wrap {
+    flex: 1;
+    min-width: 280px;
+    display: flex; align-items: center; gap: 10px;
+    background: #fdfcf8;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .search-wrap input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+  }
+  .search-wrap .ic {
+    color: var(--ink-soft);
+    font-size: 13px;
+    width: 18px;
+    text-align: center;
+  }
+  .search-wrap kbd {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+
+  .filter-group {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 0;
+  }
+  .filter-chip {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .02em;
+  }
+  .filter-chip:hover { color: var(--ink); }
+  .filter-chip.active {
+    background: #fff;
+    color: var(--admin-accent);
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  .filter-chip .num {
+    font-size: 10px;
+    background: var(--bg-2);
+    color: var(--ink-soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+    margin-left: 5px;
+    font-weight: 600;
+  }
+  .filter-chip.active .num { background: var(--admin-accent-soft); color: var(--admin-accent); }
+
+  .btn-primary-admin {
+    background: var(--admin-accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: 0 1px 0 #5b21b6;
+  }
+  .btn-primary-admin:hover { background: #6d28d9; }
+
+  /* Table */
+  .table-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  table.rooms {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.rooms th, table.rooms td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  table.rooms thead {
+    background: linear-gradient(180deg, #fdfaf0, #fbf6e7);
+  }
+  table.rooms th {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  table.rooms tbody tr {
+    height: 56px;
+    transition: background .12s;
+  }
+  table.rooms tbody tr:hover { background: #fdfaf0; }
+  table.rooms tbody tr:last-child td { border-bottom: none; }
+  .room-id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .room-name-cell { font-weight: 600; font-size: 13.5px; }
+  .room-name-cell .note { font-size: 11.5px; color: var(--ink-soft); font-weight: 500; margin-top: 2px; }
+  .kind-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+    white-space: nowrap;
+    letter-spacing: .03em;
+  }
+  .kind-classroom { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .kind-tournament { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .kind-lobby { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .admins-cell { display: flex; align-items: center; gap: 6px; }
+  .admin-avatars { display: flex; }
+  .admin-avatars .av {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+    border: 2px solid #fff;
+    display: grid; place-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    margin-left: -6px;
+  }
+  .admin-avatars .av:first-child { margin-left: 0; }
+  .admin-avatars .av.more { background: var(--bg-2); color: var(--ink-soft); border-color: #fff; }
+  .admins-cell .name { font-size: 12.5px; }
+  .num-cell { font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: 13px; }
+  .status-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+    display: inline-flex; align-items: center; gap: 5px;
+    letter-spacing: .04em;
+  }
+  .status-active { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .status-archived { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .status-deleted { background: var(--danger-soft); color: var(--danger); border-color: #fbb6b6; }
+  .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .actions {
+    display: flex; gap: 4px; justify-content: flex-end; align-items: center;
+    flex-wrap: nowrap;
+  }
+  .act-btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .act-btn:hover { background: var(--bg); border-color: var(--line-2); }
+  .act-btn.primary { background: var(--admin-accent-soft); color: var(--admin-accent); border-color: #ddd6fe; }
+  .act-btn.primary:hover { background: #ddd6fe; }
+  .act-btn.danger { color: var(--danger); border-color: #fbb6b6; background: var(--danger-soft); }
+  .act-btn.danger:hover { background: #fde8e8; }
+  .act-btn.icon { padding: 5px 8px; font-family: "JetBrains Mono", monospace; }
+
+  /* Pagination */
+  .pagination {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .pagination .pages { display: flex; gap: 4px; }
+  .page-btn {
+    appearance: none;
+    width: 28px; height: 28px;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 600;
+  }
+  .page-btn:hover { background: var(--bg); }
+  .page-btn.active { background: var(--admin-accent); color: #fff; border-color: var(--admin-accent); }
+  .page-btn[disabled] { opacity: .4; cursor: not-allowed; }
+  .pagination .per-page {
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* ============ Modals (inline mocks) ============ */
+  .modal-showcase {
+    max-width: 1440px;
+    margin: 48px auto 32px;
+    padding: 0 32px;
+  }
+  .modal-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  .modal-frame {
+    background: rgba(31,35,48,.05);
+    border: 1px dashed var(--line-2);
+    border-radius: 16px;
+    padding: 26px;
+    position: relative;
+  }
+  .modal-frame::before {
+    content: attr(data-frame-label);
+    position: absolute;
+    top: -10px; left: 18px;
+    background: var(--bg);
+    padding: 0 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: .04em;
+  }
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: var(--shadow-lg);
+    max-width: 480px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .modal.big { max-width: 540px; }
+  .modal-head {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  }
+  .modal-head h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .modal-head .desc {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .modal-close {
+    background: transparent;
+    border: none;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    line-height: 1;
+  }
+  .modal-body { padding: 18px 22px; }
+  .modal-foot {
+    padding: 14px 22px;
+    background: var(--bg);
+    border-top: 1px solid var(--line);
+    display: flex; gap: 10px; justify-content: flex-end;
+  }
+  .btn-ghost {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-danger {
+    background: var(--danger);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 0 #991b1b;
+  }
+  .btn-danger:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px;
+    color: var(--ink);
+  }
+  .field .req { color: var(--p2); font-weight: 700; margin-left: 2px; }
+  .field input[type="text"], .field select, .field textarea {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    font: inherit;
+    font-size: 13px;
+    background: #fdfcf8;
+    color: var(--ink);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--admin-accent);
+    box-shadow: 0 0 0 3px rgba(124,58,237,.15);
+    background: #fff;
+    outline: none;
+  }
+  .field .hint { font-size: 11px; color: var(--ink-soft); margin-top: 4px; line-height: 1.45; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+  }
+  .seg input { display: none; }
+  .seg label {
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 10px 8px;
+    text-align: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    background: #fff;
+    color: var(--ink-soft);
+    margin-bottom: 0;
+  }
+  .seg label.selected {
+    border-color: var(--admin-accent);
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+  }
+  .seg label .desc { display: block; font-size: 10px; color: var(--ink-soft); margin-top: 3px; font-family: 'Plus Jakarta Sans'; letter-spacing: 0; font-weight: 500; }
+
+  .chip-input {
+    border: 1px solid var(--line-2);
+    background: #fdfcf8;
+    border-radius: 8px;
+    padding: 6px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 40px;
+    align-items: center;
+  }
+  .user-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    border-radius: 999px;
+    padding: 3px 5px 3px 4px;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .user-chip .av {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--admin-accent);
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 9px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+  }
+  .user-chip .x { color: var(--admin-accent); cursor: pointer; font-size: 12px; padding: 0 4px; }
+  .chip-input input { flex: 1; border: none; background: transparent; font: inherit; font-size: 12.5px; outline: none; min-width: 100px; padding: 4px; }
+
+  .auto-room-id {
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 14px;
+  }
+  .auto-room-id strong { color: var(--ink); font-weight: 700; }
+
+  .danger-callout {
+    background: var(--danger-soft);
+    border: 1px solid #fbb6b6;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 14px;
+    color: var(--danger);
+    font-size: 12.5px;
+    line-height: 1.55;
+    display: flex;
+    gap: 10px;
+  }
+  .danger-callout .ic {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--danger);
+    color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .danger-callout strong { color: var(--p2-ink); display: block; margin-bottom: 2px; font-weight: 700; font-size: 13px; }
+
+  .confirm-input { font-family: "JetBrains Mono", monospace; letter-spacing: .03em; }
+  .confirm-input.matches { border-color: var(--success); background: var(--success-soft); }
+
+  /* Completion state */
+  .complete-icon {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--success-soft);
+    border: 1px solid #a7f3d0;
+    color: var(--success);
+    display: grid; place-items: center;
+    margin: 8px auto 14px;
+    font-size: 22px;
+    font-weight: 700;
+  }
+  .complete-room-id {
+    text-align: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 12px;
+    letter-spacing: .04em;
+    margin: 12px 0;
+  }
+  .invite-row {
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--admin-accent);
+    display: flex; gap: 9px;
+    line-height: 1.45;
+  }
+  .invite-row .ic { font-weight: 700; }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 36px auto 32px;
+    padding: 0 32px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 {
+    margin: 0; font-size: 14px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: 16px;
+  }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11.5px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 12px; }
+  .mini-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 11.5px;
+  }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-empty {
+    text-align: center;
+    padding: 20px 8px;
+    color: var(--ink-soft);
+  }
+  .mini-empty .ill {
+    width: 42px; height: 42px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    margin: 0 auto 8px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 18px;
+  }
+  .mini-empty strong { display: block; color: var(--ink); font-size: 11.5px; margin-bottom: 2px; }
+  .mini-empty p { margin: 0; font-size: 10.5px; line-height: 1.5; }
+  .err-banner {
+    background: var(--danger-soft);
+    border: 1px solid #fbb6b6;
+    color: var(--p2-ink);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11px;
+    margin-bottom: 8px;
+  }
+  .err-banner strong { display: block; font-size: 11.5px; margin-bottom: 2px; }
+  .skel {
+    background: linear-gradient(90deg, var(--bg-2) 0%, #eee9da 50%, var(--bg-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 6px;
+    height: 12px;
+    margin-bottom: 7px;
+  }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ Topbar (admin) ============ -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <div class="brand-text">
+      対戦・コーディング
+      <span class="tag">SYSTEM ADMIN</span>
+    </div>
+    <div class="breadcrumb">/ system / <strong>rooms</strong></div>
+  </div>
+  <div class="topbar-right">
+    <button class="top-link" aria-label="ヘルプ">ヘルプ</button>
+    <button class="top-link" aria-label="通知">通知</button>
+    <div class="admin-chip" aria-label="ログイン中の管理者">
+      <div class="admin-avatar" aria-hidden="true">NK</div>
+      <span>nakamura.sys</span>
+      <span class="role-pill">SYSTEM_ADMIN</span>
+    </div>
+    <button class="top-link">ログアウト</button>
+  </div>
+</header>
+
+<!-- ============ Scope banner ============ -->
+<div class="scope-banner" role="status">
+  <div class="scope-icon" aria-hidden="true">!</div>
+  <div>
+    <strong>あなたはシステム管理者として閲覧中です。</strong>
+    <span class="sep">/</span>
+    対戦の具体操作 (コーディング・対戦の開始・終了) はできません。観戦と運営操作のみ実行できます。
+  </div>
+</div>
+
+<!-- ============ Shell ============ -->
+<div class="shell">
+
+  <!-- Side nav -->
+  <aside class="sidenav" aria-label="サイドナビ">
+    <div class="nav-section-label">// SYSTEM</div>
+    <a class="nav-item" href="#home">
+      <span class="nav-icon">H</span>
+      システム管理ホーム
+    </a>
+    <a class="nav-item active" href="#rooms" aria-current="page">
+      <span class="nav-icon">R</span>
+      ルーム
+    </a>
+    <a class="nav-item" href="#users">
+      <span class="nav-icon">U</span>
+      アカウント検索
+    </a>
+    <a class="nav-item" href="#audit">
+      <span class="nav-icon">L</span>
+      監査ログ
+    </a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">// CONFIG</div>
+    <a class="nav-item" href="#settings">
+      <span class="nav-icon">S</span>
+      システム設定
+    </a>
+
+    <div class="nav-footnote">
+      観戦リンクは表示されますが、対戦の開始・終了・コード編集は権限の都合で行えません。
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <header class="page-head">
+      <div>
+        <h1>ルーム</h1>
+        <div class="sub">サービス上の全ルームを横断管理。発行・任命・アーカイブ・削除のみ可能で、対戦操作はできません。</div>
+      </div>
+      <div class="page-counters">
+        <span class="counter-pill">合計 <strong>148</strong></span>
+        <span class="counter-pill">ACTIVE <strong>122</strong></span>
+        <span class="counter-pill">ARCHIVED <strong>21</strong></span>
+        <span class="counter-pill">DELETED <strong>5</strong></span>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <!-- bind: GET /admin/api/rooms?kind=&status=&q= -->
+    <section class="toolbar" aria-label="フィルタ">
+      <div class="search-wrap">
+        <span class="ic" aria-hidden="true">⌕</span>
+        <input type="text" placeholder="ルーム名 / 番号 / 管理者で検索" aria-label="検索">
+        <kbd>⌘K</kbd>
+      </div>
+
+      <div class="filter-group" role="group" aria-label="種別フィルタ">
+        <button class="filter-chip active">ALL <span class="num">148</span></button>
+        <button class="filter-chip">CLASSROOM <span class="num">82</span></button>
+        <button class="filter-chip">TOURNAMENT <span class="num">18</span></button>
+        <button class="filter-chip">LOBBY <span class="num">48</span></button>
+      </div>
+
+      <div class="filter-group" role="group" aria-label="ステータスフィルタ">
+        <button class="filter-chip active">ACTIVE</button>
+        <button class="filter-chip">ARCHIVED</button>
+        <button class="filter-chip">DELETED</button>
+      </div>
+
+      <button class="btn-primary-admin">
+        <span aria-hidden="true">+</span>
+        ルームを作成
+      </button>
+    </section>
+
+    <!-- Table -->
+    <section class="table-card" aria-label="ルーム一覧">
+      <table class="rooms">
+        <thead>
+          <tr>
+            <th style="width: 152px;">番号</th>
+            <th>名前</th>
+            <th>種別</th>
+            <th style="width: 160px;">管理者</th>
+            <th style="width: 80px;">メンバー</th>
+            <th style="width: 100px;">進行中マッチ</th>
+            <th style="width: 100px;">ステータス</th>
+            <th style="width: 100px;">作成日</th>
+            <th style="width: 280px; text-align: right;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="rooms-tbody"></tbody>
+      </table>
+      <div class="pagination" role="navigation" aria-label="ページネーション">
+        <div>1 - 8 / <strong style="color: var(--ink);">148</strong> 件</div>
+        <div class="pages">
+          <button class="page-btn" disabled aria-label="前のページ">‹</button>
+          <button class="page-btn active" aria-current="page">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">…</button>
+          <button class="page-btn">19</button>
+          <button class="page-btn" aria-label="次のページ">›</button>
+        </div>
+        <div class="per-page">表示件数 8 ▾</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============ Modal showcase ============ -->
+<section class="modal-showcase" aria-label="モーダル">
+  <div class="gallery-head" style="border-top:1px solid var(--line); padding-top:24px; margin-bottom: 18px;">
+    <h2 style="font-family:'JetBrains Mono',monospace; font-size:14px; margin:0;">// modals</h2>
+    <p style="font-size:12px; color:var(--ink-soft); margin:0;">作成 → 完了 / 削除 (確認文字入力) を並列展示</p>
+  </div>
+
+  <div class="modal-row">
+
+    <!-- Create modal -->
+    <div class="modal-frame" data-frame-label="OPEN — POST /admin/api/rooms">
+      <div class="modal big" role="dialog" aria-label="ルームを作成">
+        <div class="modal-head">
+          <div>
+            <h3>ルームを作成</h3>
+            <div class="desc">作成すると、サーバが自動でルーム番号を採番します。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="auto-room-id">
+            <span>// 採番予定:</span>
+            <strong>ROOM-2026-0042</strong>
+            <span style="margin-left:auto; font-size: 11px;">作成時に確定</span>
+          </div>
+
+          <div class="field">
+            <label for="m-name">ルーム名<span class="req">*</span></label>
+            <input type="text" id="m-name" value="3-B 情報科・6月課題" placeholder="例: 3-B 情報科・6月課題">
+            <div class="hint">参加者に表示される名前です。後から変更できます。</div>
+          </div>
+
+          <div class="field">
+            <label>種別<span class="req">*</span></label>
+            <div class="seg" role="radiogroup">
+              <input type="radio" id="k1" name="kind" checked>
+              <label for="k1" class="selected">CLASSROOM<span class="desc">クラス向け</span></label>
+              <input type="radio" id="k2" name="kind">
+              <label for="k2">TOURNAMENT<span class="desc">大会形式</span></label>
+              <input type="radio" id="k3" name="kind">
+              <label for="k3">PUBLIC_LOBBY<span class="desc">公開ロビー</span></label>
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="m-deadline">期限 (任意)</label>
+              <input type="text" id="m-deadline" value="2026-07-31" placeholder="YYYY-MM-DD">
+            </div>
+            <div class="field">
+              <label for="m-rule">初期ルールプリセット</label>
+              <select id="m-rule">
+                <option>標準 (HP 100 / ターン上限 30)</option>
+                <option>初心者 (HP 60 / ターン上限 20)</option>
+                <option>長期戦 (HP 200 / ターン上限 60)</option>
+                <option>カスタム…</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>初期ルーム管理者<span class="req">*</span></label>
+            <!-- bind: GET /admin/api/users?q= -->
+            <div class="chip-input">
+              <span class="user-chip">
+                <span class="av">NK</span>
+                中村先生
+                <span class="x" aria-label="削除">×</span>
+              </span>
+              <span class="user-chip">
+                <span class="av">SI</span>
+                七海.先生
+                <span class="x" aria-label="削除">×</span>
+              </span>
+              <input type="text" placeholder="ユーザー名で検索…">
+            </div>
+            <div class="hint">作成と同時に、ROOM_ADMIN ロールが付与されます。</div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost">キャンセル</button>
+          <button class="btn-primary-admin">確認して作成</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Complete modal -->
+    <div class="modal-frame" data-frame-label="COMPLETED — 201 Created">
+      <div class="modal" role="dialog" aria-label="作成完了">
+        <div class="modal-head">
+          <div>
+            <h3>ルームを作成しました</h3>
+            <div class="desc">初期ルーム管理者に招待メールを送信しました。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="complete-icon" aria-hidden="true">✓</div>
+          <div class="complete-room-id">ROOM-2026-0042</div>
+          <div style="text-align:center; font-size: 13px; color: var(--ink-soft); margin-bottom: 14px;">
+            <strong style="color: var(--ink);">3-B 情報科・6月課題</strong> ・ CLASSROOM
+          </div>
+          <div class="invite-row">
+            <span class="ic">✉</span>
+            <div>
+              <strong style="display:block; margin-bottom:2px;">招待メール送信済み</strong>
+              中村先生 / 七海.先生 宛に管理者用リンクを送信しました。
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost">続けて作成</button>
+          <button class="btn-primary-admin">ルーム詳細を開く</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Delete modal -->
+  <div class="modal-row" style="margin-top: 26px;">
+    <div class="modal-frame" data-frame-label="OPEN — DELETE /admin/api/rooms/:id">
+      <div class="modal" role="dialog" aria-label="ルームを削除">
+        <div class="modal-head">
+          <div>
+            <h3 style="color: var(--danger);">ルームを削除しますか?</h3>
+            <div class="desc">この操作は元に戻せません。慎重に実行してください。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="danger-callout">
+            <div class="ic" aria-hidden="true">!</div>
+            <div>
+              <strong>削除後は復元できません。</strong>
+              ルームに紐付くマッチ履歴・リプレイ・所属メンバー情報がすべて見られなくなります。アーカイブの方が安全な可能性があります。
+            </div>
+          </div>
+
+          <div style="background: var(--bg); border:1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+            <div style="font-size: 12px; color: var(--ink-soft); margin-bottom: 4px;">対象ルーム</div>
+            <div style="font-weight: 700; font-size: 14px;">3-A クラス・5月課題</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-soft); margin-top: 2px;">ROOM-2026-0142 · CLASSROOM · 進行中マッチ 0</div>
+          </div>
+
+          <div class="field">
+            <label for="confirm-id">確認のため、ルーム番号を入力してください<span class="req">*</span></label>
+            <input type="text" id="confirm-id" class="confirm-input matches" value="ROOM-2026-0142" placeholder="ROOM-2026-XXXX">
+            <div class="hint">入力が一致するまで「削除する」は押せません。</div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost">キャンセル</button>
+          <button class="btn-danger">削除する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete modal — locked variant -->
+    <div class="modal-frame" data-frame-label="LOCKED — confirm input mismatch">
+      <div class="modal" role="dialog" aria-label="ルームを削除 (未確認)">
+        <div class="modal-head">
+          <div>
+            <h3 style="color: var(--danger);">ルームを削除しますか?</h3>
+            <div class="desc">確認入力が一致するまで実行できません。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="danger-callout">
+            <div class="ic" aria-hidden="true">!</div>
+            <div>
+              <strong>削除後は復元できません。</strong>
+              アーカイブの方が安全な可能性があります。
+            </div>
+          </div>
+          <div style="background: var(--bg); border:1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+            <div style="font-size: 12px; color: var(--ink-soft); margin-bottom: 4px;">対象ルーム</div>
+            <div style="font-weight: 700; font-size: 14px;">3-A クラス・5月課題</div>
+            <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-soft); margin-top: 2px;">ROOM-2026-0142 · CLASSROOM</div>
+          </div>
+          <div class="field">
+            <label for="confirm-id-2">確認のため、ルーム番号を入力してください<span class="req">*</span></label>
+            <input type="text" id="confirm-id-2" class="confirm-input" value="ROOM-2026" placeholder="ROOM-2026-XXXX">
+            <div class="hint" style="color: var(--danger);">「ROOM-2026-0142」と完全に一致させてください。</div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost">キャンセル</button>
+          <button class="btn-danger" disabled>削除する</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常 / ゼロ件 / 検索ヒットゼロ / 読み込み中 / API エラー</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常時</span><span class="state-tag">ok</span></header>
+      <div class="state-body">
+        <div class="mini-row"><span style="font-family:'JetBrains Mono',monospace; font-size:10px;">ROOM-2026-0142</span><span class="kind-badge kind-classroom" style="font-size:9px;">CLASSROOM</span></div>
+        <div class="mini-row"><span style="font-family:'JetBrains Mono',monospace; font-size:10px;">ROOM-2026-0143</span><span class="kind-badge kind-tournament" style="font-size:9px;">TOURNAMENT</span></div>
+        <div class="mini-row"><span style="font-family:'JetBrains Mono',monospace; font-size:10px;">ROOM-2026-0144</span><span class="kind-badge kind-lobby" style="font-size:9px;">LOBBY</span></div>
+        <div class="mini-row"><span style="font-family:'JetBrains Mono',monospace; font-size:10px;">ROOM-2026-0145</span><span class="kind-badge kind-classroom" style="font-size:9px;">CLASSROOM</span></div>
+      </div>
+    </article>
+
+    <!-- Zero -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">ゼロ件</span><span class="state-tag">empty</span></header>
+      <div class="state-body">
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">∅</div>
+          <strong>ルームがまだありません</strong>
+          <p>「+ ルームを作成」から最初の<br>ルームを発行してください。</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- Search no result -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">検索ヒットゼロ</span><span class="state-tag">no-match</span></header>
+      <div class="state-body">
+        <div style="background: var(--bg); border:1px dashed var(--line-2); border-radius:6px; padding: 6px 8px; font-family: 'JetBrains Mono', monospace; font-size:10px; color: var(--ink-soft); margin-bottom: 10px;">
+          q = "数学クラブ"
+        </div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">?</div>
+          <strong>該当するルームがありません</strong>
+          <p>検索条件を変えるか、<br>フィルタを「ALL」に戻してください。</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- Loading -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">読み込み中</span><span class="state-tag">skeleton</span></header>
+      <div class="state-body">
+        <div class="skel" style="width:80%;"></div>
+        <div class="skel" style="width:65%;"></div>
+        <div class="skel" style="width:75%;"></div>
+        <div class="skel" style="width:60%;"></div>
+        <div class="skel" style="width:70%;"></div>
+        <div class="skel" style="width:55%;"></div>
+        <div class="skel" style="width:68%;"></div>
+      </div>
+    </article>
+
+    <!-- API error -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">API エラー</span><span class="state-tag">500</span></header>
+      <div class="state-body">
+        <div class="err-banner">
+          <strong>取得に失敗しました</strong>
+          バックエンドが応答していません。少し待って再試行してください。
+        </div>
+        <button class="act-btn primary" style="width:100%; font-family:'JetBrains Mono',monospace;">↻ 再読み込み</button>
+        <div style="font-family:'JetBrains Mono', monospace; font-size:10px; color: var(--ink-soft); margin-top:8px;">
+          GET /admin/api/rooms<br>
+          status=500 · trace=a7f2k3m9
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* ===================================================
+     Dummy data — simulates GET /admin/api/rooms response
+     =================================================== */
+  const ROOMS = [
+    {
+      id: 'ROOM-2026-0142', name: '3-A クラス・5月課題', note: '担任: 中村先生',
+      kind: 'CLASSROOM', admins: [{ i:'NK', n:'中村' }, { i:'SI', n:'七海' }],
+      members: 28, openMatches: 3, status: 'ACTIVE', createdAt: '2026/04/12',
+    },
+    {
+      id: 'ROOM-2026-0288', name: '春の校内トーナメント', note: '本戦 1 回戦 受付中',
+      kind: 'TOURNAMENT', admins: [{ i:'YT', n:'山田' }],
+      members: 64, openMatches: 6, status: 'ACTIVE', createdAt: '2026/05/02',
+    },
+    {
+      id: 'ROOM-2026-0301', name: 'みんなで遊ぶ・初心者歓迎', note: '常設・自由参加',
+      kind: 'LOBBY', admins: [{ i:'AD', n:'admin' }, { i:'KM', n:'木村' }, { i:'+2', n:'+2', more:true }],
+      members: 134, openMatches: 12, status: 'ACTIVE', createdAt: '2025/11/18',
+    },
+    {
+      id: 'ROOM-2026-0312', name: '2-B 情報科・自学習', note: '担任: 田辺先生',
+      kind: 'CLASSROOM', admins: [{ i:'TB', n:'田辺' }],
+      members: 32, openMatches: 0, status: 'ACTIVE', createdAt: '2026/05/06',
+    },
+    {
+      id: 'ROOM-2026-0321', name: 'OB/OG 親善カップ', note: '招待制 / 3 週間限定',
+      kind: 'TOURNAMENT', admins: [{ i:'KZ', n:'桑原' }, { i:'MO', n:'森' }],
+      members: 18, openMatches: 1, status: 'ACTIVE', createdAt: '2026/05/14',
+    },
+    {
+      id: 'ROOM-2026-0098', name: '1-C クラス・3月総まとめ', note: 'アーカイブ済み',
+      kind: 'CLASSROOM', admins: [{ i:'OK', n:'岡田' }],
+      members: 30, openMatches: 0, status: 'ARCHIVED', createdAt: '2026/03/01',
+    },
+    {
+      id: 'ROOM-2026-0334', name: 'デバッグ用テストルーム', note: '※ 表示確認用',
+      kind: 'LOBBY', admins: [{ i:'NK', n:'中村' }],
+      members: 4, openMatches: 0, status: 'ACTIVE', createdAt: '2026/05/19',
+    },
+    {
+      id: 'ROOM-2026-0007', name: '旧・α 版テスト', note: '初期テスト残骸',
+      kind: 'LOBBY', admins: [{ i:'AD', n:'admin' }],
+      members: 0, openMatches: 0, status: 'ARCHIVED', createdAt: '2025/09/01',
+    },
+  ];
+
+  const kindMeta = {
+    CLASSROOM:  { cls:'kind-classroom',  label:'CLASSROOM' },
+    TOURNAMENT: { cls:'kind-tournament', label:'TOURNAMENT' },
+    LOBBY:      { cls:'kind-lobby',      label:'LOBBY' },
+  };
+  const statusMeta = {
+    ACTIVE:   { cls:'status-active',   label:'ACTIVE' },
+    ARCHIVED: { cls:'status-archived', label:'ARCHIVED' },
+    DELETED:  { cls:'status-deleted',  label:'DELETED' },
+  };
+
+  const tbody = document.getElementById('rooms-tbody');
+  ROOMS.forEach(r => {
+    const k = kindMeta[r.kind];
+    const s = statusMeta[r.status];
+    const avs = r.admins.map(a => `<span class="av${a.more ? ' more' : ''}" title="${a.n}">${a.i}</span>`).join('');
+    const adminName = r.admins[0].n + (r.admins.length > 1 ? ` 他${r.admins.length - 1}` : '');
+    const archiveLabel = r.status === 'ARCHIVED' ? '復元' : 'アーカイブ';
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td><span class="room-id">${r.id}</span></td>
+        <td>
+          <div class="room-name-cell">${r.name}</div>
+          <div class="note">${r.note}</div>
+        </td>
+        <td><span class="kind-badge ${k.cls}">${k.label}</span></td>
+        <td>
+          <div class="admins-cell">
+            <span class="admin-avatars">${avs}</span>
+            <span class="name">${adminName}</span>
+          </div>
+        </td>
+        <td class="num-cell">${r.members}</td>
+        <td class="num-cell">${r.openMatches}</td>
+        <td><span class="status-badge ${s.cls}"><span class="dot" aria-hidden="true"></span>${s.label}</span></td>
+        <td class="room-id">${r.createdAt}</td>
+        <td>
+          <div class="actions">
+            <button class="act-btn">詳細</button>
+            <button class="act-btn primary">管理者任命</button>
+            <button class="act-btn">${archiveLabel}</button>
+            <button class="act-btn danger" aria-label="ルーム ${r.id} を削除">削除</button>
+          </div>
+        </td>
+      </tr>
+    `);
+  });
+
+  /* ---- Filter chip toggling (visual only) ---- */
+  document.querySelectorAll('.filter-group').forEach(group => {
+    group.addEventListener('click', e => {
+      const t = e.target.closest('.filter-chip');
+      if (!t) return;
+      group.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+
+  /* ---- Seg control toggling ---- */
+  document.querySelectorAll('.seg').forEach(seg => {
+    seg.addEventListener('click', e => {
+      const lbl = e.target.closest('label');
+      if (!lbl) return;
+      seg.querySelectorAll('label').forEach(l => l.classList.remove('selected'));
+      lbl.classList.add('selected');
+    });
+  });
+</script>
+</body>
+</html>

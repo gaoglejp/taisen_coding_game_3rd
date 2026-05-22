@@ -1,0 +1,1836 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>マッチカード | ルーム管理 | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330;
+    --admin-accent:#7c3aed; --admin-accent-soft:#ede9fe;
+    --room-admin-accent:#0891b2; --room-admin-accent-soft:#cffafe; --room-admin-accent-ink:#155e75;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--room-admin-accent); outline-offset: 2px; }
+  button, a { font: inherit; }
+
+  /* ============ Topbar (admin) ============ */
+  .topbar {
+    background: var(--admin-bg);
+    color: #e5e7eb;
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid #0f1117;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(180deg, #2a2e3c, #1a1c25);
+    color: #e5e7eb;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 13px;
+    border: 1px solid #3a3e4d;
+    flex-shrink: 0;
+  }
+  .brand-text { font-weight: 700; font-size: 14px; color: #f3f4f6; display: flex; align-items: baseline; gap: 8px; }
+  .brand-text .tag {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    padding: 2px 7px; background: var(--room-admin-accent);
+    color: #fff; border-radius: 4px; letter-spacing: .04em; font-weight: 600;
+  }
+  .breadcrumb {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; color: #9ca3af;
+    padding-left: 16px; margin-left: 8px;
+    border-left: 1px solid #3a3e4d;
+    white-space: nowrap;
+  }
+  .breadcrumb strong { color: #e5e7eb; font-weight: 600; }
+  .breadcrumb a { color: #9ca3af; text-decoration: none; border-bottom: 1px dotted #555a6c; }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .admin-chip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 12px 5px 5px;
+    background: #2a2e3c;
+    border: 1px solid #3a3e4d;
+    border-radius: 999px;
+    font-size: 12.5px; font-weight: 600;
+    color: #e5e7eb;
+  }
+  .admin-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--room-admin-accent); color: #fff;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .role-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; font-weight: 600;
+    padding: 3px 7px; border-radius: 4px;
+    background: var(--room-admin-accent); color: #fff;
+    letter-spacing: .04em;
+  }
+  .top-link {
+    color: #9ca3af; background: transparent;
+    border: 1px solid #3a3e4d; border-radius: 8px;
+    padding: 6px 10px; font-size: 12px; cursor: pointer;
+  }
+  .top-link:hover { color: #f3f4f6; background: #2a2e3c; }
+
+  /* ============ Scope banner ============ */
+  .scope-banner {
+    background: #f0fdfa;
+    border-bottom: 1px solid #99f6e4;
+    padding: 10px 28px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12.5px;
+    color: var(--room-admin-accent-ink);
+  }
+  .scope-icon {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--room-admin-accent-soft);
+    border: 1px solid #a5f3fc;
+    color: var(--room-admin-accent);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 12px;
+    flex-shrink: 0;
+  }
+  .scope-banner strong { color: var(--room-admin-accent-ink); font-weight: 700; }
+  .scope-banner .sep { color: #99f6e4; margin: 0 4px; }
+
+  /* ============ Shell ============ */
+  .shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 100px);
+  }
+
+  /* ============ Side nav ============ */
+  .sidenav {
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    padding: 18px 14px;
+  }
+  .nav-room-card {
+    background: linear-gradient(180deg, #f0fdfa, #ecfeff);
+    border: 1px solid #99f6e4;
+    border-radius: 10px;
+    padding: 11px 12px;
+    margin: 0 4px 14px;
+  }
+  .nav-room-card .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--room-admin-accent);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 4px;
+  }
+  .nav-room-card .nm { font-size: 13px; font-weight: 700; color: var(--ink); line-height: 1.3; }
+  .nav-room-card .id { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: var(--ink-soft); margin-top: 4px; }
+  .nav-section-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    padding: 8px 10px 6px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    margin-bottom: 2px;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg); color: var(--ink); }
+  .nav-item.active {
+    background: var(--room-admin-accent-soft);
+    color: var(--room-admin-accent-ink);
+    border-color: #a5f3fc;
+    font-weight: 600;
+  }
+  .nav-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .nav-item.active .nav-icon {
+    background: var(--room-admin-accent);
+    border-color: var(--room-admin-accent);
+    color: #fff;
+  }
+  .nav-divider { height: 1px; background: var(--line); margin: 10px 6px; }
+  .nav-back {
+    margin: 0 4px 8px;
+    font-size: 11.5px; color: var(--ink-soft);
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 6px; border-radius: 6px;
+  }
+  .nav-back:hover { background: var(--bg); color: var(--ink); }
+
+  /* ============ Main ============ */
+  .main { padding: 24px 32px 32px; min-width: 0; }
+  .page-head {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+    margin-bottom: 16px;
+  }
+  .page-head h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .page-head .sub { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+  .page-counters {
+    display: flex; gap: 8px; align-items: center;
+    font-size: 12px; color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .counter-pill {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 11px;
+  }
+  .counter-pill strong { color: var(--ink); }
+  .counter-pill.live { background: var(--accent-soft); border-color: #fbd9a5; color: #92400e; }
+  .counter-pill.live strong { color: #7c2d12; }
+
+  /* ============ Toolbar ============ */
+  .toolbar {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+  }
+  .filter-group {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .filter-chip {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .02em;
+  }
+  .filter-chip:hover { color: var(--ink); }
+  .filter-chip.active {
+    background: #fff;
+    color: var(--room-admin-accent-ink);
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  .filter-chip .num {
+    font-size: 10px;
+    background: var(--bg-2); color: var(--ink-soft);
+    padding: 1px 5px; border-radius: 4px;
+    margin-left: 5px; font-weight: 600;
+  }
+  .filter-chip.active .num {
+    background: var(--room-admin-accent-soft);
+    color: var(--room-admin-accent-ink);
+  }
+  .search-wrap {
+    flex: 1; min-width: 200px;
+    display: flex; align-items: center; gap: 10px;
+    background: #fdfcf8;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .search-wrap input {
+    flex: 1; border: none; background: transparent;
+    font: inherit; font-size: 13px; color: var(--ink); outline: none;
+  }
+  .search-wrap .ic { color: var(--ink-soft); font-size: 13px; width: 18px; text-align: center; }
+
+  /* View mode switcher */
+  .view-switcher {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .view-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .view-btn .glyph {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    width: 14px; text-align: center;
+  }
+  .view-btn:hover { color: var(--ink); }
+  .view-btn.active {
+    background: var(--ink);
+    color: #fff;
+    box-shadow: 0 1px 2px rgba(0,0,0,.1);
+  }
+
+  .btn-primary-room {
+    background: var(--room-admin-accent);
+    color: #fff; border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: 0 1px 0 #0e7490;
+  }
+  .btn-primary-room:hover { background: #0e7490; }
+  .btn-ghost {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12.5px; font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg); }
+
+  /* ============ Table ============ */
+  .table-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+    margin-bottom: 18px;
+  }
+  table.matches {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.matches th, table.matches td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  table.matches thead {
+    background: linear-gradient(180deg, #fdfaf0, #fbf6e7);
+  }
+  table.matches th {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  table.matches tbody tr {
+    transition: background .12s;
+  }
+  table.matches tbody tr:hover { background: #fdfaf0; }
+  table.matches tbody tr:last-child td { border-bottom: none; }
+  .round-cell {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .round-cell strong { color: var(--ink); font-weight: 700; }
+  .player {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-weight: 600;
+    font-size: 12.5px;
+  }
+  .player.winner { color: var(--success); }
+  .player .av {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid;
+    flex-shrink: 0;
+  }
+  .player .av.p1 { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .player .av.p2 { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .player .av.empty {
+    background: var(--bg-2); color: var(--ink-soft);
+    border: 1px dashed var(--line-2);
+  }
+  .player.empty {
+    color: var(--ink-soft);
+    font-style: italic;
+    font-weight: 500;
+  }
+  .player .win-mark {
+    font-family: "JetBrains Mono", monospace;
+    background: var(--success);
+    color: #fff;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    letter-spacing: .04em;
+    font-weight: 700;
+  }
+  .due {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .due.warn { color: #92400e; font-weight: 700; }
+  .match-status {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: .04em;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .ms-waiting { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .ms-coding { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .ms-battling { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .ms-finished { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .ms-canceled { background: var(--danger-soft); color: var(--danger); border-color: #fbb6b6; }
+  .ms-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .ms-battling .ms-dot, .ms-coding .ms-dot {
+    animation: pulse 1.6s ease-in-out infinite;
+    background: var(--accent);
+    box-shadow: 0 0 0 2px rgba(245,158,11,.25);
+  }
+  .ms-coding .ms-dot { background: var(--accent); }
+  .ms-battling .ms-dot { background: var(--p2); box-shadow: 0 0 0 2px rgba(239,68,68,.25); }
+  @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.85); } }
+  .result-cell {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+  }
+  .result-cell .reason {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+  .actions {
+    display: flex; gap: 4px; justify-content: flex-end; align-items: center;
+    flex-wrap: nowrap;
+  }
+  .act-btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .act-btn:hover { background: var(--bg); border-color: var(--line-2); }
+  .act-btn.watch {
+    background: var(--room-admin-accent-soft);
+    color: var(--room-admin-accent-ink);
+    border-color: #a5f3fc;
+  }
+  .act-btn.watch:hover { background: #99f6e4; }
+  .act-btn.danger {
+    background: var(--danger-soft); color: var(--danger);
+    border-color: #fbb6b6;
+  }
+  .act-btn.danger:hover { background: #fde8e8; }
+  .act-btn.disabled {
+    opacity: .35; cursor: not-allowed;
+  }
+
+  /* Pagination */
+  .pagination {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .pagination .pages { display: flex; gap: 4px; }
+  .page-btn {
+    appearance: none;
+    width: 28px; height: 28px;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    font: inherit; font-size: 11.5px;
+    color: var(--ink-soft); cursor: pointer;
+    font-family: "JetBrains Mono", monospace; font-weight: 600;
+  }
+  .page-btn:hover { background: var(--bg); }
+  .page-btn.active {
+    background: var(--room-admin-accent);
+    color: #fff;
+    border-color: var(--room-admin-accent);
+  }
+  .page-btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+  /* ============ Alt views card ============ */
+  .alt-view-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+    margin-bottom: 18px;
+    overflow: hidden;
+  }
+  .alt-view-card .head {
+    padding: 12px 18px 10px;
+    border-bottom: 1px dashed var(--line);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .alt-view-card .head h2 {
+    margin: 0; font-size: 13px; font-weight: 700;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .alt-view-card .head h2 small {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .alt-view-card .body { padding: 18px; }
+
+  /* ============ Tournament bracket ============ */
+  .bracket {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .bracket-round {
+    display: flex; flex-direction: column;
+    justify-content: space-around;
+    gap: 16px;
+    min-width: 0;
+    position: relative;
+  }
+  .bracket-round-head {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    text-align: center;
+    padding-bottom: 6px;
+    border-bottom: 1px dashed var(--line);
+    margin-bottom: 4px;
+  }
+  .bracket-match {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+    position: relative;
+  }
+  .bracket-match.live { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .bracket-match.empty { background: repeating-linear-gradient(45deg, var(--bg), var(--bg) 4px, var(--bg-2) 4px, var(--bg-2) 8px); border-style: dashed; }
+  .bm-row {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 12px;
+    border-bottom: 1px dashed var(--line);
+    gap: 7px;
+  }
+  .bm-row:last-of-type { border-bottom: none; }
+  .bm-row.winner {
+    background: linear-gradient(90deg, #ecfdf5, transparent);
+    color: var(--success);
+    font-weight: 700;
+  }
+  .bm-row.loser { color: var(--ink-soft); }
+  .bm-row .av {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid;
+    flex-shrink: 0;
+  }
+  .bm-row .av.p1 { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .bm-row .av.p2 { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .bm-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bm-row .score {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .bm-meta {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 10px;
+    background: var(--bg);
+    border-top: 1px solid var(--line);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+  }
+  .bm-meta a {
+    text-decoration: none;
+    color: var(--room-admin-accent-ink);
+    background: var(--room-admin-accent-soft);
+    border: 1px solid #a5f3fc;
+    padding: 1px 7px;
+    border-radius: 4px;
+    font-weight: 700;
+  }
+  .bm-final {
+    background: linear-gradient(180deg, #fefbf0, #fef3c7);
+    border-color: #fbd9a5;
+  }
+  .bm-final .bm-row.winner {
+    background: linear-gradient(90deg, var(--accent-soft), transparent);
+    color: #92400e;
+  }
+
+  /* ============ Round-robin matrix ============ */
+  .matrix-wrap {
+    overflow-x: auto;
+  }
+  table.matrix {
+    border-collapse: collapse;
+    margin: 0 auto;
+    font-size: 12px;
+  }
+  table.matrix th, table.matrix td {
+    border: 1px solid var(--line);
+    padding: 0;
+    width: 50px; height: 50px;
+    text-align: center;
+    vertical-align: middle;
+  }
+  table.matrix th.player-row {
+    text-align: right;
+    padding-right: 10px;
+    width: auto;
+    font-size: 12px;
+    background: var(--bg);
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  table.matrix th.player-col {
+    background: var(--bg);
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 600;
+    color: var(--ink);
+    font-size: 11.5px;
+  }
+  table.matrix th .av-mini {
+    width: 24px; height: 24px; margin: 0 auto;
+    border-radius: 50%;
+    background: var(--p1-soft); color: var(--p1-ink);
+    border: 1px solid #bfd5fa;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; font-weight: 700;
+  }
+  table.matrix th.player-row .av-mini { display: inline-grid; vertical-align: middle; margin: 0 6px 0 0; }
+  table.matrix td.self {
+    background: repeating-linear-gradient(45deg, var(--bg), var(--bg) 3px, var(--bg-2) 3px, var(--bg-2) 6px);
+  }
+  table.matrix td .cell-link {
+    display: block;
+    width: 100%; height: 100%;
+    text-decoration: none;
+    color: inherit;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 14px;
+  }
+  table.matrix td.win .cell-link { background: var(--success-soft); color: var(--success); }
+  table.matrix td.loss .cell-link { background: var(--p2-soft); color: var(--p2-ink); }
+  table.matrix td.draw .cell-link { background: var(--bg-2); color: var(--ink-soft); }
+  table.matrix td.live .cell-link {
+    background: var(--accent-soft); color: #92400e;
+    position: relative;
+  }
+  table.matrix td.live .cell-link::before {
+    content: ""; position: absolute;
+    top: 4px; right: 4px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  table.matrix td.pending .cell-link { color: var(--line-2); font-size: 11px; }
+  table.matrix td:hover .cell-link { filter: brightness(.95); }
+
+  .matrix-summary {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .matrix-row-summary {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  .matrix-row-summary .nm { font-weight: 600; font-size: 11.5px; }
+  .matrix-row-summary .stat {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 12px;
+    margin-top: 2px;
+  }
+  .matrix-row-summary .stat .w { color: var(--success); }
+  .matrix-row-summary .stat .l { color: var(--p2); }
+  .matrix-row-summary.first {
+    background: var(--accent-soft); border-color: #fbd9a5;
+  }
+  .matrix-row-summary.first .nm::before {
+    content: "👑 ";
+  }
+
+  /* ============ Modal showcase ============ */
+  .modal-showcase {
+    max-width: 1440px;
+    margin: 36px auto 28px;
+    padding: 0 32px;
+  }
+  .modal-row { display: grid; grid-template-columns: 1.4fr 1fr; gap: 22px; }
+  .modal-frame {
+    background: rgba(31,35,48,.05);
+    border: 1px dashed var(--line-2);
+    border-radius: 16px;
+    padding: 22px;
+    position: relative;
+  }
+  .modal-frame::before {
+    content: attr(data-frame-label);
+    position: absolute;
+    top: -10px; left: 18px;
+    background: var(--bg);
+    padding: 0 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: .04em;
+  }
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(31,35,48,.18);
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .modal.wide { max-width: 640px; }
+  .modal-head {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  }
+  .modal-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  .modal-head .desc { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.55; }
+  .modal-close {
+    background: transparent; border: none;
+    color: var(--ink-soft); cursor: pointer;
+    font-size: 18px; padding: 4px 8px;
+    border-radius: 6px; line-height: 1;
+  }
+  .modal-body { padding: 18px 22px; }
+  .modal-foot {
+    padding: 14px 22px; background: var(--bg);
+    border-top: 1px solid var(--line);
+    display: flex; gap: 10px; justify-content: flex-end;
+  }
+  .btn-ghost-modal {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-danger {
+    background: var(--danger); color: #fff;
+    border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 0 #991b1b;
+  }
+  .btn-danger:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+  /* Mode selector */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .mode-card {
+    background: #fff;
+    border: 1.5px solid var(--line-2);
+    border-radius: 10px;
+    padding: 12px 10px;
+    cursor: pointer;
+    text-align: center;
+  }
+  .mode-card.selected {
+    border-color: var(--room-admin-accent);
+    background: var(--room-admin-accent-soft);
+  }
+  .mode-card .gl {
+    width: 30px; height: 30px;
+    margin: 0 auto 5px;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+  .mode-card.selected .gl {
+    background: var(--room-admin-accent);
+    color: #fff; border-color: var(--room-admin-accent);
+  }
+  .mode-card .nm {
+    font-size: 12px; font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .mode-card .meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; color: var(--ink-soft);
+  }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px;
+    color: var(--ink);
+  }
+  .field input[type="text"], .field select {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    font: inherit; font-size: 13px;
+    background: #fdfcf8; color: var(--ink);
+  }
+  .field input:focus, .field select:focus {
+    border-color: var(--room-admin-accent);
+    box-shadow: 0 0 0 3px rgba(8,145,178,.15);
+    background: #fff; outline: none;
+  }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .chip-input {
+    border: 1px solid var(--line-2);
+    background: #fdfcf8;
+    border-radius: 8px;
+    padding: 6px 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    min-height: 60px;
+    align-items: flex-start;
+  }
+  .player-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--p1-soft);
+    border: 1px solid #bfd5fa;
+    color: var(--p1-ink);
+    border-radius: 999px;
+    padding: 2px 4px 2px 4px;
+    font-size: 11.5px;
+    font-weight: 600;
+  }
+  .player-chip .av {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--p1);
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 8.5px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+  }
+  .player-chip .x { color: var(--p1-ink); cursor: pointer; font-size: 11px; padding: 0 4px; }
+  .chip-input input { flex: 1; border: none; background: transparent; font: inherit; font-size: 12px; outline: none; min-width: 100px; padding: 4px; }
+
+  .preview-box {
+    background: linear-gradient(180deg, #fdfdf8, #f7f5ed);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-top: 6px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+  }
+  .preview-tile .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .preview-tile .v {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 17px;
+    font-weight: 800;
+    margin-top: 2px;
+    color: var(--ink);
+  }
+  .preview-tile .v small { font-size: 11px; color: var(--ink-soft); font-weight: 600; margin-left: 2px; }
+
+  /* Cancel reason selector */
+  .reason-list {
+    display: flex; flex-direction: column;
+    gap: 6px; margin-bottom: 14px;
+  }
+  .reason-row {
+    display: grid;
+    grid-template-columns: 22px 1fr;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    font-size: 12.5px;
+    align-items: center;
+  }
+  .reason-row.selected {
+    border-color: var(--danger);
+    background: var(--danger-soft);
+  }
+  .reason-row .radio {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--line-2);
+    background: #fff;
+  }
+  .reason-row.selected .radio {
+    border-color: var(--danger);
+    background: var(--danger);
+    box-shadow: inset 0 0 0 3px #fff;
+  }
+  .reason-row .nm {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .reason-row .nm small {
+    font-family: "Plus Jakarta Sans", sans-serif;
+    font-weight: 500;
+    color: var(--ink-soft);
+    margin-left: 6px;
+  }
+  .warn-callout {
+    background: var(--danger-soft);
+    border: 1px solid #fbb6b6;
+    color: var(--p2-ink);
+    border-radius: 10px;
+    padding: 11px 14px;
+    margin-bottom: 14px;
+    display: flex; gap: 10px;
+    font-size: 12.5px; line-height: 1.5;
+  }
+  .warn-callout .ic {
+    width: 24px; height: 24px;
+    background: var(--danger); color: #fff;
+    border-radius: 6px;
+    display: grid; place-items: center;
+    font-weight: 700; flex-shrink: 0;
+  }
+  .warn-callout strong {
+    display: block; font-size: 13px; margin-bottom: 2px; font-weight: 700; color: var(--p2-ink);
+  }
+  .confirm-input {
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .03em;
+  }
+  .confirm-input.matches { border-color: var(--success); background: var(--success-soft); }
+  .target-block {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 12px;
+    margin-bottom: 14px;
+  }
+  .target-block .id { font-family: "JetBrains Mono", monospace; font-weight: 700; }
+  .target-block .vs { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 30px auto 32px;
+    padding: 0 32px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: 14px;
+  }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 11px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 9px;
+    padding: 2px 5px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 10px; }
+  .mini-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 10.5px;
+  }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-row .nm {
+    font-family: "JetBrains Mono", monospace;
+  }
+  .mini-empty {
+    text-align: center;
+    padding: 18px 6px 12px;
+    color: var(--ink-soft);
+  }
+  .mini-empty .ill {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    margin: 0 auto 6px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+  }
+  .mini-empty strong { display: block; color: var(--ink); font-size: 11.5px; margin-bottom: 2px; }
+  .mini-empty p { margin: 0; font-size: 10.5px; line-height: 1.45; }
+  .mini-cta-room {
+    background: var(--room-admin-accent); color: #fff;
+    border: none; padding: 5px 11px;
+    font-size: 10.5px; font-weight: 700;
+    border-radius: 5px;
+    margin-top: 7px;
+  }
+  .mini-success {
+    background: var(--success-soft); border: 1px solid #a7f3d0;
+    color: var(--success); border-radius: 6px;
+    padding: 7px 9px; font-size: 10.5px;
+    margin-bottom: 6px;
+  }
+  .mini-success strong { display: block; font-size: 11.5px; }
+  .mini-warn {
+    background: var(--accent-soft); border: 1px solid #fbd9a5;
+    color: #92400e; border-radius: 6px;
+    padding: 6px 8px; font-size: 10.5px;
+    margin-bottom: 6px; line-height: 1.45;
+  }
+  .mini-warn strong { display: block; font-size: 11px; }
+  .mini-status {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: .04em;
+    font-weight: 700;
+  }
+  .mini-status.coding { background: var(--accent-soft); color: #92400e; border:1px solid #fbd9a5; }
+  .mini-status.battling { background: var(--p2-soft); color: var(--p2-ink); border:1px solid #fbb6b6; }
+  .mini-status.finished { background: var(--success-soft); color: var(--success); border:1px solid #a7f3d0; }
+  .mini-status.waiting { background: var(--bg-2); color: var(--ink-soft); border:1px solid var(--line-2); }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Topbar ============ -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <div class="brand-text">
+      対戦・コーディング
+      <span class="tag">ROOM ADMIN</span>
+    </div>
+    <div class="breadcrumb">/ <a href="#rooms">rooms</a> / <strong>ROOM-2026-0142</strong> / matches</div>
+  </div>
+  <div class="topbar-right">
+    <button class="top-link">ヘルプ</button>
+    <div class="admin-chip">
+      <div class="admin-avatar" aria-hidden="true">NK</div>
+      <span>nakamura.sensei</span>
+      <span class="role-pill">ROOM_ADMIN</span>
+    </div>
+    <button class="top-link">ログアウト</button>
+  </div>
+</header>
+
+<!-- ============ Scope banner ============ -->
+<div class="scope-banner" role="status">
+  <div class="scope-icon" aria-hidden="true">!</div>
+  <div>
+    <strong>あなたはルーム管理者として閲覧中です。</strong>
+    <span class="sep">/</span>
+    対戦の具体操作 (コーディング・対戦の開始・終了) はできません。マッチカードの発行・キャンセル・観戦のみ可能です。
+  </div>
+</div>
+
+<!-- ============ Shell ============ -->
+<div class="shell">
+
+  <!-- Side nav -->
+  <aside class="sidenav" aria-label="ルーム内ナビ">
+    <a class="nav-back" href="#all-rooms">‹ 全ルームに戻る</a>
+    <div class="nav-room-card">
+      <div class="lbl">// scope</div>
+      <div class="nm">3-A クラス・5月課題</div>
+      <div class="id">ROOM-2026-0142</div>
+    </div>
+
+    <div class="nav-section-label">// このルーム</div>
+    <a class="nav-item" href="#overview"><span class="nav-icon">O</span>概要</a>
+    <a class="nav-item" href="#members"><span class="nav-icon">M</span>メンバー</a>
+    <a class="nav-item active" href="#matches" aria-current="page"><span class="nav-icon">B</span>マッチカード</a>
+    <a class="nav-item" href="#stats"><span class="nav-icon">S</span>成績</a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="#settings"><span class="nav-icon">⚙</span>設定</a>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <header class="page-head">
+      <div>
+        <h1>マッチカード</h1>
+        <div class="sub">対戦の組み合わせ・進行状況を管理。進行中マッチの操作は MatchSession 自動遷移に委ねられ、ここでは観戦・キャンセルのみ可能です。</div>
+      </div>
+      <div class="page-counters">
+        <span class="counter-pill">合計 <strong>42</strong></span>
+        <span class="counter-pill live">LIVE <strong>3</strong></span>
+        <span class="counter-pill">FINISHED <strong>32</strong></span>
+        <span class="counter-pill">CANCELED <strong>2</strong></span>
+      </div>
+    </header>
+
+    <!-- Toolbar -->
+    <!-- bind: GET /admin/api/rooms/:id/matches?status=&q= -->
+    <section class="toolbar" aria-label="ツールバー">
+      <div class="filter-group" role="group" aria-label="ステータスフィルタ">
+        <button class="filter-chip active">ALL <span class="num">42</span></button>
+        <button class="filter-chip">WAITING <span class="num">2</span></button>
+        <button class="filter-chip">CODING <span class="num">2</span></button>
+        <button class="filter-chip">BATTLING <span class="num">1</span></button>
+        <button class="filter-chip">FINISHED <span class="num">32</span></button>
+        <button class="filter-chip">CANCELED <span class="num">2</span></button>
+      </div>
+      <div class="search-wrap">
+        <span class="ic" aria-hidden="true">⌕</span>
+        <input type="text" placeholder="マッチ No. / プレイヤー名" aria-label="検索">
+      </div>
+      <div class="view-switcher" role="group" aria-label="表示モード">
+        <button class="view-btn active"><span class="glyph">☰</span>一覧</button>
+        <button class="view-btn"><span class="glyph">⫷</span>トーナメント</button>
+        <button class="view-btn"><span class="glyph">⊞</span>総当たり</button>
+      </div>
+      <button class="btn-primary-room">＋ マッチカードを作成</button>
+    </section>
+
+    <!-- List view -->
+    <section class="table-card" aria-label="マッチカード一覧">
+      <table class="matches">
+        <thead>
+          <tr>
+            <th style="width: 140px;">ラウンド-No.</th>
+            <th>P1</th>
+            <th>P2</th>
+            <th style="width: 130px;">開始期限</th>
+            <th style="width: 110px;">ステータス</th>
+            <th style="width: 150px;">結果</th>
+            <th style="width: 130px;">終了理由</th>
+            <th style="width: 200px; text-align: right;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="matches-tbody"></tbody>
+      </table>
+      <div class="pagination" role="navigation" aria-label="ページネーション">
+        <div>1 - 8 / <strong style="color: var(--ink);">42</strong> 件</div>
+        <div class="pages">
+          <button class="page-btn" disabled aria-label="前のページ">‹</button>
+          <button class="page-btn active" aria-current="page">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">4</button>
+          <button class="page-btn">5</button>
+          <button class="page-btn" aria-label="次のページ">›</button>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;">表示件数 8 ▾</div>
+      </div>
+    </section>
+
+    <!-- Tournament view -->
+    <section class="alt-view-card" aria-label="トーナメント表 (代替表示)">
+      <header class="head">
+        <h2>トーナメント表 <small>// view: TOURNAMENT — 8 名シングル</small></h2>
+        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color: var(--ink-soft);">view モード切替時のプレビュー</span>
+      </header>
+      <div class="body">
+        <div class="bracket">
+
+          <!-- Round 1 -->
+          <div class="bracket-round">
+            <div class="bracket-round-head">// R1 (8 → 4)</div>
+
+            <div class="bracket-match">
+              <div class="bm-row winner">
+                <span class="av p1">HC</span>
+                <span class="nm">HanaCoder</span>
+                <span class="score">100</span>
+              </div>
+              <div class="bm-row loser">
+                <span class="av p2">YU</span>
+                <span class="nm">yu_8</span>
+                <span class="score">0</span>
+              </div>
+              <div class="bm-meta">
+                <span>#M-22001 · T14</span>
+                <a href="#w-22001">▸ 観戦</a>
+              </div>
+            </div>
+
+            <div class="bracket-match live">
+              <div class="bm-row">
+                <span class="av p1">MI</span>
+                <span class="nm">misora.dev</span>
+                <span class="score">—</span>
+              </div>
+              <div class="bm-row">
+                <span class="av p2">K9</span>
+                <span class="nm">K-9bot</span>
+                <span class="score">—</span>
+              </div>
+              <div class="bm-meta">
+                <span style="color: #92400e; font-weight: 700;">BATTLING · T8</span>
+                <a href="#w-22002">▸ 観戦</a>
+              </div>
+            </div>
+
+            <div class="bracket-match">
+              <div class="bm-row winner">
+                <span class="av p1">TR</span>
+                <span class="nm">たろう_06</span>
+                <span class="score">72</span>
+              </div>
+              <div class="bm-row loser">
+                <span class="av p2">KN</span>
+                <span class="nm">kuroneko</span>
+                <span class="score">0</span>
+              </div>
+              <div class="bm-meta">
+                <span>#M-22003 · T18</span>
+                <a href="#w-22003">▸ 観戦</a>
+              </div>
+            </div>
+
+            <div class="bracket-match">
+              <div class="bm-row winner">
+                <span class="av p1">TN</span>
+                <span class="nm">tanu_55</span>
+                <span class="score">36</span>
+              </div>
+              <div class="bm-row loser">
+                <span class="av p2">MK</span>
+                <span class="nm">miki_dev</span>
+                <span class="score">0</span>
+              </div>
+              <div class="bm-meta">
+                <span>#M-22004 · T20</span>
+                <a href="#w-22004">▸ 観戦</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Round 2 -->
+          <div class="bracket-round">
+            <div class="bracket-round-head">// R2 (4 → 2)</div>
+            <div class="bracket-match">
+              <div class="bm-row"><span class="av p1">HC</span><span class="nm">HanaCoder</span><span class="score">—</span></div>
+              <div class="bm-row" style="color: var(--ink-soft);"><span class="av empty"></span><span class="nm" style="font-style:italic;">待機中</span><span class="score">—</span></div>
+              <div class="bm-meta"><span>#M-22011 · WAITING</span><a href="#m-22011" style="background:transparent; color:var(--ink-soft); border:1px dashed var(--line-2);">詳細</a></div>
+            </div>
+            <div class="bracket-match">
+              <div class="bm-row"><span class="av p1">TR</span><span class="nm">たろう_06</span><span class="score">—</span></div>
+              <div class="bm-row"><span class="av p2">TN</span><span class="nm">tanu_55</span><span class="score">—</span></div>
+              <div class="bm-meta"><span>#M-22012 · WAITING</span><a href="#m-22012" style="background:transparent; color:var(--ink-soft); border:1px dashed var(--line-2);">詳細</a></div>
+            </div>
+          </div>
+
+          <!-- Final -->
+          <div class="bracket-round">
+            <div class="bracket-round-head">// FINAL (2 → 1)</div>
+            <div class="bracket-match bm-final">
+              <div class="bm-row" style="color: var(--ink-soft);">
+                <span class="av empty"></span>
+                <span class="nm" style="font-style:italic;">勝者 R2-1</span>
+                <span class="score">—</span>
+              </div>
+              <div class="bm-row" style="color: var(--ink-soft);">
+                <span class="av empty"></span>
+                <span class="nm" style="font-style:italic;">勝者 R2-2</span>
+                <span class="score">—</span>
+              </div>
+              <div class="bm-meta"><span>#M-22021 · 未生成</span><a href="#m-22021" style="background:transparent; color:var(--ink-soft); border:1px dashed var(--line-2);">詳細</a></div>
+            </div>
+          </div>
+
+          <!-- Winner placeholder -->
+          <div class="bracket-round">
+            <div class="bracket-round-head">// 🏆 優勝</div>
+            <div class="bracket-match empty">
+              <div class="bm-row" style="color: var(--ink-soft); border-bottom: none; padding: 18px 10px;">
+                <span class="av empty"></span>
+                <span class="nm" style="font-style:italic;">未決定</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Round-robin view -->
+    <section class="alt-view-card" aria-label="総当たり表 (代替表示)">
+      <header class="head">
+        <h2>総当たり表 <small>// view: ROUND_ROBIN — 6 名</small></h2>
+        <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color: var(--ink-soft);">セルをクリックで観戦</span>
+      </header>
+      <div class="body">
+        <div class="matrix-wrap">
+          <table class="matrix" aria-label="総当たり表">
+            <thead>
+              <tr>
+                <th></th>
+                <th class="player-col"><div class="av-mini" style="background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6;">HC</div><div>HanaCoder</div></th>
+                <th class="player-col"><div class="av-mini">MI</div><div>misora</div></th>
+                <th class="player-col"><div class="av-mini">TR</div><div>たろう</div></th>
+                <th class="player-col"><div class="av-mini">TN</div><div>tanu_55</div></th>
+                <th class="player-col"><div class="av-mini">KN</div><div>kuroneko</div></th>
+                <th class="player-col"><div class="av-mini">K9</div><div>K-9bot</div></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th class="player-row"><div class="av-mini" style="background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6;">HC</div>HanaCoder</th>
+                <td class="self"></td>
+                <td class="win"><a href="#w-1" class="cell-link" title="HC 勝ち vs misora">W</a></td>
+                <td class="loss"><a href="#w-2" class="cell-link" title="HC 負け vs たろう">L</a></td>
+                <td class="win"><a href="#w-3" class="cell-link">W</a></td>
+                <td class="win"><a href="#w-4" class="cell-link">W</a></td>
+                <td class="live"><a href="#w-5" class="cell-link" title="進行中 vs K-9bot">⏵</a></td>
+              </tr>
+              <tr>
+                <th class="player-row"><div class="av-mini">MI</div>misora</th>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+                <td class="self"></td>
+                <td class="win"><a href="#" class="cell-link">W</a></td>
+                <td class="draw"><a href="#" class="cell-link">D</a></td>
+                <td class="win"><a href="#" class="cell-link">W</a></td>
+                <td class="pending"><a href="#" class="cell-link">–</a></td>
+              </tr>
+              <tr>
+                <th class="player-row"><div class="av-mini">TR</div>たろう_06</th>
+                <td class="win"><a href="#" class="cell-link">W</a></td>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+                <td class="self"></td>
+                <td class="win"><a href="#" class="cell-link">W</a></td>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+                <td class="win"><a href="#" class="cell-link">W</a></td>
+              </tr>
+              <tr>
+                <th class="player-row"><div class="av-mini">TN</div>tanu_55</th>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+                <td class="draw"><a href="#" class="cell-link">D</a></td>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+                <td class="self"></td>
+                <td class="win"><a href="#" class="cell-link">W</a></td>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+              </tr>
+              <tr>
+                <th class="player-row"><div class="av-mini">KN</div>kuroneko</th>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+                <td class="win"><a href="#" class="cell-link">W</a></td>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+                <td class="self"></td>
+                <td class="pending"><a href="#" class="cell-link">–</a></td>
+              </tr>
+              <tr>
+                <th class="player-row"><div class="av-mini">K9</div>K-9bot</th>
+                <td class="live"><a href="#" class="cell-link">⏵</a></td>
+                <td class="pending"><a href="#" class="cell-link">–</a></td>
+                <td class="loss"><a href="#" class="cell-link">L</a></td>
+                <td class="win"><a href="#" class="cell-link">W</a></td>
+                <td class="pending"><a href="#" class="cell-link">–</a></td>
+                <td class="self"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="matrix-summary" aria-label="プレイヤー集計">
+          <div class="matrix-row-summary first">
+            <div class="nm">HanaCoder</div>
+            <div class="stat"><span class="w">3</span> / <span class="l">1</span> / 0 <span style="margin-left:6px; color:var(--ink-soft);">75%</span></div>
+          </div>
+          <div class="matrix-row-summary">
+            <div class="nm">misora</div>
+            <div class="stat"><span class="w">2</span> / <span class="l">1</span> / 1 <span style="margin-left:6px; color:var(--ink-soft);">62%</span></div>
+          </div>
+          <div class="matrix-row-summary">
+            <div class="nm">たろう_06</div>
+            <div class="stat"><span class="w">3</span> / <span class="l">2</span> / 0 <span style="margin-left:6px; color:var(--ink-soft);">60%</span></div>
+          </div>
+          <div class="matrix-row-summary">
+            <div class="nm">K-9bot</div>
+            <div class="stat"><span class="w">1</span> / <span class="l">1</span> / 0 <span style="margin-left:6px; color:var(--ink-soft);">50%</span></div>
+          </div>
+          <div class="matrix-row-summary">
+            <div class="nm">tanu_55</div>
+            <div class="stat"><span class="w">1</span> / <span class="l">3</span> / 1 <span style="margin-left:6px; color:var(--ink-soft);">25%</span></div>
+          </div>
+          <div class="matrix-row-summary">
+            <div class="nm">kuroneko</div>
+            <div class="stat"><span class="w">1</span> / <span class="l">3</span> / 0 <span style="margin-left:6px; color:var(--ink-soft);">25%</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============ Modal showcase ============ -->
+<section class="modal-showcase" aria-label="モーダル">
+  <div class="gallery-head" style="border-top:1px solid var(--line); padding-top:24px; margin-bottom: 18px;">
+    <h2 style="font-family:'JetBrains Mono',monospace; font-size:14px; margin:0;">// modals</h2>
+    <p style="font-size:12px; color:var(--ink-soft); margin:0;">マッチカード作成 (一括) / キャンセル</p>
+  </div>
+
+  <div class="modal-row">
+
+    <!-- Create modal -->
+    <div class="modal-frame" data-frame-label="OPEN — POST /admin/api/rooms/:id/matches">
+      <div class="modal wide" role="dialog" aria-label="マッチカードを作成">
+        <div class="modal-head">
+          <div>
+            <h3>マッチカードを作成</h3>
+            <div class="desc">作成モードを選んで対象プレイヤーを指定してください。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">// 作成モード</div>
+          <div class="mode-grid" role="radiogroup">
+            <div class="mode-card">
+              <div class="gl">1v1</div>
+              <div class="nm">手動</div>
+              <div class="meta">P1 vs P2</div>
+            </div>
+            <div class="mode-card">
+              <div class="gl">🎲</div>
+              <div class="nm">ランダム抽選</div>
+              <div class="meta">N 試合</div>
+            </div>
+            <div class="mode-card selected">
+              <div class="gl">⊞</div>
+              <div class="nm">総当たり</div>
+              <div class="meta">N × (N-1) / 2</div>
+            </div>
+            <div class="mode-card">
+              <div class="gl">⫷</div>
+              <div class="nm">トーナメント</div>
+              <div class="meta">シード設定</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>対象プレイヤー (6 名選択中)</label>
+            <div class="chip-input">
+              <span class="player-chip"><span class="av">HC</span>HanaCoder<span class="x">×</span></span>
+              <span class="player-chip"><span class="av">MI</span>misora.dev<span class="x">×</span></span>
+              <span class="player-chip"><span class="av">TR</span>たろう_06<span class="x">×</span></span>
+              <span class="player-chip"><span class="av">TN</span>tanu_55<span class="x">×</span></span>
+              <span class="player-chip"><span class="av">KN</span>kuroneko<span class="x">×</span></span>
+              <span class="player-chip"><span class="av">K9</span>K-9bot<span class="x">×</span></span>
+              <input type="text" placeholder="ユーザー名で追加…">
+            </div>
+          </div>
+
+          <div class="field-row">
+            <div class="field">
+              <label for="m-deadline">開始期限</label>
+              <input type="text" id="m-deadline" value="2026-05-25 23:59">
+            </div>
+            <div class="field">
+              <label>自動公開観戦</label>
+              <select>
+                <option>自動公開 (ルーム既定)</option>
+                <option>このバッチのみ非公開</option>
+                <option>このバッチのみ公開</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="m-note">備考 (任意)</label>
+            <input type="text" id="m-note" placeholder="例: 第 2 週リーグ戦">
+          </div>
+
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; margin-top:14px;">// プレビュー</div>
+          <div class="preview-box">
+            <div class="preview-tile">
+              <div class="k">生成件数</div>
+              <div class="v">15<small>試合</small></div>
+            </div>
+            <div class="preview-tile">
+              <div class="k">所要時間目安</div>
+              <div class="v">約 75<small>分</small></div>
+            </div>
+            <div class="preview-tile">
+              <div class="k">公開設定</div>
+              <div class="v" style="font-size:13px;">公開 (既定)</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost-modal">キャンセル</button>
+          <button class="btn-primary-room">15 試合を発行</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cancel modal -->
+    <div class="modal-frame" data-frame-label="CANCEL — POST /admin/api/rooms/:id/matches/:matchId/cancel">
+      <div class="modal" role="dialog" aria-label="マッチカードをキャンセル">
+        <div class="modal-head">
+          <div>
+            <h3 style="color: var(--danger);">マッチをキャンセル</h3>
+            <div class="desc">対戦に進む前の状態に戻し、戦績には残しません。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="target-block">
+            <div class="id">#M-22070</div>
+            <div class="vs">yukikko vs ? (募集中) · WAITING</div>
+          </div>
+
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px;">// 終了理由</div>
+          <div class="reason-list" role="radiogroup" id="reason-list">
+            <label class="reason-row">
+              <span class="radio" aria-hidden="true"></span>
+              <span><span class="nm">NO_SHOW</span><small>期限までに対戦相手が見つからなかった</small></span>
+            </label>
+            <label class="reason-row selected">
+              <span class="radio" aria-hidden="true"></span>
+              <span><span class="nm">CANCELED</span><small>管理者の判断でキャンセル</small></span>
+            </label>
+            <label class="reason-row">
+              <span class="radio" aria-hidden="true"></span>
+              <span><span class="nm">DISCONNECT</span><small>通信切断によりキャンセル</small></span>
+            </label>
+            <label class="reason-row">
+              <span class="radio" aria-hidden="true"></span>
+              <span><span class="nm">LEAVE</span><small>プレイヤーが離席</small></span>
+            </label>
+          </div>
+
+          <div class="warn-callout">
+            <div class="ic" aria-hidden="true">!</div>
+            <div>
+              <strong>戻すことはできません。</strong>
+              キャンセルしたマッチは戦績集計から除外されます。
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="confirm-id">確認のため、マッチ No. を入力してください</label>
+            <input type="text" id="confirm-id" class="confirm-input matches" value="#M-22070">
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost-modal">戻る</button>
+          <button class="btn-danger">キャンセルする</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常 / マッチゼロ / 進行中ゼロ / 一括生成直後 / 観戦不許可ルーム</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常</span><span class="state-tag">ok</span></header>
+      <div class="state-body">
+        <div class="mini-row"><span class="nm">#M-22064</span><span class="mini-status coding">CODING</span></div>
+        <div class="mini-row"><span class="nm">#M-22062</span><span class="mini-status battling">BATTLING</span></div>
+        <div class="mini-row"><span class="nm">#M-22055</span><span class="mini-status finished">FINISHED</span></div>
+        <div class="mini-row"><span class="nm">#M-22054</span><span class="mini-status finished">FINISHED</span></div>
+        <div class="mini-row"><span class="nm">#M-22070</span><span class="mini-status waiting">WAITING</span></div>
+      </div>
+    </article>
+
+    <!-- Zero -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">マッチゼロ</span><span class="state-tag">empty</span></header>
+      <div class="state-body">
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">▦</div>
+          <strong>まだマッチがありません</strong>
+          <p>「＋ マッチカードを作成」から<br>最初のマッチを発行しましょう。</p>
+          <button class="mini-cta-room">＋ 作成する</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- No active -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">進行中ゼロ</span><span class="state-tag">idle</span></header>
+      <div class="state-body">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--ink-soft); margin-bottom:5px;">// 進行中: 0</div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">⏸</div>
+          <strong>進行中マッチなし</strong>
+          <p>すべて終了済みです。</p>
+        </div>
+        <div class="mini-row" style="margin-top:6px;"><span class="nm">#M-22055</span><span class="mini-status finished">FINISHED</span></div>
+        <div class="mini-row"><span class="nm">#M-22054</span><span class="mini-status finished">FINISHED</span></div>
+      </div>
+    </article>
+
+    <!-- Bulk created -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">一括生成直後</span><span class="state-tag">201</span></header>
+      <div class="state-body">
+        <div class="mini-success">
+          <strong>✓ 15 試合を発行</strong>
+          総当たり: 6 名 / 公開: 既定
+        </div>
+        <div class="mini-row"><span class="nm">#M-22091</span><span class="mini-status waiting">WAITING</span></div>
+        <div class="mini-row"><span class="nm">#M-22092</span><span class="mini-status waiting">WAITING</span></div>
+        <div class="mini-row"><span class="nm">#M-22093</span><span class="mini-status waiting">WAITING</span></div>
+        <div class="mini-row"><span class="nm">… +12</span><span style="color:var(--ink-soft); font-family:'JetBrains Mono',monospace; font-size:9.5px;">WAITING</span></div>
+      </div>
+    </article>
+
+    <!-- Spectate disabled -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">観戦不許可</span><span class="state-tag">no-watch</span></header>
+      <div class="state-body">
+        <div class="mini-warn">
+          <strong>🔒 観戦無効化中</strong>
+          このルームでは観戦 CTA を表示しません。
+        </div>
+        <div class="mini-row">
+          <span class="nm">#M-22064</span>
+          <span style="display:flex; gap:3px;">
+            <span class="mini-status coding">CODING</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:8.5px; color:var(--ink-soft); border:1px solid var(--line); border-radius:3px; padding: 1px 4px;">詳細のみ</span>
+          </span>
+        </div>
+        <div class="mini-row">
+          <span class="nm">#M-22062</span>
+          <span style="display:flex; gap:3px;">
+            <span class="mini-status battling">BATTLING</span>
+            <span style="font-family:'JetBrains Mono',monospace; font-size:8.5px; color:var(--ink-soft); border:1px solid var(--line); border-radius:3px; padding: 1px 4px;">詳細のみ</span>
+          </span>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — GET /admin/api/rooms/:id/matches
+     ========================================================= */
+  const MATCHES = [
+    { id:'#M-22064', round:'R1-04', p1:{i:'TR',n:'たろう_06'}, p2:{i:'HC',n:'HanaCoder'}, due:'2026-05-25', status:'CODING',   winner:null, reason:'—' },
+    { id:'#M-22062', round:'R1-03', p1:{i:'MI',n:'misora.dev'}, p2:{i:'K9',n:'K-9bot'},   due:'2026-05-25', status:'BATTLING', winner:null, reason:'—' },
+    { id:'#M-22061', round:'R1-02', p1:{i:'TN',n:'tanu_55'},  p2:{i:'KN',n:'kuroneko'},   due:'2026-05-25', status:'CODING',   winner:null, reason:'—' },
+    { id:'#M-22055', round:'R1-01', p1:{i:'HC',n:'HanaCoder'}, p2:{i:'YK',n:'yukikko'},   due:'2026-05-24', status:'FINISHED', winner:'P1', reason:'相手 HP 0' },
+    { id:'#M-22054', round:'R0-04', p1:{i:'MI',n:'misora.dev'}, p2:{i:'TR',n:'たろう_06'}, due:'2026-05-24', status:'FINISHED', winner:'P2', reason:'相手 HP 0' },
+    { id:'#M-22070', round:'R2-01', p1:{i:'YK',n:'yukikko'},   p2:null,                    due:'2026-05-26', status:'WAITING',  winner:null, reason:'—' },
+    { id:'#M-22071', round:'R2-02', p1:null,                    p2:null,                    due:'2026-05-26', status:'WAITING',  winner:null, reason:'—' },
+    { id:'#M-22039', round:'R0-01', p1:{i:'KN',n:'kuroneko'}, p2:{i:'TN',n:'tanu_55'},   due:'2026-05-22', status:'CANCELED', winner:null, reason:'NO_SHOW' },
+  ];
+
+  const statusMeta = {
+    WAITING:  { cls:'ms-waiting',  label:'WAITING'  },
+    CODING:   { cls:'ms-coding',   label:'CODING'   },
+    BATTLING: { cls:'ms-battling', label:'BATTLING' },
+    FINISHED: { cls:'ms-finished', label:'FINISHED' },
+    CANCELED: { cls:'ms-canceled', label:'CANCELED' },
+  };
+
+  const tbody = document.getElementById('matches-tbody');
+  MATCHES.forEach(m => {
+    const s = statusMeta[m.status];
+    const renderSide = (side, mark) => {
+      if (!side) return `<span class="player empty"><span class="av empty"></span>? 募集中</span>`;
+      const win = mark ? `<span class="win-mark">WIN</span>` : '';
+      const cls = mark ? 'winner' : '';
+      return `<span class="player ${cls}"><span class="av p${mark ? '1' : '1'}">${side.i}</span>${side.n}${win}</span>`;
+    };
+    const p1Win = m.winner === 'P1';
+    const p2Win = m.winner === 'P2';
+    const p1Html = renderSide(m.p1, p1Win);
+    const p2Html = m.p2
+      ? `<span class="player ${p2Win ? 'winner' : ''}"><span class="av p2">${m.p2.i}</span>${m.p2.n}${p2Win ? '<span class="win-mark">WIN</span>' : ''}</span>`
+      : `<span class="player empty"><span class="av empty"></span>? 募集中</span>`;
+    const winLabel = m.winner ? (m.winner === 'P1' ? `${m.p1.n}` : `${m.p2.n}`) : '—';
+    const watchAvailable = m.status === 'BATTLING' || m.status === 'CODING' || m.status === 'FINISHED';
+    const cancelAvailable = m.status !== 'FINISHED' && m.status !== 'CANCELED';
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td><span class="round-cell"><strong>${m.round}</strong><br>${m.id}</span></td>
+        <td>${p1Html}</td>
+        <td>${p2Html}</td>
+        <td><span class="due${m.due === '2026-05-25' ? ' warn' : ''}">${m.due}</span></td>
+        <td><span class="match-status ${s.cls}"><span class="ms-dot" aria-hidden="true"></span>${s.label}</span></td>
+        <td>
+          <div class="result-cell">${winLabel}</div>
+        </td>
+        <td class="result-cell" style="color: var(--ink-soft);">${m.reason}</td>
+        <td>
+          <div class="actions">
+            ${watchAvailable ? `<a class="act-btn watch" href="#w-${m.id.slice(1)}">▸ 観戦</a>` : `<span class="act-btn disabled">▸ 観戦</span>`}
+            <button class="act-btn">詳細</button>
+            ${cancelAvailable ? `<button class="act-btn danger">キャンセル</button>` : `<span class="act-btn disabled">キャンセル</span>`}
+          </div>
+        </td>
+      </tr>
+    `);
+  });
+
+  /* Filter chip toggling */
+  document.querySelectorAll('.filter-group, .view-switcher').forEach(group => {
+    group.addEventListener('click', e => {
+      const t = e.target.closest('.filter-chip, .view-btn');
+      if (!t) return;
+      group.querySelectorAll('.filter-chip, .view-btn').forEach(c => c.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+
+  /* Mode card toggle */
+  document.querySelectorAll('.mode-grid').forEach(group => {
+    group.addEventListener('click', e => {
+      const c = e.target.closest('.mode-card');
+      if (!c) return;
+      group.querySelectorAll('.mode-card').forEach(x => x.classList.remove('selected'));
+      c.classList.add('selected');
+    });
+  });
+
+  /* Reason row toggle */
+  document.querySelectorAll('#reason-list').forEach(group => {
+    group.addEventListener('click', e => {
+      const r = e.target.closest('.reason-row');
+      if (!r) return;
+      group.querySelectorAll('.reason-row').forEach(x => x.classList.remove('selected'));
+      r.classList.add('selected');
+    });
+  });
+</script>
+</body>
+</html>

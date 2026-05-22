@@ -1,0 +1,1470 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>アカウント検索 | システム管理 | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330;
+    --admin-accent:#7c3aed; --admin-accent-soft:#ede9fe;
+    --room-admin-accent:#0891b2; --room-admin-accent-soft:#cffafe; --room-admin-accent-ink:#155e75;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--admin-accent); outline-offset: 2px; }
+  button, a { font: inherit; }
+  a { color: var(--p1-ink); }
+
+  /* ============ Topbar ============ */
+  .topbar {
+    background: var(--admin-bg);
+    color: #e5e7eb;
+    padding: 12px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid #0f1117;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(180deg, #2a2e3c, #1a1c25);
+    color: #e5e7eb;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 13px;
+    border: 1px solid #3a3e4d; flex-shrink: 0;
+  }
+  .brand-text { font-weight: 700; font-size: 14px; color: #f3f4f6; display: flex; align-items: baseline; gap: 8px; }
+  .brand-text .tag {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    padding: 2px 7px; background: var(--admin-accent);
+    color: #fff; border-radius: 4px; letter-spacing: .04em; font-weight: 600;
+  }
+  .breadcrumb {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; color: #9ca3af;
+    padding-left: 16px; margin-left: 8px;
+    border-left: 1px solid #3a3e4d;
+    white-space: nowrap;
+  }
+  .breadcrumb strong { color: #e5e7eb; font-weight: 600; }
+  .breadcrumb a { color: #9ca3af; text-decoration: none; border-bottom: 1px dotted #555a6c; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .admin-chip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 12px 5px 5px;
+    background: #2a2e3c; border: 1px solid #3a3e4d;
+    border-radius: 999px;
+    font-size: 12.5px; font-weight: 600; color: #e5e7eb;
+  }
+  .admin-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--admin-accent); color: #fff;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .role-pill-top {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; font-weight: 600;
+    padding: 3px 7px; border-radius: 4px;
+    background: var(--admin-accent); color: #fff; letter-spacing: .04em;
+  }
+  .top-link {
+    color: #9ca3af; background: transparent;
+    border: 1px solid #3a3e4d; border-radius: 8px;
+    padding: 6px 10px; font-size: 12px; cursor: pointer;
+  }
+  .top-link:hover { color: #f3f4f6; background: #2a2e3c; }
+
+  /* ============ Scope banner ============ */
+  .scope-banner {
+    background: #fdfaf0;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 28px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .scope-icon {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 12px; flex-shrink: 0;
+  }
+  .scope-banner strong { color: var(--ink); font-weight: 600; }
+  .scope-banner .sep { color: var(--line-2); margin: 0 4px; }
+
+  /* ============ Shell ============ */
+  .shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 100px);
+  }
+
+  /* Side nav */
+  .sidenav {
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    padding: 18px 14px;
+  }
+  .nav-section-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: .08em;
+    padding: 8px 10px 6px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px;
+    font-size: 13px; color: var(--ink-soft);
+    text-decoration: none; margin-bottom: 2px;
+    font-weight: 500; border: 1px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg); color: var(--ink); }
+  .nav-item.active {
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+    border-color: #ddd6fe;
+    font-weight: 600;
+  }
+  .nav-icon {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--bg-2); border: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 700;
+    display: grid; place-items: center; flex-shrink: 0;
+  }
+  .nav-item.active .nav-icon {
+    background: var(--admin-accent);
+    border-color: var(--admin-accent);
+    color: #fff;
+  }
+  .nav-divider { height: 1px; background: var(--line); margin: 10px 6px; }
+  .nav-footnote {
+    margin: 16px 4px 0;
+    padding: 10px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    background: var(--bg);
+    line-height: 1.5;
+  }
+
+  /* ============ Main ============ */
+  .main { padding: 24px 32px 32px; min-width: 0; }
+  .page-head {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+    margin-bottom: 16px;
+  }
+  .page-head h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .page-head .sub { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+  .page-counters {
+    display: flex; gap: 8px; align-items: center;
+    font-size: 12px; color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .counter-pill {
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 11px;
+  }
+  .counter-pill strong { color: var(--ink); }
+
+  /* Audit notice */
+  .audit-notice {
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: #5b21b6;
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    display: flex; gap: 10px; align-items: center;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .audit-notice .ic {
+    width: 24px; height: 24px; border-radius: 6px;
+    background: var(--admin-accent); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 12px;
+    flex-shrink: 0;
+  }
+  .audit-notice strong { color: #5b21b6; font-weight: 700; }
+  .audit-notice a {
+    color: #5b21b6;
+    text-decoration: none;
+    border-bottom: 1px dashed #7c3aed;
+    margin-left: 4px;
+  }
+
+  /* ============ Toolbar ============ */
+  .toolbar {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+  }
+  .search-wrap {
+    flex: 1; min-width: 260px;
+    display: flex; align-items: center; gap: 10px;
+    background: #fdfcf8;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 8px 12px;
+  }
+  .search-wrap input {
+    flex: 1; border: none; background: transparent;
+    font: inherit; font-size: 13px; color: var(--ink); outline: none;
+  }
+  .search-wrap .ic { color: var(--ink-soft); font-size: 13px; width: 18px; text-align: center; }
+  .search-wrap kbd {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 4px;
+    padding: 2px 6px;
+  }
+  .filter-group {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+  }
+  .filter-chip {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .02em;
+  }
+  .filter-chip:hover { color: var(--ink); }
+  .filter-chip.active {
+    background: #fff;
+    color: var(--admin-accent);
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  .filter-chip .num {
+    font-size: 10px;
+    background: var(--bg-2); color: var(--ink-soft);
+    padding: 1px 5px; border-radius: 4px;
+    margin-left: 5px; font-weight: 600;
+  }
+  .filter-chip.active .num {
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+  }
+  .scope-select {
+    display: inline-flex; align-items: center;
+    gap: 6px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    color: var(--ink);
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .scope-select .lbl { font-size: 9.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; }
+  .scope-select .val { font-weight: 700; font-size: 12px; }
+  .btn-primary-admin {
+    background: var(--admin-accent);
+    color: #fff; border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: 0 1px 0 #5b21b6;
+    margin-left: auto;
+  }
+  .btn-primary-admin:hover { background: #6d28d9; }
+
+  /* ============ Table ============ */
+  .table-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+  }
+  table.users {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.users th, table.users td {
+    text-align: left;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+  table.users thead {
+    background: linear-gradient(180deg, #fdfaf0, #fbf6e7);
+  }
+  table.users th {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  table.users tbody tr {
+    transition: background .12s;
+  }
+  table.users tbody tr:hover { background: #fdfaf0; }
+  table.users tbody tr:last-child td { border-bottom: none; }
+
+  .user-cell { display: flex; align-items: center; gap: 10px; }
+  .user-cell .av {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 11.5px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid;
+    flex-shrink: 0;
+  }
+  .user-cell .av.sys { background: var(--admin-accent-soft); color: var(--admin-accent); border-color: #ddd6fe; }
+  .user-cell .av.room-admin { background: var(--room-admin-accent-soft); color: var(--room-admin-accent-ink); border-color: #a5f3fc; }
+  .user-cell .av.general { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .user-cell .av.room { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .user-cell .body .uname {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12.5px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .user-cell .body .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin-top: 1px;
+    letter-spacing: .02em;
+  }
+  .display-name {
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .display-name .email {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    margin-top: 2px;
+  }
+
+  .role-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: .04em;
+    white-space: nowrap;
+  }
+  .role-system { background: var(--admin-accent-soft); color: var(--admin-accent); border-color: #ddd6fe; }
+  .role-room-admin { background: var(--room-admin-accent-soft); color: var(--room-admin-accent-ink); border-color: #a5f3fc; }
+  .role-general { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .role-room-user { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+
+  .status-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+    display: inline-flex; align-items: center; gap: 5px;
+    letter-spacing: .04em;
+  }
+  .status-active { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .status-disabled { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .status-pending { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .status-expired { background: var(--danger-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .scope-cell { font-size: 12px; color: var(--ink-soft); }
+  .scope-cell .rid {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--ink);
+    font-weight: 600;
+    background: var(--bg);
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    display: inline-block;
+    margin-bottom: 2px;
+  }
+  .scope-cell.global {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--admin-accent);
+    font-weight: 700;
+  }
+  .scope-cell .multi {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .when.never { color: var(--accent); font-weight: 700; }
+  .when.long-ago { color: var(--p2); }
+
+  .twofa-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid;
+    margin-left: 6px;
+    font-weight: 700;
+  }
+  .twofa-pill.on { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .twofa-pill.off { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+
+  .actions {
+    display: flex; gap: 4px; justify-content: flex-end; align-items: center;
+    flex-wrap: nowrap;
+  }
+  .act-btn {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    padding: 5px 9px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .act-btn:hover { background: var(--bg); border-color: var(--line-2); }
+  .act-btn.primary {
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+    border-color: #ddd6fe;
+  }
+  .act-btn.primary:hover { background: #ddd6fe; }
+  .act-btn.danger {
+    background: var(--danger-soft);
+    color: var(--danger);
+    border-color: #fbb6b6;
+  }
+  .act-btn.danger:hover { background: #fde8e8; }
+  .act-btn-overflow {
+    width: 28px; height: 28px;
+    padding: 0;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* Pagination */
+  .pagination {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .pagination .pages { display: flex; gap: 4px; }
+  .page-btn {
+    appearance: none;
+    width: 28px; height: 28px;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 6px;
+    font: inherit; font-size: 11.5px;
+    color: var(--ink-soft); cursor: pointer;
+    font-family: "JetBrains Mono", monospace; font-weight: 600;
+  }
+  .page-btn:hover { background: var(--bg); }
+  .page-btn.active {
+    background: var(--admin-accent);
+    color: #fff;
+    border-color: var(--admin-accent);
+  }
+  .page-btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+  /* ============ Modals ============ */
+  .modal-showcase {
+    max-width: 1440px;
+    margin: 38px auto 28px;
+    padding: 0 32px;
+  }
+  .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 22px; }
+  .modal-frame {
+    background: rgba(31,35,48,.05);
+    border: 1px dashed var(--line-2);
+    border-radius: 16px;
+    padding: 22px;
+    position: relative;
+  }
+  .modal-frame::before {
+    content: attr(data-frame-label);
+    position: absolute;
+    top: -10px; left: 18px;
+    background: var(--bg);
+    padding: 0 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: .04em;
+  }
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(31,35,48,.18);
+    max-width: 520px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .modal-head {
+    padding: 18px 22px 14px;
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
+  }
+  .modal-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  .modal-head .desc { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.55; }
+  .modal-close {
+    background: transparent; border: none;
+    color: var(--ink-soft); cursor: pointer;
+    font-size: 18px; padding: 4px 8px;
+    border-radius: 6px; line-height: 1;
+  }
+  .modal-body { padding: 18px 22px; }
+  .modal-foot {
+    padding: 14px 22px; background: var(--bg);
+    border-top: 1px solid var(--line);
+    display: flex; gap: 10px; justify-content: flex-end;
+  }
+  .btn-ghost-modal {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 600;
+    cursor: pointer;
+  }
+  .btn-danger {
+    background: var(--danger); color: #fff;
+    border: none; border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 0 #991b1b;
+  }
+  .btn-danger:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px;
+    color: var(--ink);
+  }
+  .field .req { color: var(--p2); font-weight: 700; margin-left: 2px; }
+  .field input[type="text"], .field input[type="email"], .field textarea, .field select {
+    width: 100%;
+    padding: 9px 11px;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    font: inherit; font-size: 13px;
+    background: #fdfcf8; color: var(--ink);
+  }
+  .field input:focus, .field textarea:focus, .field select:focus {
+    border-color: var(--admin-accent);
+    box-shadow: 0 0 0 3px rgba(124,58,237,.15);
+    background: #fff; outline: none;
+  }
+  .field textarea { min-height: 70px; resize: vertical; }
+  .field .hint { font-size: 11px; color: var(--ink-soft); margin-top: 4px; line-height: 1.45; }
+
+  .seg-role {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .seg-role .opt {
+    border: 1.5px solid var(--line-2);
+    background: #fff;
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 10px;
+    align-items: center;
+  }
+  .seg-role .opt .ic {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 800;
+    color: #fff;
+    font-size: 13px;
+  }
+  .seg-role .opt .ic.sys { background: var(--admin-accent); }
+  .seg-role .opt .ic.room-admin { background: var(--room-admin-accent); }
+  .seg-role .opt .nm {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .seg-role .opt .sub {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 2px;
+    line-height: 1.4;
+  }
+  .seg-role .opt.selected {
+    border-color: var(--admin-accent);
+    background: var(--admin-accent-soft);
+  }
+
+  .invite-link-card {
+    background: linear-gradient(180deg, #fdfdf8, #f7f5ed);
+    border: 2px dashed var(--admin-accent);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-top: 6px;
+  }
+  .invite-link-card .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--admin-accent);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 6px;
+  }
+  .invite-link-card .link {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    overflow-x: auto;
+    white-space: nowrap;
+    word-break: break-all;
+  }
+  .invite-link-card .meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 7px;
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .invite-actions {
+    display: flex; gap: 6px;
+    margin-top: 9px;
+  }
+  .invite-actions .btn {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  /* Danger callout */
+  .danger-callout {
+    background: var(--danger-soft);
+    border: 1px solid #fbb6b6;
+    color: var(--p2-ink);
+    border-radius: 10px;
+    padding: 11px 14px;
+    margin-bottom: 14px;
+    display: flex; gap: 10px;
+    font-size: 12.5px; line-height: 1.5;
+  }
+  .danger-callout .ic {
+    width: 24px; height: 24px;
+    background: var(--danger); color: #fff;
+    border-radius: 6px;
+    display: grid; place-items: center;
+    font-weight: 700; flex-shrink: 0;
+  }
+  .danger-callout strong { display: block; font-size: 13px; margin-bottom: 2px; font-weight: 700; color: var(--p2-ink); }
+  .audit-note {
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: #5b21b6;
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11.5px;
+    line-height: 1.5;
+    margin-bottom: 14px;
+    display: flex; gap: 8px;
+  }
+  .audit-note .ic {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .target-block {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 12px;
+    margin-bottom: 14px;
+    display: flex; gap: 10px; align-items: center;
+  }
+  .target-block .av {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--admin-accent-soft); color: var(--admin-accent);
+    display: grid; place-items: center;
+    font-size: 13px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid #ddd6fe;
+  }
+  .target-block .body .nm { font-weight: 700; font-size: 13.5px; }
+  .target-block .body .meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--ink-soft); margin-top: 2px;
+  }
+  .confirm-input {
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .03em;
+  }
+  .confirm-input.matches { border-color: var(--success); background: var(--success-soft); }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 30px auto 32px;
+    padding: 0 32px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 16px;
+  }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 11px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11.5px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 9.5px;
+    padding: 2px 5px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 11px; }
+  .mini-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 10.5px;
+  }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-row .nm {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+  }
+  .mini-empty {
+    text-align: center;
+    padding: 22px 6px 14px;
+    color: var(--ink-soft);
+  }
+  .mini-empty .ill {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    margin: 0 auto 6px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+  }
+  .mini-empty strong { display: block; color: var(--ink); font-size: 11.5px; margin-bottom: 2px; }
+  .mini-empty p { margin: 0; font-size: 10.5px; line-height: 1.45; }
+  .skel {
+    background: linear-gradient(90deg, var(--bg-2) 0%, #eee9da 50%, var(--bg-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 5px;
+    height: 12px;
+    margin-bottom: 7px;
+  }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+  .mini-pages {
+    display: flex; gap: 3px; justify-content: center;
+    margin-top: 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+  }
+  .mini-pages span {
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 2px 5px;
+    border-radius: 3px;
+    color: var(--ink-soft);
+  }
+  .mini-pages span.active {
+    background: var(--admin-accent);
+    color: #fff; border-color: var(--admin-accent);
+  }
+  .mini-search-meta {
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    border-radius: 5px;
+    padding: 5px 7px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    margin-bottom: 7px;
+  }
+  .mini-search-meta strong { color: #5b21b6; }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Topbar ============ -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <div class="brand-text">
+      対戦・コーディング
+      <span class="tag">SYSTEM ADMIN</span>
+    </div>
+    <div class="breadcrumb">/ system / <strong>users</strong></div>
+  </div>
+  <div class="topbar-right">
+    <button class="top-link">ヘルプ</button>
+    <button class="top-link">通知</button>
+    <div class="admin-chip">
+      <div class="admin-avatar" aria-hidden="true">NK</div>
+      <span>nakamura.sys</span>
+      <span class="role-pill-top">SYSTEM_ADMIN</span>
+    </div>
+    <button class="top-link">ログアウト</button>
+  </div>
+</header>
+
+<!-- ============ Scope banner ============ -->
+<div class="scope-banner" role="status">
+  <div class="scope-icon" aria-hidden="true">!</div>
+  <div>
+    <strong>あなたはシステム管理者として閲覧中です。</strong>
+    <span class="sep">/</span>
+    対戦の具体操作はできません。アカウントの管理 (役割付与・無効化・リセット) のみ可能で、すべての操作は監査ログに記録されます。
+  </div>
+</div>
+
+<!-- ============ Shell ============ -->
+<div class="shell">
+
+  <!-- Side nav -->
+  <aside class="sidenav" aria-label="サイドナビ">
+    <div class="nav-section-label">// SYSTEM</div>
+    <a class="nav-item" href="#home"><span class="nav-icon">H</span>システム管理ホーム</a>
+    <a class="nav-item" href="#rooms"><span class="nav-icon">R</span>ルーム</a>
+    <a class="nav-item active" href="#users" aria-current="page"><span class="nav-icon">U</span>アカウント検索</a>
+    <a class="nav-item" href="#audit"><span class="nav-icon">L</span>監査ログ</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">// CONFIG</div>
+    <a class="nav-item" href="#settings"><span class="nav-icon">S</span>システム設定</a>
+
+    <div class="nav-footnote">
+      アカウント操作 (役割付与 / 無効化 / リセット) はすべて監査ログに記録されます。
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <header class="page-head">
+      <div>
+        <h1>アカウント検索</h1>
+        <div class="sub">全アカウント (Account + RoomMembership) を横断検索。役割・所属ルーム・状態で絞り込めます。</div>
+      </div>
+      <div class="page-counters">
+        <span class="counter-pill">合計 <strong>3,482</strong></span>
+        <span class="counter-pill">ACTIVE <strong>2,914</strong></span>
+        <span class="counter-pill">PENDING <strong>312</strong></span>
+        <span class="counter-pill">DISABLED <strong>156</strong></span>
+        <span class="counter-pill">EXPIRED <strong>100</strong></span>
+      </div>
+    </header>
+
+    <!-- Audit notice -->
+    <div class="audit-notice" role="status">
+      <div class="ic" aria-hidden="true">⚖</div>
+      <div>
+        <strong>監査ログ:</strong>
+        アカウントへの操作 (役割付与・無効化・パスワードリセット強制・2FA 解除) はすべて記録されます。
+        <a href="#audit">監査ログを見る →</a>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <!-- bind: GET /admin/api/users?q=&role=&status=&scope= -->
+    <section class="toolbar" aria-label="検索・フィルタ">
+      <div class="search-wrap">
+        <span class="ic" aria-hidden="true">⌕</span>
+        <input type="text" placeholder="ユーザー名 / 表示名 / メール / ID で検索" aria-label="検索">
+        <kbd>⌘K</kbd>
+      </div>
+
+      <div class="filter-group" role="group" aria-label="種別">
+        <button class="filter-chip active">ALL <span class="num">3.4k</span></button>
+        <button class="filter-chip">SYSTEM <span class="num">4</span></button>
+        <button class="filter-chip">R_ADMIN <span class="num">87</span></button>
+        <button class="filter-chip">GENERAL <span class="num">412</span></button>
+        <button class="filter-chip">R_USER <span class="num">2.9k</span></button>
+      </div>
+
+      <div class="filter-group" role="group" aria-label="ステータス">
+        <button class="filter-chip active">ACTIVE</button>
+        <button class="filter-chip">DISABLED</button>
+        <button class="filter-chip">PENDING</button>
+        <button class="filter-chip">EXPIRED</button>
+      </div>
+
+      <div class="scope-select" role="button" aria-label="スコープ">
+        <span class="lbl">scope</span>
+        <span class="val">全体 ▾</span>
+      </div>
+
+      <button class="btn-primary-admin">＋ アカウントを招待</button>
+    </section>
+
+    <!-- Table -->
+    <section class="table-card" aria-label="アカウント一覧">
+      <table class="users">
+        <thead>
+          <tr>
+            <th style="width: 240px;">識別子</th>
+            <th>表示名 / メール</th>
+            <th style="width: 130px;">種別</th>
+            <th style="width: 110px;">ステータス</th>
+            <th style="width: 180px;">所属ルーム</th>
+            <th style="width: 100px;">作成日</th>
+            <th style="width: 140px;">最終ログイン</th>
+            <th style="width: 220px; text-align: right;">操作</th>
+          </tr>
+        </thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+      <div class="pagination" role="navigation" aria-label="ページネーション">
+        <div>1 - 8 / <strong style="color: var(--ink);">3,482</strong> 件</div>
+        <div class="pages">
+          <button class="page-btn" disabled aria-label="前のページ">‹</button>
+          <button class="page-btn active" aria-current="page">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">…</button>
+          <button class="page-btn">436</button>
+          <button class="page-btn" aria-label="次のページ">›</button>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;">表示件数 8 ▾</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============ Modals ============ -->
+<section class="modal-showcase" aria-label="モーダル">
+  <div class="gallery-head" style="border-top: 1px solid var(--line); padding-top: 24px; margin-bottom: 18px;">
+    <h2 style="font-family:'JetBrains Mono',monospace; font-size:14px; margin:0;">// modals</h2>
+    <p style="font-size:12px; color:var(--ink-soft); margin:0;">招待 / 招待リンク発行 / パスワードリセット強制 / アカウント無効化</p>
+  </div>
+
+  <!-- Invite + Invite-result -->
+  <div class="modal-row">
+
+    <div class="modal-frame" data-frame-label="OPEN — POST /admin/api/users/invite">
+      <div class="modal" role="dialog" aria-label="アカウントを招待">
+        <div class="modal-head">
+          <div>
+            <h3>アカウントを招待</h3>
+            <div class="desc">SYSTEM_ADMIN または ROOM_ADMIN を招待します。GENERAL_USER は自己登録、ROOM_USER はルーム発行コードで登録します。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="field">
+            <label for="i-mail">メールアドレス<span class="req">*</span></label>
+            <input type="email" id="i-mail" value="ueda.sensei@school.example.jp" placeholder="name@example.jp">
+          </div>
+
+          <div class="field">
+            <label>役割<span class="req">*</span></label>
+            <div class="seg-role" role="radiogroup">
+              <div class="opt selected" role="radio" aria-checked="true">
+                <div class="ic room-admin" aria-hidden="true">RA</div>
+                <div>
+                  <div class="nm">ROOM_ADMIN</div>
+                  <div class="sub">ルームを発行・運営する役割</div>
+                </div>
+              </div>
+              <div class="opt" role="radio" aria-checked="false">
+                <div class="ic sys" aria-hidden="true">SA</div>
+                <div>
+                  <div class="nm">SYSTEM_ADMIN</div>
+                  <div class="sub">全体管理・他管理者の管理</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="i-msg">招待メッセージ (任意)</label>
+            <textarea id="i-msg">上田先生、来月から校内大会の運営をお願いしたいので、ROOM_ADMIN として招待します。</textarea>
+            <div class="hint">招待メールに添えて送信されます。</div>
+          </div>
+
+          <div class="audit-note">
+            <span class="ic" aria-hidden="true">⚖</span>
+            <span>この招待は監査ログに <code style="font-family:'JetBrains Mono',monospace;">USER_INVITE</code> として記録されます。</span>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost-modal">キャンセル</button>
+          <button class="btn-primary-admin">招待リンクを発行</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-frame" data-frame-label="COMPLETED — 201 Created">
+      <div class="modal" role="dialog" aria-label="招待リンク発行完了">
+        <div class="modal-head">
+          <div>
+            <h3>招待リンクを発行しました</h3>
+            <div class="desc">下記の URL を本人に伝えてください。期限内に開かれない場合は失効します。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+
+          <div class="target-block">
+            <div class="av">UE</div>
+            <div>
+              <div class="body" style="font-weight: 700; font-size: 13.5px;">ueda.sensei@school.example.jp</div>
+              <div class="body" style="font-family:'JetBrains Mono',monospace; font-size: 11px; color: var(--ink-soft); margin-top: 2px;">
+                <span class="role-badge role-room-admin" style="font-size: 9.5px;">ROOM_ADMIN</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="invite-link-card">
+            <div class="lbl">// 招待リンク</div>
+            <div class="link">https://taisen-coding.example.jp/invite/<span style="color: var(--admin-accent); font-weight: 700;">7F2K-A9M3-P6N1-Q5W8</span></div>
+            <div class="meta">
+              <span>有効期限: <strong style="color: var(--ink);">2026/05/29 23:59</strong> (7 日)</span>
+              <span>1 回限り</span>
+            </div>
+            <div class="invite-actions">
+              <button class="btn">⌘ コピー</button>
+              <button class="btn">✉ メールで送る</button>
+              <button class="btn">🖶 印刷</button>
+            </div>
+          </div>
+
+          <div class="audit-note" style="margin-top: 14px;">
+            <span class="ic" aria-hidden="true">⚖</span>
+            <span><strong>audit:</strong> <code style="font-family:'JetBrains Mono',monospace;">USER_INVITE</code> · <code style="font-family:'JetBrains Mono',monospace;">2026-05-22T14:32:18+09:00</code> · by nakamura.sys</span>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost-modal">続けて招待</button>
+          <button class="btn-primary-admin">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Reset + Disable -->
+  <div class="modal-row">
+
+    <div class="modal-frame" data-frame-label="RESET — POST /admin/api/users/:id/force-password-reset">
+      <div class="modal" role="dialog" aria-label="パスワードリセットを強制">
+        <div class="modal-head">
+          <div>
+            <h3>パスワードリセットを強制</h3>
+            <div class="desc">本人のセッションを全て切断し、次回ログイン時にパスワード変更を必須にします。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+
+          <div class="target-block">
+            <div class="av" style="background: var(--room-admin-accent-soft); color: var(--room-admin-accent-ink); border-color: #a5f3fc;">NK</div>
+            <div class="body">
+              <div class="nm">中村先生 (nakamura.sensei)</div>
+              <div class="meta">ROOM_ADMIN · acc_2a7f...3K9 · 最終ログイン 14:32</div>
+            </div>
+          </div>
+
+          <div class="danger-callout">
+            <div class="ic" aria-hidden="true">!</div>
+            <div>
+              <strong>実行内容:</strong>
+              <ul style="margin: 4px 0 0; padding-left: 18px;">
+                <li>すべてのセッションを切断</li>
+                <li>2FA バックアップコードは無効化されません</li>
+                <li>次回ログイン時に新しいパスワードを要求</li>
+                <li>本人にメール通知が送信されます</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="audit-note">
+            <span class="ic" aria-hidden="true">⚖</span>
+            <span>この操作は <code style="font-family:'JetBrains Mono',monospace;">USER_FORCE_PASSWORD_RESET</code> として監査ログに記録されます。</span>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost-modal">キャンセル</button>
+          <button class="btn-danger">リセットを強制</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-frame" data-frame-label="DISABLE — PATCH /admin/api/users/:id (status=DISABLED)">
+      <div class="modal" role="dialog" aria-label="アカウントを無効化">
+        <div class="modal-head">
+          <div>
+            <h3 style="color: var(--danger);">アカウントを無効化しますか?</h3>
+            <div class="desc">ログインできなくなります。所属ルームの戦績・履歴は残ります。後から再有効化可能。</div>
+          </div>
+          <button class="modal-close" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-body">
+
+          <div class="target-block">
+            <div class="av" style="background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2);">SP</div>
+            <div class="body">
+              <div class="nm">spam_acct_0917 (spam.acct@example.com)</div>
+              <div class="meta">GENERAL_USER · acc_8m4d...P2R · 不正動作の報告あり</div>
+            </div>
+          </div>
+
+          <div class="danger-callout">
+            <div class="ic" aria-hidden="true">!</div>
+            <div>
+              <strong>実行内容:</strong>
+              進行中マッチがあれば WAIT 戦略が自動提出されます。所属するすべての ROOM_USER 紐付けもログイン不可になります。
+            </div>
+          </div>
+
+          <div class="audit-note">
+            <span class="ic" aria-hidden="true">⚖</span>
+            <span>この操作は <code style="font-family:'JetBrains Mono',monospace;">USER_DISABLE</code> として監査ログに記録されます。理由を任意で残せます。</span>
+          </div>
+
+          <div class="field">
+            <label for="reason">無効化の理由 (任意, 監査ログに記録)</label>
+            <input type="text" id="reason" value="不正な大量アカウント作成のため" placeholder="例: 不正動作の報告">
+          </div>
+
+          <div class="field">
+            <label for="cf">確認のため、ユーザー名を入力してください<span class="req">*</span></label>
+            <input type="text" id="cf" class="confirm-input matches" value="spam_acct_0917">
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost-modal">キャンセル</button>
+          <button class="btn-danger">無効化する</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常 / ゼロ件 / 大量結果 (ページネーション) / 高負荷検索 (Skeleton)</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常</span><span class="state-tag">ok</span></header>
+      <div class="state-body">
+        <div class="mini-row"><span class="nm">nakamura.sys</span><span class="role-badge role-system" style="font-size:8.5px; padding:1px 5px;">SYS</span></div>
+        <div class="mini-row"><span class="nm">ueda.sensei</span><span class="role-badge role-room-admin" style="font-size:8.5px; padding:1px 5px;">R_ADM</span></div>
+        <div class="mini-row"><span class="nm">taro06</span><span class="role-badge role-room-user" style="font-size:8.5px; padding:1px 5px;">R_USR</span></div>
+        <div class="mini-row"><span class="nm">freekun</span><span class="role-badge role-general" style="font-size:8.5px; padding:1px 5px;">GEN</span></div>
+        <div class="mini-row"><span class="nm">spam_acct_0917</span><span class="role-badge role-general" style="font-size:8.5px; padding:1px 5px;">GEN</span></div>
+      </div>
+    </article>
+
+    <!-- Zero -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">ゼロ件</span><span class="state-tag">empty</span></header>
+      <div class="state-body">
+        <div class="mini-search-meta">
+          q = "<strong>佐藤花子</strong>" · role=ROOM_ADMIN
+        </div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">?</div>
+          <strong>該当するアカウントなし</strong>
+          <p>検索ワードを変えるか、<br>種別フィルタを ALL に戻してください。</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- Large pagination -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">大量結果</span><span class="state-tag">paged</span></header>
+      <div class="state-body">
+        <div class="mini-search-meta">
+          <strong>3,482</strong> 件 / role=ALL · scope=全体
+        </div>
+        <div class="mini-row"><span class="nm">acc_2a7f3K9</span><span style="font-size:9px; color:var(--ink-soft);">ACTIVE</span></div>
+        <div class="mini-row"><span class="nm">acc_8b9c1L2</span><span style="font-size:9px; color:var(--ink-soft);">ACTIVE</span></div>
+        <div class="mini-row"><span class="nm">acc_4d2e7M3</span><span style="font-size:9px; color:var(--ink-soft);">PENDING</span></div>
+        <div class="mini-row"><span class="nm">acc_…</span><span style="font-size:9px; color:var(--ink-soft);">+3479</span></div>
+        <div class="mini-pages">
+          <span>‹</span>
+          <span class="active">1</span>
+          <span>2</span>
+          <span>3</span>
+          <span>…</span>
+          <span>436</span>
+          <span>›</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- Skeleton -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">高負荷検索中</span><span class="state-tag">skeleton</span></header>
+      <div class="state-body">
+        <div class="mini-search-meta" style="background: var(--bg-2); border-color: var(--line-2); color: var(--ink-soft);">
+          検索中… (large scope)
+        </div>
+        <div class="skel" style="width: 75%;"></div>
+        <div class="skel" style="width: 60%;"></div>
+        <div class="skel" style="width: 80%;"></div>
+        <div class="skel" style="width: 70%;"></div>
+        <div class="skel" style="width: 65%;"></div>
+        <div class="skel" style="width: 78%;"></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — GET /admin/api/users
+     ========================================================= */
+  const USERS = [
+    {
+      id: 'acc_2a7f3K9', uname: 'nakamura.sys', display: '中村 (システム管理)', email: 'nakamura.sys@school.example.jp',
+      role: 'SYSTEM_ADMIN', status: 'ACTIVE',
+      scope: { kind: 'GLOBAL' }, created: '2025/03/12', lastLogin: '14:32', twofa: true, av: 'NK',
+    },
+    {
+      id: 'acc_8b9c1L2', uname: 'nakamura.sensei', display: '中村先生', email: 'nakamura@school.example.jp',
+      role: 'ROOM_ADMIN', status: 'ACTIVE',
+      scope: { kind: 'ROOMS', ids: ['ROOM-2026-0142', 'ROOM-2026-0287'] }, created: '2025/04/02', lastLogin: '14:18', twofa: true, av: 'NK',
+    },
+    {
+      id: 'acc_4d2e7M3', uname: 'ueda.sensei', display: '上田先生', email: 'ueda.sensei@school.example.jp',
+      role: 'ROOM_ADMIN', status: 'PENDING',
+      scope: { kind: 'ROOMS', ids: [] }, created: '2026/05/22', lastLogin: null, twofa: false, av: 'UE',
+    },
+    {
+      id: 'acc_9g5h3F7', uname: 'taro06', display: '班1-たろう', email: '—',
+      role: 'ROOM_USER', status: 'ACTIVE',
+      scope: { kind: 'ROOMS', ids: ['ROOM-2026-0142'] }, created: '2026/04/12', lastLogin: '13:32', twofa: false, av: 'TR',
+    },
+    {
+      id: 'acc_1k4m6N8', uname: 'hana_c', display: '班1-はなこ', email: '—',
+      role: 'ROOM_USER', status: 'ACTIVE',
+      scope: { kind: 'ROOMS', ids: ['ROOM-2026-0142', 'ROOM-2026-0288'] }, created: '2026/04/12', lastLogin: '13:18', twofa: false, av: 'HC',
+    },
+    {
+      id: 'acc_5p3q1R6', uname: 'freekun', display: 'フリーくん', email: 'free.kun@gmail.example.com',
+      role: 'GENERAL_USER', status: 'ACTIVE',
+      scope: { kind: 'GLOBAL' }, created: '2026/03/05', lastLogin: '昨日', twofa: false, av: 'FK',
+    },
+    {
+      id: 'acc_8m4dP2R', uname: 'spam_acct_0917', display: '(報告あり)', email: 'spam.acct@example.com',
+      role: 'GENERAL_USER', status: 'DISABLED',
+      scope: { kind: 'GLOBAL' }, created: '2026/05/15', lastLogin: '05/16', twofa: false, av: 'SP',
+    },
+    {
+      id: 'acc_3w7y5T1', uname: 'old_k9', display: '退会済みアカウント', email: '—',
+      role: 'ROOM_USER', status: 'EXPIRED',
+      scope: { kind: 'ROOMS', ids: ['ROOM-2026-0098'] }, created: '2026/02/01', lastLogin: '2026/04/22', twofa: false, av: 'OK',
+    },
+  ];
+
+  const roleMeta = {
+    SYSTEM_ADMIN:  { cls:'role-system',     label:'SYSTEM_ADMIN', avCls:'sys' },
+    ROOM_ADMIN:    { cls:'role-room-admin', label:'ROOM_ADMIN',   avCls:'room-admin' },
+    GENERAL_USER:  { cls:'role-general',    label:'GENERAL_USER', avCls:'general' },
+    ROOM_USER:     { cls:'role-room-user',  label:'ROOM_USER',    avCls:'room' },
+  };
+  const statusMeta = {
+    ACTIVE:   { cls:'status-active',   label:'ACTIVE' },
+    DISABLED: { cls:'status-disabled', label:'DISABLED' },
+    PENDING:  { cls:'status-pending',  label:'PENDING' },
+    EXPIRED:  { cls:'status-expired',  label:'EXPIRED' },
+  };
+
+  const tbody = document.getElementById('users-tbody');
+  USERS.forEach(u => {
+    const r = roleMeta[u.role];
+    const s = statusMeta[u.status];
+    const scopeHtml = u.scope.kind === 'GLOBAL'
+      ? `<div class="scope-cell global">⌖ GLOBAL</div>`
+      : (u.scope.ids.length === 0
+          ? `<div class="scope-cell" style="font-style: italic;">未割当</div>`
+          : `<div class="scope-cell">
+               <span class="rid">${u.scope.ids[0]}</span>
+               ${u.scope.ids.length > 1 ? `<div class="multi">+ ${u.scope.ids.length - 1} ルーム</div>` : ''}
+             </div>`);
+    const ll = u.lastLogin === null
+      ? `<span class="when never">未ログイン</span>`
+      : `<span class="when">${u.lastLogin}</span>`;
+    const twofa = u.twofa
+      ? `<span class="twofa-pill on" title="2FA 有効">2FA</span>`
+      : '';
+    // Disable action depends on status
+    const disableLabel = u.status === 'DISABLED' ? '有効化' : '無効化';
+    const disableCls = u.status === 'DISABLED' ? '' : 'danger';
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>
+          <div class="user-cell">
+            <span class="av ${r.avCls}">${u.av}</span>
+            <div class="body">
+              <div class="uname">${u.uname}${twofa}</div>
+              <div class="id">${u.id}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div class="display-name">${u.display}</div>
+          <div class="email">${u.email}</div>
+        </td>
+        <td><span class="role-badge ${r.cls}">${r.label}</span></td>
+        <td><span class="status-badge ${s.cls}"><span class="dot" aria-hidden="true"></span>${s.label}</span></td>
+        <td>${scopeHtml}</td>
+        <td><span class="when">${u.created}</span></td>
+        <td>${ll}</td>
+        <td>
+          <div class="actions">
+            <button class="act-btn">詳細</button>
+            <button class="act-btn primary" aria-label="${u.uname} のパスワードをリセット">↻ リセット</button>
+            <button class="act-btn ${disableCls}" aria-label="${u.uname} を${disableLabel}">${disableLabel}</button>
+            <button class="act-btn act-btn-overflow" aria-label="その他">⋯</button>
+          </div>
+        </td>
+      </tr>
+    `);
+  });
+
+  /* Filter chip toggling */
+  document.querySelectorAll('.filter-group').forEach(group => {
+    group.addEventListener('click', e => {
+      const t = e.target.closest('.filter-chip');
+      if (!t) return;
+      group.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+
+  /* Seg role toggle */
+  document.querySelectorAll('.seg-role').forEach(group => {
+    group.addEventListener('click', e => {
+      const t = e.target.closest('.opt');
+      if (!t) return;
+      group.querySelectorAll('.opt').forEach(x => {
+        x.classList.remove('selected');
+        x.setAttribute('aria-checked', 'false');
+      });
+      t.classList.add('selected');
+      t.setAttribute('aria-checked', 'true');
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>サインアップ | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* ============ Topbar ============ */
+  .topbar {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 15px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 13px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .brand-tag {
+    font-size: 10.5px; color: #92400e;
+    font-weight: 600; padding: 2px 8px;
+    background: var(--accent-soft); border: 1px solid #f3d27d;
+    border-radius: 999px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .topbar-meta { font-size: 13px; color: var(--ink-soft); }
+  .topbar-meta a { color: var(--p1-ink); text-decoration: none; font-weight: 600; border-bottom: 1px dashed var(--p1-ink); }
+
+  /* ============ Page ============ */
+  .page {
+    padding: 48px 24px 24px;
+    max-width: 1440px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: center;
+  }
+
+  .card-wrap { width: 100%; max-width: 520px; }
+
+  /* Mode badge (invite-only / promote) */
+  .mode-banner {
+    background: linear-gradient(180deg, #fdfdf8, #faf7ed);
+    border: 1px solid var(--accent-soft);
+    border-color: #f3d27d;
+    border-radius: 12px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    display: flex; gap: 10px;
+    font-size: 12.5px;
+    color: #7c2d12;
+    line-height: 1.5;
+  }
+  .mode-banner .ic {
+    width: 24px; height: 24px; border-radius: 7px;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 13px;
+    flex-shrink: 0;
+  }
+  .mode-banner strong { color: #7c2d12; font-weight: 700; }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: 0 6px 18px rgba(31,35,48,.06), 0 2px 4px rgba(31,35,48,.04);
+    overflow: hidden;
+  }
+  .card-head {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 22px 28px 20px;
+    text-align: center;
+  }
+  .card-head h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -.01em;
+  }
+  .card-head .sub {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+  .card-body {
+    padding: 24px 28px;
+  }
+
+  /* Form fields */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--ink);
+  }
+  .field label .req { color: var(--p2); font-weight: 700; margin-left: 2px; }
+  .field label .optional {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .field .input-wrap { position: relative; }
+  .field input[type="text"],
+  .field input[type="email"],
+  .field input[type="password"] {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    font: inherit;
+    font-size: 14px;
+    background: #fdfcf8;
+    color: var(--ink);
+    transition: border-color .12s, background .12s, box-shadow .12s;
+  }
+  .field input.mono { font-family: "JetBrains Mono", monospace; letter-spacing: .04em; }
+  .field input::placeholder { color: #a8a394; }
+  .field input:focus {
+    background: #fff;
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(245,158,11,.18);
+  }
+  .field input.with-toggle { padding-right: 64px; }
+  .field .pw-toggle {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 600;
+  }
+  .field .pw-toggle:hover { background: var(--bg); color: var(--ink); }
+  .field-meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 5px;
+  }
+  .field-hint {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    line-height: 1.45;
+  }
+  .field-hint.tip { color: var(--p1-ink); }
+  .field-count {
+    font-size: 11px; color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .field-error {
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    font-weight: 500;
+  }
+  .field-error::before {
+    content: "!";
+    width: 14px; height: 14px;
+    background: var(--danger); color: #fff;
+    border-radius: 50%;
+    display: inline-grid; place-items: center;
+    font-size: 10px; font-weight: 700;
+    flex-shrink: 0; margin-top: 2px;
+  }
+  .field.has-error input {
+    border-color: var(--danger);
+    background: #fef6f6;
+  }
+  .field.has-error input:focus {
+    box-shadow: 0 0 0 3px rgba(220,38,38,.15);
+  }
+  .field-success {
+    font-size: 11.5px;
+    color: var(--success);
+    margin-top: 5px;
+    display: flex; gap: 5px; align-items: center;
+    font-weight: 500;
+  }
+  .field-success::before {
+    content: "✓";
+    width: 13px; height: 13px;
+    background: var(--success); color: #fff;
+    border-radius: 50%;
+    display: inline-grid; place-items: center;
+    font-size: 9px; font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* Strength meter */
+  .strength-meter {
+    margin-top: 8px;
+  }
+  .strength-bar {
+    height: 5px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 2px;
+    padding: 1px;
+  }
+  .strength-seg {
+    background: var(--bg-2);
+    border-radius: 2px;
+  }
+  .strength-bar.weak .strength-seg:nth-child(-n+1) { background: var(--danger); }
+  .strength-bar.fair .strength-seg:nth-child(-n+2) { background: var(--accent); }
+  .strength-bar.strong .strength-seg:nth-child(-n+3) { background: #65a30d; }
+  .strength-bar.vstrong .strength-seg { background: var(--success); }
+
+  .strength-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 5px;
+    font-size: 11.5px;
+  }
+  .strength-label {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .strength-row.weak .strength-label { color: var(--danger); }
+  .strength-row.fair .strength-label { color: var(--accent); }
+  .strength-row.strong .strength-label { color: #65a30d; }
+  .strength-row.vstrong .strength-label { color: var(--success); }
+  .strength-row .hint { color: var(--ink-soft); font-size: 11px; }
+
+  /* Password policy checklist */
+  .policy-list {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-top: 9px;
+    font-size: 11.5px;
+  }
+  .policy-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 3px 0;
+    color: var(--ink-soft);
+  }
+  .policy-row.met { color: var(--success); }
+  .policy-row .mark {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    background: var(--line-2);
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 9px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .policy-row.met .mark { background: var(--success); }
+  .policy-row .mark::after { content: "·"; }
+  .policy-row.met .mark::after { content: "✓"; font-size: 9px; }
+
+  /* Promote toggle */
+  .promote-card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .promote-card.active {
+    background: linear-gradient(180deg, #fdfdf8, #faf7ed);
+    border-color: var(--accent);
+  }
+  .promote-card .body { flex: 1; }
+  .promote-card .body .nm { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .promote-card .body .meta {
+    font-size: 11.5px; color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .promote-card .body .meta .quick-uname {
+    font-family: "JetBrains Mono", monospace;
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .promote-card .stats {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .promote-card .stats strong { color: var(--ink); }
+
+  .switch {
+    position: relative;
+    width: 42px; height: 24px;
+    background: var(--line-2);
+    border-radius: 999px;
+    cursor: pointer;
+    border: none;
+    flex-shrink: 0;
+    transition: background .15s;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 20px; height: 20px;
+    background: #fff;
+    border-radius: 50%;
+    transition: left .15s;
+    box-shadow: 0 1px 2px rgba(0,0,0,.18);
+  }
+  .switch.on { background: var(--accent); }
+  .switch.on::after { left: 20px; }
+
+  /* Consent */
+  .consent {
+    margin-top: 6px;
+    margin-bottom: 18px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex; gap: 11px;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .consent input[type="checkbox"] {
+    width: 18px; height: 18px;
+    margin: 0; margin-top: 1px;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+  .consent label { cursor: pointer; }
+  .consent a {
+    color: var(--p1-ink);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--p1-ink);
+    font-weight: 600;
+  }
+  .consent strong { color: var(--ink); font-weight: 700; }
+
+  /* CAPTCHA */
+  .captcha {
+    border: 1px dashed var(--line-2);
+    border-radius: 10px;
+    background: var(--bg-2);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    margin-bottom: 16px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .captcha-check {
+    width: 22px; height: 22px;
+    border: 2px solid var(--line-2);
+    border-radius: 4px;
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .captcha-label { flex: 1; color: var(--ink); font-weight: 500; }
+  .captcha-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    background: #fff;
+    padding: 3px 8px;
+    border-radius: 5px;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+
+  /* Banner (form-level error) */
+  .banner {
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .banner-error {
+    background: #fef2f2;
+    border: 1px solid #fbb6b6;
+    color: var(--p2-ink);
+  }
+  .banner-lock {
+    background: #fff7ed;
+    border: 1px solid #fbd9a5;
+    color: #92400e;
+  }
+  .banner .ic {
+    width: 22px; height: 22px; border-radius: 6px;
+    display: grid; place-items: center;
+    flex-shrink: 0; font-weight: 700; font-size: 13px;
+  }
+  .banner-error .ic { background: var(--p2); color: #fff; }
+  .banner-lock .ic { background: var(--accent); color: #fff; }
+  .banner strong { display: block; margin-bottom: 2px; font-weight: 700; }
+  .banner a {
+    color: inherit; font-weight: 600;
+    border-bottom: 1px dashed currentColor;
+    text-decoration: none;
+  }
+
+  /* CTA */
+  .cta {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 13px 16px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #c2740a, 0 6px 12px rgba(245,158,11,.25);
+    transition: transform .08s, box-shadow .12s, background .12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: .02em;
+  }
+  .cta:hover { background: #ea8a09; }
+  .cta:active { transform: translateY(1px); }
+  .cta:disabled, .cta.disabled {
+    background: #d8d3c2;
+    color: #8a8676;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .login-row {
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 16px;
+  }
+  .login-row a {
+    color: var(--p1-ink);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px dashed var(--p1-ink);
+  }
+
+  /* Completion view */
+  .complete-icon {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: var(--success-soft);
+    border: 1px solid #a7f3d0;
+    color: var(--success);
+    display: grid; place-items: center;
+    margin: 0 auto 14px;
+    font-size: 28px;
+    font-weight: 700;
+  }
+  .complete-mail {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 14px 0;
+    text-align: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 24px;
+    padding: 16px;
+  }
+  .footer a { color: var(--ink-soft); margin: 0 10px; text-decoration: none; border-bottom: 1px dotted var(--line-2); }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 36px auto 32px;
+    padding: 0 24px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 16px;
+  }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 10px 12px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11.5px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 9.5px;
+    padding: 2px 5px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 12px; }
+
+  .mini-field {
+    background: #fdfcf8;
+    border: 1px solid var(--line-2);
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-size: 11px;
+    margin-bottom: 6px;
+    color: var(--ink);
+  }
+  .mini-field .lbl {
+    display: block;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 2px;
+  }
+  .mini-field.err {
+    border-color: var(--danger);
+    background: #fef6f6;
+  }
+  .mini-field.err .lbl { color: var(--danger); }
+  .mini-error {
+    color: var(--danger);
+    font-size: 10px;
+    margin-top: 3px;
+    font-weight: 500;
+  }
+  .mini-cta {
+    background: var(--accent); color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 7px;
+    font-size: 11px;
+    font-weight: 700;
+    width: 100%;
+    margin-top: 7px;
+  }
+  .mini-cta.disabled {
+    background: var(--bg-2); color: var(--ink-soft);
+  }
+  .mini-strength {
+    height: 4px;
+    background: var(--bg-2);
+    border-radius: 3px;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 2px;
+    padding: 1px;
+    margin-top: 5px;
+  }
+  .mini-strength .seg { background: var(--bg-2); border-radius: 1.5px; }
+  .mini-strength.weak .seg:nth-child(-n+1) { background: var(--danger); }
+  .mini-strength.strong .seg:nth-child(-n+3) { background: #65a30d; }
+  .mini-strength.vstrong .seg { background: var(--success); }
+  .mini-pw-meta {
+    font-size: 10px;
+    margin-top: 3px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+  }
+  .mini-pw-meta.weak { color: var(--danger); }
+  .mini-pw-meta.strong { color: #65a30d; }
+  .mini-pw-meta.vstrong { color: var(--success); }
+  .mini-banner {
+    background: var(--p2-soft); border: 1px solid #fbb6b6;
+    color: var(--p2-ink); border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 10.5px; margin-bottom: 7px;
+    line-height: 1.45;
+  }
+  .mini-banner.lock {
+    background: #fff7ed; border-color: #fbd9a5; color: #92400e;
+  }
+  .mini-banner strong { display: block; font-size: 11px; }
+  .mini-invite-mode {
+    background: var(--accent-soft);
+    border: 1px solid #fbd9a5;
+    color: #92400e;
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 10px;
+    margin-bottom: 7px;
+    font-weight: 700;
+    text-align: center;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .mini-complete {
+    text-align: center;
+    padding: 6px;
+  }
+  .mini-complete .ic {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--success-soft);
+    color: var(--success);
+    border: 1px solid #a7f3d0;
+    display: grid; place-items: center;
+    margin: 0 auto 6px;
+    font-size: 18px; font-weight: 700;
+  }
+  .mini-complete strong { display: block; font-size: 11.5px; color: var(--ink); margin-bottom: 3px; }
+  .mini-complete .mail {
+    background: var(--bg); border: 1px solid var(--line);
+    padding: 4px 6px;
+    border-radius: 5px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink);
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .mini-promote {
+    background: var(--accent-soft);
+    border: 1px solid #fbd9a5;
+    color: #7c2d12;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 10.5px;
+    margin-bottom: 7px;
+    display: flex; gap: 6px; align-items: center;
+    line-height: 1.4;
+  }
+  .mini-promote .sw {
+    width: 22px; height: 12px;
+    background: var(--accent);
+    border-radius: 999px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .mini-promote .sw::after {
+    content: "";
+    position: absolute;
+    top: 1px; right: 1px;
+    width: 10px; height: 10px;
+    background: #fff;
+    border-radius: 50%;
+  }
+  .mini-captcha {
+    border: 1px dashed var(--line-2);
+    border-radius: 5px;
+    background: var(--bg-2);
+    padding: 5px 8px;
+    margin-bottom: 5px;
+    font-size: 10px;
+    color: var(--ink-soft);
+    display: flex; align-items: center; gap: 6px;
+  }
+  .mini-captcha .box {
+    width: 12px; height: 12px;
+    border: 1.5px solid var(--accent);
+    border-radius: 2px;
+    background: var(--accent-soft);
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <span>対戦・コーディング</span>
+    <span class="brand-tag">v0.2</span>
+  </div>
+  <div class="topbar-meta">
+    既にアカウントをお持ちですか? <a href="#login">ログイン</a>
+  </div>
+</header>
+
+<main class="page">
+  <div class="card-wrap">
+
+    <!-- Promote mode banner (active state shown) -->
+    <div class="mode-banner" role="status">
+      <div class="ic" aria-hidden="true">⇪</div>
+      <div>
+        <strong>クイック参加から本登録への昇格</strong>
+        現在のクイックアカウント <code style="font-family:'JetBrains Mono',monospace; background:#fff; padding:1px 5px; border-radius:4px; color:var(--ink); border:1px solid var(--line); font-size:11.5px;">freekun_38a2</code> から戦績を引き継いで本登録できます。
+      </div>
+    </div>
+
+    <!-- Card -->
+    <section class="card">
+
+      <header class="card-head">
+        <h1>対戦・コーディング に<br>アカウントを作る</h1>
+        <div class="sub">本登録すると、戦績が端末を超えて引き継がれます。</div>
+      </header>
+
+      <div class="card-body">
+
+        <!-- Promote toggle -->
+        <!-- bind: POST /api/auth/signup/promote (when from=quick) -->
+        <div class="promote-card active">
+          <div class="body">
+            <div class="nm">クイックアカウントの戦績を引き継ぐ</div>
+            <div class="meta">
+              <span class="quick-uname">freekun_38a2</span> の戦績・コードを新しいアカウントに移します。
+            </div>
+            <div class="stats">通算 <strong>14</strong> 戦 / 勝率 <strong>57%</strong> / Blocklyコード <strong>3</strong> 件</div>
+          </div>
+          <button class="switch on" aria-label="戦績を引き継ぐ" aria-pressed="true"></button>
+        </div>
+
+        <!-- Form -->
+        <form id="signup-form" novalidate>
+          <!-- bind: POST /api/auth/signup -->
+          <div class="field">
+            <label for="f-username">
+              ユーザー名<span class="req">*</span>
+              <span class="optional">3〜20 文字 / 英数字_</span>
+            </label>
+            <input type="text" id="f-username" class="mono" value="taro_codes" placeholder="例: taro_codes" maxlength="20" required>
+            <div class="field-success">この名前は使えます</div>
+          </div>
+
+          <div class="field">
+            <label for="f-email">
+              メールアドレス<span class="req">*</span>
+            </label>
+            <input type="email" id="f-email" value="taro@example.jp" placeholder="name@example.jp" required>
+            <div class="field-meta">
+              <div class="field-hint">確認メールを送信します。受信できるアドレスを入力してください。</div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="f-pw">
+              パスワード<span class="req">*</span>
+              <span class="optional">最低 10 文字</span>
+            </label>
+            <div class="input-wrap">
+              <input type="password" id="f-pw" class="with-toggle" value="T@ro-codes-2026!" autocomplete="new-password" required>
+              <button type="button" class="pw-toggle" aria-label="パスワードを表示">表示</button>
+            </div>
+            <!-- Strength meter -->
+            <div class="strength-meter">
+              <div class="strength-bar vstrong" role="img" aria-label="パスワード強度: very strong">
+                <span class="strength-seg"></span>
+                <span class="strength-seg"></span>
+                <span class="strength-seg"></span>
+                <span class="strength-seg"></span>
+              </div>
+              <div class="strength-row vstrong">
+                <span class="strength-label">VERY STRONG</span>
+                <span class="hint">推測まで 約 8 千万年</span>
+              </div>
+            </div>
+            <div class="policy-list">
+              <div class="policy-row met">
+                <span class="mark" aria-hidden="true"></span>
+                <span>10 文字以上</span>
+              </div>
+              <div class="policy-row met">
+                <span class="mark" aria-hidden="true"></span>
+                <span>大文字・小文字・数字・記号 のうち 3 種類以上</span>
+              </div>
+              <div class="policy-row met">
+                <span class="mark" aria-hidden="true"></span>
+                <span>辞書 / よく使われるパスワードに含まれない</span>
+              </div>
+              <div class="policy-row met">
+                <span class="mark" aria-hidden="true"></span>
+                <span>ユーザー名 / メールと一致しない</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="f-pw2">
+              パスワード (確認)<span class="req">*</span>
+            </label>
+            <div class="input-wrap">
+              <input type="password" id="f-pw2" class="with-toggle" value="T@ro-codes-2026!" autocomplete="new-password" required>
+              <button type="button" class="pw-toggle" aria-label="パスワードを表示">表示</button>
+            </div>
+            <div class="field-success">一致しました</div>
+          </div>
+
+          <!-- Invite code (optional) -->
+          <div class="field">
+            <label for="f-invite">
+              招待コード
+              <span class="optional">任意 / 招待制ルームで配布</span>
+            </label>
+            <input type="text" id="f-invite" class="mono" value="" placeholder="例: INV-A7F2-K3M9">
+            <div class="field-hint tip">招待コードをお持ちでない場合は空欄のままで OK。サービス全体の招待制が将来有効化された場合は必須になります。</div>
+          </div>
+
+          <!-- CAPTCHA -->
+          <div class="captcha" aria-label="ボット対策確認">
+            <div class="captcha-check" aria-hidden="true"></div>
+            <span class="captcha-label">私はロボットではありません</span>
+            <span class="captcha-tag">CAPTCHA</span>
+          </div>
+
+          <!-- Consent -->
+          <div class="consent">
+            <input type="checkbox" id="f-consent" checked>
+            <label for="f-consent">
+              <strong>同意します。</strong>
+              <a href="#tos">利用規約</a> および <a href="#privacy">プライバシーポリシー</a> を読みました。13 歳未満の方は保護者の同意が必要です。
+            </label>
+          </div>
+
+          <button type="submit" class="cta">アカウントを作成する</button>
+
+          <div class="login-row">
+            既にアカウントをお持ちの方は <a href="#login">ログイン</a>
+          </div>
+        </form>
+
+      </div>
+    </section>
+
+    <footer class="footer">
+      <a href="#tos">利用規約</a>
+      <a href="#privacy">プライバシーポリシー</a>
+      <a href="#help">困ったときは</a>
+      <div style="margin-top: 8px; opacity: .6; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;">© 2026 対戦・コーディング — v0.2</div>
+    </footer>
+  </div>
+</main>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常 / 入力エラー / メール既存 / レート制限 / CAPTCHA 強化 / 登録完了 / 招待制モード / 昇格モード</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常時</span><span class="state-tag">idle</span></header>
+      <div class="state-body">
+        <div class="mini-field"><span class="lbl">ユーザー名</span>taro_codes</div>
+        <div class="mini-field"><span class="lbl">メール</span>taro@example.jp</div>
+        <div class="mini-field"><span class="lbl">パスワード</span>••••••••••••</div>
+        <div class="mini-strength vstrong"><span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span></div>
+        <div class="mini-pw-meta vstrong">VERY STRONG</div>
+        <button class="mini-cta">アカウント作成</button>
+      </div>
+    </article>
+
+    <!-- Field error -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">入力エラー</span><span class="state-tag">field</span></header>
+      <div class="state-body">
+        <div class="mini-field err"><span class="lbl">ユーザー名</span>tt</div>
+        <div class="mini-error">3 文字以上で入力してください。</div>
+        <div class="mini-field"><span class="lbl">メール</span>taro@</div>
+        <div class="mini-error">メールアドレスの形式が正しくありません。</div>
+        <div class="mini-field err"><span class="lbl">パスワード</span>123</div>
+        <div class="mini-strength weak"><span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span></div>
+        <div class="mini-pw-meta weak">WEAK · 10 文字以上必要</div>
+        <button class="mini-cta disabled">送信不可</button>
+      </div>
+    </article>
+
+    <!-- Email exists -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">メール既存</span><span class="state-tag">409</span></header>
+      <div class="state-body">
+        <div class="mini-banner">
+          <strong>このメールは登録済みです</strong>
+          ログインするか、パスワードを忘れた場合はリセットしてください。
+        </div>
+        <div class="mini-field err"><span class="lbl">メール</span>taro@example.jp</div>
+        <button class="mini-cta" style="background:#fff; color:var(--ink); border:1px solid var(--line-2); font-weight:600;">ログイン画面へ →</button>
+      </div>
+    </article>
+
+    <!-- Rate limit -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">レート制限</span><span class="state-tag">429</span></header>
+      <div class="state-body">
+        <div class="mini-banner lock">
+          <strong>⏱ 短時間に試行が集中しています</strong>
+          <span style="font-family:'JetBrains Mono', monospace; font-size: 11px; font-weight:700; color: #92400e;">残り 02:14</span>
+        </div>
+        <div class="mini-field" style="opacity:.6;"><span class="lbl">メール</span>taro@example.jp</div>
+        <div class="mini-field" style="opacity:.6;"><span class="lbl">パスワード</span>••••••••</div>
+        <button class="mini-cta disabled">ロック中</button>
+      </div>
+    </article>
+
+    <!-- CAPTCHA challenge -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">CAPTCHA 強化</span><span class="state-tag">challenge</span></header>
+      <div class="state-body">
+        <div class="mini-banner" style="background:var(--accent-soft); border-color:#fbd9a5; color:#92400e;">
+          <strong>ボット検知の追加確認</strong>
+          画像認証を完了してください。
+        </div>
+        <div class="mini-captcha"><div class="box"></div><span style="flex:1; color:var(--ink);">画像チャレンジ…</span></div>
+        <div class="mini-captcha"><div class="box"></div><span style="flex:1; color:var(--ink);">交差点を選択</span></div>
+        <button class="mini-cta disabled">CAPTCHA 待ち</button>
+      </div>
+    </article>
+
+    <!-- Completed -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">登録完了</span><span class="state-tag">201</span></header>
+      <div class="state-body">
+        <div class="mini-complete">
+          <div class="ic" aria-hidden="true">✉</div>
+          <strong>確認メールを送信しました</strong>
+          <p style="margin:0; font-size: 10.5px; color: var(--ink-soft); line-height: 1.45;">
+            届いたメール内のリンクを<br>クリックして本登録を完了。
+          </p>
+          <div class="mail">taro@example.jp</div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Invite-only mode -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">招待制モード</span><span class="state-tag">invite</span></header>
+      <div class="state-body">
+        <div class="mini-invite-mode">🔒 招待コード必須モード</div>
+        <div class="mini-field err"><span class="lbl">招待コード <span style="color: var(--danger);">*</span></span></div>
+        <div class="mini-error">招待コードを入力してください。</div>
+        <div class="mini-field"><span class="lbl">ユーザー名</span>taro_codes</div>
+        <div class="mini-field"><span class="lbl">メール</span>taro@…</div>
+        <button class="mini-cta disabled">コード未入力</button>
+      </div>
+    </article>
+
+    <!-- Promote mode -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">昇格モード</span><span class="state-tag">quick→full</span></header>
+      <div class="state-body">
+        <div class="mini-promote">
+          <span class="sw" aria-hidden="true"></span>
+          <span><strong style="display:block; font-size:10.5px; color:#7c2d12;">引き継ぐ: ON</strong>freekun_38a2 · 14 戦</span>
+        </div>
+        <div class="mini-field"><span class="lbl">ユーザー名</span>taro_codes</div>
+        <div class="mini-field"><span class="lbl">メール</span>taro@example.jp</div>
+        <div class="mini-strength vstrong"><span class="seg"></span><span class="seg"></span><span class="seg"></span><span class="seg"></span></div>
+        <button class="mini-cta">本登録 + 引き継ぎ</button>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* Dummy submit + interactions */
+  document.getElementById('signup-form').addEventListener('submit', e => {
+    e.preventDefault();
+    console.log('[dummy] POST /api/auth/signup');
+  });
+
+  /* Password toggle */
+  document.querySelectorAll('.pw-toggle').forEach(b => {
+    b.addEventListener('click', () => {
+      const input = b.previousElementSibling;
+      if (!input) return;
+      const isPw = input.type === 'password';
+      input.type = isPw ? 'text' : 'password';
+      b.textContent = isPw ? '隠す' : '表示';
+    });
+  });
+
+  /* Switch toggle */
+  document.querySelectorAll('.switch').forEach(sw => {
+    sw.addEventListener('click', () => {
+      sw.classList.toggle('on');
+      sw.setAttribute('aria-pressed', sw.classList.contains('on'));
+      const card = sw.closest('.promote-card');
+      if (card) card.classList.toggle('active', sw.classList.contains('on'));
+    });
+  });
+</script>
+</body>
+</html>

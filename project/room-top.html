@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ルームトップ | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330;
+    --admin-accent:#7c3aed; --admin-accent-soft:#ede9fe;
+    --room-admin-accent:#0891b2; --room-admin-accent-soft:#cffafe; --room-admin-accent-ink:#155e75;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 1px 2px rgba(31,35,48,.04), 0 1px 1px rgba(31,35,48,.03);
+    --shadow-md: 0 8px 24px rgba(31,35,48,.08), 0 2px 6px rgba(31,35,48,.04);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button, a { font: inherit; }
+  a { color: var(--p1-ink); }
+
+  /* ============ Header ============ */
+  .topbar {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 24px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 14px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 13px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .brand-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    background: var(--accent-soft); border: 1px solid #f3d27d;
+    color: #92400e; padding: 2px 7px; border-radius: 4px; font-weight: 600;
+  }
+  .breadcrumb {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px; color: var(--ink-soft);
+  }
+  .breadcrumb a { color: var(--ink-soft); text-decoration: none; border-bottom: 1px dotted var(--line-2); }
+  .breadcrumb strong { color: var(--ink); font-weight: 600; }
+  .top-right { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+  .user-chip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 12px 5px 5px;
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 12.5px; font-weight: 600;
+  }
+  .avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--p1-soft); color: var(--p1-ink);
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .role-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; font-weight: 600;
+    padding: 3px 7px; border-radius: 4px;
+    background: var(--p1-soft); color: var(--p1-ink);
+    border: 1px solid #bfd5fa;
+  }
+
+  /* ============ Page ============ */
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 28px 32px 32px;
+  }
+
+  /* ============ Hero ============ */
+  .hero {
+    background:
+      radial-gradient(800px 320px at 0% -40%, rgba(8,145,178,.10), transparent 60%),
+      linear-gradient(180deg, #fdfdf8, #f8fdfc);
+    border: 1px solid #99f6e4;
+    border-radius: 18px;
+    padding: 26px 30px 24px;
+    margin-bottom: 18px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+  .hero::after {
+    content: ""; position: absolute;
+    right: -80px; top: -80px;
+    width: 260px; height: 260px;
+    border: 8px solid rgba(8,145,178,.10);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .hero-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 10px;
+  }
+  .room-id-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    padding: 3px 10px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    letter-spacing: .04em;
+    font-weight: 600;
+  }
+  .kind-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 5px;
+    border: 1px solid;
+    letter-spacing: .04em;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .kind-classroom { background: var(--room-admin-accent-soft); color: var(--room-admin-accent-ink); border-color: #a5f3fc; }
+  .kind-tournament { background: var(--admin-accent-soft); color: #6d28d9; border-color: #ddd6fe; }
+  .kind-lobby { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .status-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 5px;
+    border: 1px solid;
+    display: inline-flex; align-items: center; gap: 5px;
+    letter-spacing: .04em;
+  }
+  .status-active { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .status-archived { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .hero h1 {
+    margin: 0 0 6px;
+    font-size: 28px;
+    letter-spacing: -.01em;
+  }
+  .hero .deadline {
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    display: flex; gap: 10px; flex-wrap: wrap;
+    align-items: baseline;
+  }
+  .hero .deadline strong { color: var(--ink); font-weight: 600; }
+  .hero .deadline .remain {
+    background: var(--accent-soft); border: 1px solid #fbd9a5;
+    color: #92400e;
+    padding: 1px 8px;
+    border-radius: 999px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+  }
+  .hero .note {
+    margin-top: 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    background: rgba(255,255,255,.6);
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 9px 12px;
+    line-height: 1.5;
+  }
+  .hero .note strong { color: var(--ink); font-weight: 600; }
+
+  /* ============ Rule summary card ============ */
+  .rule-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 20px 18px;
+    margin-bottom: 22px;
+    box-shadow: var(--shadow-sm);
+  }
+  .rule-card-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 10px;
+  }
+  .rule-card-head h2 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .rule-card-head h2 small {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .rule-card-head .preset {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 3px 9px;
+    border-radius: 5px;
+  }
+  .rule-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+  }
+  .rule-tile {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .rule-tile .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .rule-tile .v {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 17px;
+    font-weight: 800;
+    margin-top: 3px;
+    letter-spacing: -.01em;
+  }
+  .rule-tile .v small { color: var(--ink-soft); font-weight: 600; font-size: 11px; margin-left: 2px; }
+  .rule-tile .v.compact { font-size: 13px; line-height: 1.25; letter-spacing: 0; }
+  .item-chips {
+    display: flex; gap: 4px; flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .item-chip {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--ink);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-weight: 600;
+  }
+  .item-chip.cross { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .item-chip.barrier { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .item-chip.repeat { background: var(--admin-accent-soft); color: var(--admin-accent); border-color: #ddd6fe; }
+
+  /* ============ Content grid ============ */
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);
+    gap: 22px;
+    margin-bottom: 22px;
+  }
+
+  /* ============ Card base ============ */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+  }
+  .card-head {
+    padding: 14px 18px 10px;
+    border-bottom: 1px dashed var(--line);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .card-head h2 {
+    margin: 0; font-size: 13.5px; font-weight: 700;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .card-head h2 small {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .card-head .more {
+    font-size: 12px;
+    color: var(--p1-ink);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--p1-ink);
+    padding-bottom: 1px;
+  }
+  .card-body { padding: 16px 18px; }
+
+  /* ============ Match cards ============ */
+  .filter-row {
+    display: flex; gap: 6px;
+    margin-bottom: 12px;
+    align-items: center;
+  }
+  .filter-chip {
+    appearance: none;
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 5px 11px;
+    border-radius: 999px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .02em;
+  }
+  .filter-chip:hover { color: var(--ink); }
+  .filter-chip.active {
+    background: var(--ink);
+    color: #fff;
+    border-color: var(--ink);
+  }
+  .filter-chip .ct {
+    margin-left: 5px;
+    font-size: 10px;
+    background: rgba(255,255,255,.18);
+    color: inherit;
+    padding: 0 5px;
+    border-radius: 3px;
+  }
+  .filter-chip:not(.active) .ct { background: var(--bg-2); color: var(--ink-soft); }
+
+  .match-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .match-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 14px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .match-card:hover {
+    border-color: var(--line-2);
+    box-shadow: var(--shadow-md);
+  }
+  .match-card.highlight {
+    border-color: var(--accent);
+    background: linear-gradient(180deg, #fffdf5, #fef9e8);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .match-card-top {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 10px;
+  }
+  .match-id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .match-status {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: .04em;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .ms-waiting { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .ms-coding { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .ms-battling { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .ms-open { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .ms-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .ms-battling .ms-dot { animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+  .match-vs {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+  .match-side {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    min-width: 0;
+  }
+  .match-side.you {
+    background: #f5fdfa;
+    border-color: #a7f3d0;
+  }
+  .match-side.empty {
+    background: repeating-linear-gradient(45deg, var(--bg), var(--bg) 4px, var(--bg-2) 4px, var(--bg-2) 8px);
+    border: 1px dashed var(--line-2);
+    color: var(--ink-soft);
+    font-style: italic;
+    font-weight: 500;
+    justify-content: center;
+  }
+  .side-av {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid;
+    flex-shrink: 0;
+  }
+  .side-av.p1 { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .side-av.p2 { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .side-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+  .you-tag {
+    background: var(--success);
+    color: #fff;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: 2px;
+    letter-spacing: .04em;
+    font-weight: 700;
+  }
+  .vs-mid {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    font-weight: 700;
+  }
+
+  .match-meta-row {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    padding-top: 6px;
+    border-top: 1px dashed var(--line);
+  }
+  .meta-pair {
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .meta-pair .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .meta-pair .v { color: var(--ink); font-weight: 600; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+
+  .match-actions {
+    display: flex; gap: 6px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 1px 0 #c2740a;
+    display: inline-flex; align-items: center; gap: 6px;
+    flex: 1;
+    justify-content: center;
+  }
+  .btn-primary:hover { background: #ea8a09; }
+  .btn-primary:disabled, .btn-primary.disabled { background: var(--bg-2); color: var(--ink-soft); cursor: not-allowed; box-shadow: none; }
+  .btn-ghost {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+    flex: 1;
+    justify-content: center;
+    text-decoration: none;
+  }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-ghost.watch {
+    background: var(--room-admin-accent-soft);
+    color: var(--room-admin-accent-ink);
+    border-color: #a5f3fc;
+  }
+  .btn-ghost.watch:hover { background: #99f6e4; }
+
+  /* ============ Empty state ============ */
+  .empty {
+    text-align: center;
+    padding: 28px 16px 18px;
+    color: var(--ink-soft);
+  }
+  .empty .ill {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    margin: 0 auto 10px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 20px;
+  }
+  .empty strong { display: block; color: var(--ink); font-size: 13.5px; margin-bottom: 4px; }
+  .empty p { margin: 0; font-size: 12.5px; line-height: 1.5; }
+
+  /* ============ Right column ============ */
+  .right-stack { display: flex; flex-direction: column; gap: 14px; }
+
+  /* Upcoming */
+  .up-item {
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: center;
+  }
+  .up-item:last-child { border-bottom: none; }
+  .up-when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    text-align: center;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 6px;
+    line-height: 1.2;
+  }
+  .up-when .d { font-weight: 700; color: var(--ink); font-size: 11px; }
+  .up-detail .id { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-soft); }
+  .up-detail .opp { font-weight: 600; font-size: 13px; }
+
+  /* Standings */
+  .stand-list { padding: 0; margin: 0; list-style: none; }
+  .stand-row {
+    display: grid;
+    grid-template-columns: 24px 1fr auto auto;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: center;
+    font-size: 13px;
+  }
+  .stand-row:last-child { border-bottom: none; }
+  .stand-row.you {
+    background: var(--accent-soft);
+    margin: 0 -10px;
+    padding-left: 10px; padding-right: 10px;
+    border-radius: 6px;
+    border-bottom-color: transparent;
+  }
+  .stand-rank {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    text-align: center;
+    color: var(--ink-soft);
+  }
+  .stand-row.you .stand-rank { color: #92400e; }
+  .stand-rank.gold { color: var(--accent); }
+  .stand-name {
+    display: flex; gap: 7px; align-items: center;
+    font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .stand-av {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--p1-soft); color: var(--p1-ink);
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid #bfd5fa;
+  }
+  .stand-wld {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .stand-wr {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 12.5px;
+  }
+
+  .my-rank-card {
+    background: linear-gradient(180deg, #fdfdf8, #faf7ed);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    gap: 12px;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .my-rank-num {
+    width: 56px; height: 56px;
+    border-radius: 14px;
+    background: var(--accent);
+    color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 800;
+    font-size: 22px;
+    box-shadow: inset 0 -3px 0 rgba(0,0,0,.18);
+  }
+  .my-rank-num small { font-size: 11px; opacity: .85; font-weight: 600; }
+  .my-rank-block .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .my-rank-block .v {
+    font-size: 15px;
+    font-weight: 700;
+    margin-top: 2px;
+  }
+  .my-rank-block .v small { color: var(--ink-soft); font-weight: 600; font-size: 11px; margin-left: 3px; }
+
+  /* ============ Announcements ============ */
+  .announce {
+    margin-top: 0;
+  }
+  .ann-list { padding: 0; margin: 0; }
+  .ann-item {
+    display: grid;
+    grid-template-columns: 36px 1fr 90px;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: flex-start;
+  }
+  .ann-item:last-child { border-bottom: none; }
+  .ann-ic {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+    border: 1px solid #ddd6fe;
+    display: grid; place-items: center;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px;
+  }
+  .ann-ic.pin { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .ann-body .ttl {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .ann-body .txt {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  .ann-time {
+    text-align: right;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .ann-author {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 36px auto 32px;
+    padding: 0 32px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 14px; }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 11px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 9px;
+    padding: 2px 5px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 10px; }
+  .mini-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 11px;
+  }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 8px;
+    margin-bottom: 6px;
+    font-size: 10.5px;
+  }
+  .mini-card .id {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 11px;
+  }
+  .mini-card .vs-mini {
+    font-family: "JetBrains Mono", monospace;
+    color: var(--ink-soft);
+    font-size: 10px;
+    margin-top: 3px;
+  }
+  .mini-card.highlight {
+    background: #fffdf5;
+    border-color: var(--accent);
+  }
+  .mini-cta {
+    background: var(--accent); color: #fff;
+    border: none; padding: 5px;
+    border-radius: 5px; font-size: 10px; font-weight: 700;
+    width: 100%; margin-top: 5px;
+  }
+  .mini-cta.ghost {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--line-2);
+  }
+  .mini-cta.watch {
+    background: var(--room-admin-accent-soft);
+    color: var(--room-admin-accent-ink);
+    border: 1px solid #a5f3fc;
+  }
+  .mini-empty {
+    text-align: center;
+    padding: 18px 6px 12px;
+    color: var(--ink-soft);
+  }
+  .mini-empty .ill {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    margin: 0 auto 6px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+  }
+  .mini-empty strong { display: block; color: var(--ink); font-size: 11.5px; margin-bottom: 2px; }
+  .mini-empty p { margin: 0; font-size: 10.5px; }
+  .mini-arch {
+    background: var(--bg-2); border: 1px solid var(--line-2);
+    color: var(--ink-soft);
+    padding: 6px 8px; border-radius: 6px;
+    font-size: 10.5px; margin-bottom: 6px;
+  }
+  .mini-arch strong { display: block; color: var(--ink); font-size: 11px; }
+  .mini-private {
+    background: var(--bg); border: 1px dashed var(--line-2);
+    color: var(--ink-soft);
+    padding: 14px 6px; border-radius: 6px;
+    font-size: 10.5px;
+    text-align: center;
+    margin-bottom: 4px;
+  }
+  .mini-private strong { display: block; color: var(--ink); font-size: 11px; margin-bottom: 2px; }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <span>対戦・コーディング</span>
+    <span class="brand-tag">v0.2</span>
+  </div>
+  <div class="breadcrumb"><a href="#dashboard">ダッシュボード</a> / <strong>ROOM-2026-0142</strong></div>
+  <div class="top-right">
+    <div class="user-chip" aria-label="ログイン中のユーザー">
+      <div class="avatar" aria-hidden="true">TR</div>
+      <span>たろう_06</span>
+      <span class="role-badge">ROOM_USER</span>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- ============ Hero ============ -->
+  <!-- bind: GET /api/rooms/:roomNumber -->
+  <section class="hero" aria-label="ルームヒーロー">
+    <div class="hero-row">
+      <span class="room-id-pill">ROOM-2026-0142</span>
+      <span class="kind-badge kind-classroom">▣ CLASSROOM</span>
+      <span class="status-badge status-active"><span class="dot" aria-hidden="true"></span>ACTIVE</span>
+      <span style="margin-left:auto; font-size:12px; color: var(--ink-soft); font-family:'JetBrains Mono',monospace;">管理者: 中村先生</span>
+    </div>
+    <h1>3-A クラス・5月課題</h1>
+    <div class="deadline">
+      期限: <strong>2026/05/31 (金) 23:59</strong>
+      <span class="remain">残り 11 日</span>
+      <span style="color: var(--ink-soft);">·</span>
+      <span>参加: <strong>28 名</strong> · 進行中: <strong>3</strong> · 募集中: <strong>2</strong></span>
+    </div>
+    <div class="note">
+      📌 <strong>目標:</strong> 期限までに最低 3 試合を完了させ、戦績を提出してください。再戦は何度でもできます。
+    </div>
+  </section>
+
+  <!-- ============ Rule summary ============ -->
+  <section class="rule-card" aria-label="ルール要約">
+    <header class="rule-card-head">
+      <h2>ルール要約 <small>// match rules</small></h2>
+      <span class="preset">プリセット: 標準</span>
+    </header>
+    <div class="rule-grid">
+      <div class="rule-tile">
+        <div class="k">// 盤面サイズ</div>
+        <div class="v">10 × 10</div>
+      </div>
+      <div class="rule-tile">
+        <div class="k">// 最大ターン</div>
+        <div class="v">20</div>
+      </div>
+      <div class="rule-tile">
+        <div class="k">// AP / ターン</div>
+        <div class="v">2</div>
+      </div>
+      <div class="rule-tile">
+        <div class="k">// 障害物</div>
+        <div class="v">9<small>個</small></div>
+      </div>
+      <div class="rule-tile">
+        <div class="k">// アイテム</div>
+        <div class="v compact" style="display:none;"></div>
+        <div class="item-chips">
+          <span class="item-chip cross">CROSS</span>
+          <span class="item-chip barrier">BARRIER</span>
+          <span class="item-chip repeat">REPEAT</span>
+        </div>
+      </div>
+      <div class="rule-tile">
+        <div class="k">// コーディング制限</div>
+        <div class="v">5:00</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Content grid ============ -->
+  <div class="grid">
+
+    <!-- Match sessions (left) -->
+    <!-- bind: GET /api/rooms/:roomNumber/matches?status=open|live -->
+    <section class="card" aria-label="進行中・募集中マッチ">
+      <header class="card-head">
+        <h2>進行中・募集中のマッチ <small>// active &amp; recruiting</small></h2>
+        <a href="#all-matches" class="more">すべてのマッチ →</a>
+      </header>
+      <div class="card-body">
+        <div class="filter-row" role="group" aria-label="フィルタ">
+          <button class="filter-chip active">ALL <span class="ct">5</span></button>
+          <button class="filter-chip">LIVE <span class="ct">2</span></button>
+          <button class="filter-chip">CODING <span class="ct">1</span></button>
+          <button class="filter-chip">OPEN <span class="ct">2</span></button>
+        </div>
+
+        <div class="match-grid">
+
+          <!-- Match 1: highlighted - your match -->
+          <article class="match-card highlight">
+            <div class="match-card-top">
+              <span class="match-id">#M-22064</span>
+              <span class="match-status ms-coding"><span class="ms-dot" aria-hidden="true"></span>CODING</span>
+            </div>
+            <div class="match-vs">
+              <div class="match-side you">
+                <span class="side-av p1">TR</span>
+                <span class="side-name">たろう_06 <span class="you-tag">YOU</span></span>
+              </div>
+              <span class="vs-mid">vs</span>
+              <div class="match-side">
+                <span class="side-av p2">HC</span>
+                <span class="side-name">HanaCoder</span>
+              </div>
+            </div>
+            <div class="match-meta-row">
+              <span class="meta-pair"><span class="k">締切</span><span class="v">02:48 後</span></span>
+              <span class="meta-pair"><span class="k">作成</span><span class="v">14:30</span></span>
+            </div>
+            <div class="match-actions">
+              <button class="btn-primary">▸ 入室する</button>
+            </div>
+          </article>
+
+          <!-- Match 2: live -->
+          <article class="match-card">
+            <div class="match-card-top">
+              <span class="match-id">#M-22062</span>
+              <span class="match-status ms-battling"><span class="ms-dot" aria-hidden="true"></span>BATTLING</span>
+            </div>
+            <div class="match-vs">
+              <div class="match-side">
+                <span class="side-av p1">MI</span>
+                <span class="side-name">misora.dev</span>
+              </div>
+              <span class="vs-mid">vs</span>
+              <div class="match-side">
+                <span class="side-av p2">K9</span>
+                <span class="side-name">K-9bot</span>
+              </div>
+            </div>
+            <div class="match-meta-row">
+              <span class="meta-pair"><span class="k">経過</span><span class="v">T8 / 20</span></span>
+              <span class="meta-pair"><span class="k">観戦</span><span class="v">5 名</span></span>
+            </div>
+            <div class="match-actions">
+              <a class="btn-ghost watch" href="#watch-22062">▸ 観戦する</a>
+            </div>
+          </article>
+
+          <!-- Match 3: live -->
+          <article class="match-card">
+            <div class="match-card-top">
+              <span class="match-id">#M-22061</span>
+              <span class="match-status ms-coding"><span class="ms-dot" aria-hidden="true"></span>CODING</span>
+            </div>
+            <div class="match-vs">
+              <div class="match-side">
+                <span class="side-av p1">TN</span>
+                <span class="side-name">tanu_55</span>
+              </div>
+              <span class="vs-mid">vs</span>
+              <div class="match-side">
+                <span class="side-av p2">KN</span>
+                <span class="side-name">kuroneko</span>
+              </div>
+            </div>
+            <div class="match-meta-row">
+              <span class="meta-pair"><span class="k">締切</span><span class="v">04:12 後</span></span>
+              <span class="meta-pair"><span class="k">観戦</span><span class="v">2 名</span></span>
+            </div>
+            <div class="match-actions">
+              <a class="btn-ghost watch" href="#watch-22061">▸ 観戦する</a>
+            </div>
+          </article>
+
+          <!-- Match 4: open (waiting) -->
+          <article class="match-card">
+            <div class="match-card-top">
+              <span class="match-id">#M-22070</span>
+              <span class="match-status ms-open"><span class="ms-dot" aria-hidden="true"></span>OPEN</span>
+            </div>
+            <div class="match-vs">
+              <div class="match-side">
+                <span class="side-av p1">YK</span>
+                <span class="side-name">yukikko</span>
+              </div>
+              <span class="vs-mid">vs</span>
+              <div class="match-side empty">
+                ? 募集中
+              </div>
+            </div>
+            <div class="match-meta-row">
+              <span class="meta-pair"><span class="k">発行</span><span class="v">14:55</span></span>
+              <span class="meta-pair"><span class="k">期限</span><span class="v">本日中</span></span>
+            </div>
+            <div class="match-actions">
+              <button class="btn-primary">＋ 参加する</button>
+              <a class="btn-ghost" href="#detail-22070">詳細</a>
+            </div>
+          </article>
+
+          <!-- Match 5: open -->
+          <article class="match-card">
+            <div class="match-card-top">
+              <span class="match-id">#M-22071</span>
+              <span class="match-status ms-open"><span class="ms-dot" aria-hidden="true"></span>OPEN</span>
+            </div>
+            <div class="match-vs">
+              <div class="match-side empty">? 募集中</div>
+              <span class="vs-mid">vs</span>
+              <div class="match-side empty">? 募集中</div>
+            </div>
+            <div class="match-meta-row">
+              <span class="meta-pair"><span class="k">発行</span><span class="v">15:10</span></span>
+              <span class="meta-pair"><span class="k">期限</span><span class="v">明日中</span></span>
+            </div>
+            <div class="match-actions">
+              <button class="btn-primary">＋ 参加する</button>
+              <a class="btn-ghost" href="#detail-22071">詳細</a>
+            </div>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- Right column -->
+    <div class="right-stack">
+
+      <!-- Your rank summary -->
+      <!-- bind: GET /api/rooms/:roomNumber/standings (self) -->
+      <section class="my-rank-card" aria-label="あなたのルーム内順位">
+        <div class="my-rank-num">3<small>位</small></div>
+        <div class="my-rank-block">
+          <div class="k">// 勝率</div>
+          <div class="v">62<small>%</small></div>
+        </div>
+        <div class="my-rank-block">
+          <div class="k">// W / L / D</div>
+          <div class="v">8 / 4 / 1</div>
+        </div>
+      </section>
+
+      <!-- Upcoming -->
+      <!-- bind: GET /api/me/upcoming-matches?roomNumber=:n -->
+      <section class="card" aria-label="あなたの予定">
+        <header class="card-head">
+          <h2>あなたの予定 <small>// upcoming</small></h2>
+        </header>
+        <div class="card-body" style="padding-top: 6px; padding-bottom: 8px;">
+          <div class="up-item">
+            <div class="up-when">
+              <div class="d">今</div>
+              <div>進行中</div>
+            </div>
+            <div class="up-detail">
+              <div class="id">#M-22064 · CODING</div>
+              <div class="opp">vs HanaCoder</div>
+            </div>
+            <button class="btn-primary" style="padding: 6px 12px;">入室</button>
+          </div>
+          <div class="up-item">
+            <div class="up-when">
+              <div class="d">水</div>
+              <div>15:00</div>
+            </div>
+            <div class="up-detail">
+              <div class="id">#M-22088</div>
+              <div class="opp">vs K-9bot</div>
+            </div>
+            <a class="btn-ghost" href="#m-22088" style="padding: 6px 10px;">詳細</a>
+          </div>
+          <div class="up-item">
+            <div class="up-when">
+              <div class="d">5/31</div>
+              <div>23:59</div>
+            </div>
+            <div class="up-detail">
+              <div class="id">提出締切</div>
+              <div class="opp">残 1 試合 必要</div>
+            </div>
+            <a class="btn-ghost" href="#deadline" style="padding: 6px 10px;">確認</a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Standings -->
+      <!-- bind: GET /api/rooms/:roomNumber/standings?limit=5 -->
+      <section class="card" aria-label="ルームランキング">
+        <header class="card-head">
+          <h2>ルーム内ランキング <small>// Top 5</small></h2>
+          <a href="#standings" class="more">全員 →</a>
+        </header>
+        <div class="card-body" style="padding-top: 6px;">
+          <ol class="stand-list">
+            <li class="stand-row">
+              <span class="stand-rank gold">1</span>
+              <span class="stand-name"><span class="stand-av">HC</span>HanaCoder</span>
+              <span class="stand-wld">12-3</span>
+              <span class="stand-wr">80%</span>
+            </li>
+            <li class="stand-row">
+              <span class="stand-rank">2</span>
+              <span class="stand-name"><span class="stand-av">MI</span>misora.dev</span>
+              <span class="stand-wld">10-5</span>
+              <span class="stand-wr">66%</span>
+            </li>
+            <li class="stand-row you">
+              <span class="stand-rank">3</span>
+              <span class="stand-name"><span class="stand-av">TR</span>たろう_06 <span class="you-tag">YOU</span></span>
+              <span class="stand-wld">8-4</span>
+              <span class="stand-wr">62%</span>
+            </li>
+            <li class="stand-row">
+              <span class="stand-rank">4</span>
+              <span class="stand-name"><span class="stand-av">KN</span>kuroneko</span>
+              <span class="stand-wld">9-6</span>
+              <span class="stand-wr">60%</span>
+            </li>
+            <li class="stand-row">
+              <span class="stand-rank">5</span>
+              <span class="stand-name"><span class="stand-av">TN</span>tanu_55</span>
+              <span class="stand-wld">7-6</span>
+              <span class="stand-wr">53%</span>
+            </li>
+          </ol>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ============ Announcements ============ -->
+  <section class="card announce" aria-label="お知らせ">
+    <header class="card-head">
+      <h2>お知らせ <small>// from room admins</small></h2>
+      <span style="font-family:'JetBrains Mono',monospace; font-size:11px; color: var(--ink-soft);">3 件</span>
+    </header>
+    <div class="card-body">
+      <ul class="ann-list" style="list-style:none; padding:0; margin:0;">
+        <li class="ann-item">
+          <div class="ann-ic pin" aria-label="ピン留め">📌</div>
+          <div class="ann-body">
+            <div class="ttl">提出期限まで残り 11 日です。</div>
+            <div class="txt">最低 3 試合の戦績を完了させてください。間に合わない場合は事前に相談を。</div>
+            <div class="ann-author">中村先生 (ROOM_ADMIN)</div>
+          </div>
+          <div class="ann-time">5/20<br>10:24</div>
+        </li>
+        <li class="ann-item">
+          <div class="ann-ic" aria-label="お知らせ">!</div>
+          <div class="ann-body">
+            <div class="ttl">REPEAT_ACTIONS アイテムの仕様変更</div>
+            <div class="txt">前回の連続アクションが <strong>2 回まで</strong> に制限されました。同じターン内の連発はできません。</div>
+            <div class="ann-author">中村先生 (ROOM_ADMIN)</div>
+          </div>
+          <div class="ann-time">5/18<br>17:02</div>
+        </li>
+        <li class="ann-item">
+          <div class="ann-ic" aria-label="お知らせ">i</div>
+          <div class="ann-body">
+            <div class="ttl">来週水曜 15:00 に「全員リーグ戦」を予定</div>
+            <div class="txt">必修ではありませんが、ぜひ参加してみてください。事前にコードを 1 回見直しておくと安心です。</div>
+            <div class="ann-author">中村先生 (ROOM_ADMIN)</div>
+          </div>
+          <div class="ann-time">5/15<br>09:18</div>
+        </li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常 / 募集中マッチゼロ / 予定なし / 観戦者視点 / ランキング非公開 / アーカイブ済み</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常</span><span class="state-tag">ok</span></header>
+      <div class="state-body">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft); margin-bottom: 6px;">// 進行中・募集中</div>
+        <div class="mini-card highlight">
+          <div class="id">#M-22064</div>
+          <div class="vs-mini">YOU vs HanaCoder · CODING</div>
+          <button class="mini-cta">入室する</button>
+        </div>
+        <div class="mini-card">
+          <div class="id">#M-22070</div>
+          <div class="vs-mini">yukikko vs ? OPEN</div>
+          <button class="mini-cta">＋ 参加する</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- Open zero -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">募集中ゼロ</span><span class="state-tag">no-open</span></header>
+      <div class="state-body">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft); margin-bottom: 6px;">// 進行中・募集中</div>
+        <div class="mini-card">
+          <div class="id">#M-22062</div>
+          <div class="vs-mini">misora vs K-9 · BATTLING</div>
+          <button class="mini-cta watch">▸ 観戦</button>
+        </div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">∅</div>
+          <strong>募集中マッチはありません</strong>
+          <p>新しいマッチカードを<br>管理者が用意するまでお待ちを。</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- No upcoming -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">予定なし</span><span class="state-tag">empty-up</span></header>
+      <div class="state-body">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft); margin-bottom: 6px;">// あなたの予定</div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">◷</div>
+          <strong>予定はありません</strong>
+          <p>募集中マッチに参加するか、<br>管理者の発行を待ちましょう。</p>
+        </div>
+        <div class="mini-row"><span style="font-family:'JetBrains Mono',monospace; font-size:10px;">期限</span><strong>5/31 23:59</strong></div>
+        <div class="mini-row"><span style="font-family:'JetBrains Mono',monospace; font-size:10px;">完了済み</span><strong>1 / 3</strong></div>
+      </div>
+    </article>
+
+    <!-- Spectator -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">観戦者視点</span><span class="state-tag">spectate</span></header>
+      <div class="state-body">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft); margin-bottom: 6px;">// 観戦者として閲覧中</div>
+        <div class="mini-card">
+          <div class="id">#M-22064</div>
+          <div class="vs-mini">たろう vs HanaCoder · CODING</div>
+          <button class="mini-cta watch">▸ 観戦のみ</button>
+        </div>
+        <div class="mini-card">
+          <div class="id">#M-22070</div>
+          <div class="vs-mini">yukikko vs ? OPEN</div>
+          <button class="mini-cta ghost" disabled style="opacity:.5;">参加不可</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- Private ranking -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">ランキング非公開</span><span class="state-tag">private</span></header>
+      <div class="state-body">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft); margin-bottom: 6px;">// ルーム内ランキング</div>
+        <div class="mini-private">
+          <strong>🔒 非公開設定</strong>
+          このルームではランキングが<br>公開されていません。
+        </div>
+        <div class="mini-row"><span style="font-family:'JetBrains Mono',monospace; font-size:10px;">あなたの順位</span><strong>表示可</strong></div>
+        <div class="mini-row"><span style="font-family:'JetBrains Mono',monospace; font-size:10px;">他者の戦績</span><strong style="color: var(--ink-soft);">非表示</strong></div>
+      </div>
+    </article>
+
+    <!-- Archived -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">アーカイブ済み</span><span class="state-tag">readonly</span></header>
+      <div class="state-body">
+        <div class="mini-arch">
+          <strong>読み取り専用</strong>
+          このルームはアーカイブ済みです。
+        </div>
+        <div class="mini-card" style="opacity: .65;">
+          <div class="id">#M-22001</div>
+          <div class="vs-mini">過去ログ · WIN by HanaCoder</div>
+          <button class="mini-cta ghost" disabled style="opacity:.5;">参加不可</button>
+        </div>
+        <div class="mini-card" style="opacity: .65;">
+          <div class="id">#M-22002</div>
+          <div class="vs-mini">過去ログ · WIN by misora</div>
+          <button class="mini-cta watch">▸ リプレイ</button>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — simulates room-top API responses.
+     ========================================================= */
+  const ROOM = {
+    id: 'ROOM-2026-0142',
+    name: '3-A クラス・5月課題',
+    kind: 'CLASSROOM',
+    status: 'ACTIVE',
+    deadline: '2026-05-31T23:59:00+09:00',
+    rule: {
+      boardSize: '10x10',
+      maxTurn: 20,
+      apPerTurn: 2,
+      obstacles: 9,
+      items: ['CROSS', 'BARRIER', 'REPEAT'],
+      codingSeconds: 300,
+      preset: '標準',
+    },
+    members: 28,
+    standingsPublic: true,
+  };
+
+  const MATCHES = [
+    { id:'#M-22064', status:'CODING',   p1:{i:'TR',n:'たろう_06', you:true}, p2:{i:'HC',n:'HanaCoder'} },
+    { id:'#M-22062', status:'BATTLING', p1:{i:'MI',n:'misora.dev'},          p2:{i:'K9',n:'K-9bot'} },
+    { id:'#M-22061', status:'CODING',   p1:{i:'TN',n:'tanu_55'},             p2:{i:'KN',n:'kuroneko'} },
+    { id:'#M-22070', status:'OPEN',     p1:{i:'YK',n:'yukikko'},             p2:null },
+    { id:'#M-22071', status:'OPEN',     p1:null,                              p2:null },
+  ];
+
+  /* Filter chip toggling */
+  document.querySelectorAll('.filter-chip').forEach(c => {
+    c.addEventListener('click', () => {
+      c.parentElement.querySelectorAll('.filter-chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+    });
+  });
+
+  console.log('[dummy GET /api/rooms/:n]', ROOM);
+  console.log('[dummy GET /api/rooms/:n/matches]', MATCHES);
+</script>
+</body>
+</html>

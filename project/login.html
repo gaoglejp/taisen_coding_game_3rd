@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ログイン | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330; --admin-accent:#7c3aed; --room-admin-accent:#0891b2;
+    --danger:#dc2626; --success:#15803d;
+    --radius: 14px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 1px 2px rgba(31,35,48,.04), 0 1px 1px rgba(31,35,48,.03);
+    --shadow-md: 0 6px 18px rgba(31,35,48,.06), 0 2px 4px rgba(31,35,48,.04);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Focus ring */
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  button:focus-visible, a:focus-visible, input:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* Header (warm paper) */
+  .topbar {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 16px; letter-spacing: .02em;
+  }
+  .brand-mark {
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    background: var(--ink);
+    color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 14px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .brand-tag {
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    padding: 3px 8px;
+    background: var(--accent-soft);
+    border: 1px solid #f3d27d;
+    border-radius: 999px;
+  }
+  .topbar-meta {
+    font-size: 13px; color: var(--ink-soft);
+    display: flex; gap: 18px; align-items: center;
+  }
+
+  /* Page layout */
+  .page {
+    padding: 56px 24px 24px;
+    max-width: 1440px;
+    margin: 0 auto;
+  }
+
+  .login-shell {
+    display: grid;
+    grid-template-columns: 1fr 520px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+  .login-shell > .intro { grid-column: 1; }
+  .login-shell > .login-card-wrap { grid-column: 2; }
+  .login-shell > .sidekick { grid-column: 3; }
+
+  .intro {
+    padding: 8px 8px 0 8px;
+    max-width: 360px;
+    margin-left: auto;
+  }
+  .intro h1 {
+    font-size: 28px;
+    margin: 0 0 12px;
+    line-height: 1.25;
+    letter-spacing: -.01em;
+  }
+  .intro p {
+    font-size: 14px;
+    color: var(--ink-soft);
+    margin: 0 0 16px;
+  }
+  .feature {
+    display: flex; gap: 10px;
+    padding: 10px 0;
+    border-top: 1px dashed var(--line-2);
+    font-size: 13px;
+    color: var(--ink);
+  }
+  .feature .ic {
+    width: 28px; height: 28px;
+    border-radius: 8px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    color: var(--ink);
+    font-size: 14px;
+  }
+  .feature .ic.blue { background: var(--p1-soft); border-color: #bfd5fa; color: var(--p1-ink); }
+  .feature .ic.amber { background: var(--accent-soft); border-color: #f3d27d; color: #92400e; }
+  .feature .ic.red { background: var(--p2-soft); border-color: #fbb6b6; color: var(--p2-ink); }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+  }
+  .tab {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 18px 12px 14px;
+    font: inherit;
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    border-right: 1px solid var(--line);
+    transition: background .15s, color .15s;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .tab:last-child { border-right: none; }
+  .tab small {
+    display: block;
+    font-size: 10.5px;
+    font-weight: 500;
+    color: var(--ink-soft);
+    margin-top: 3px;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .02em;
+  }
+  .tab:hover { background: rgba(255,255,255,.5); color: var(--ink); }
+  .tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+    background: var(--surface);
+  }
+  .tab.active small { color: #92400e; }
+
+  /* Tab body */
+  .panel { padding: 28px 32px 24px; }
+  .panel-hint {
+    display: flex; gap: 10px; align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-bottom: 22px;
+  }
+  .panel-hint .ic {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--accent-soft);
+    border: 1px solid #f3d27d;
+    display: grid; place-items: center;
+    color: #92400e;
+    flex-shrink: 0;
+    font-size: 12px;
+  }
+
+  /* Form */
+  .field { margin-bottom: 16px; }
+  .field label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--ink);
+  }
+  .field .req { color: var(--p2); font-weight: 700; margin-left: 2px; }
+  .field input[type="text"],
+  .field input[type="password"],
+  .field input[type="email"] {
+    width: 100%;
+    padding: 11px 13px;
+    border: 1px solid var(--line-2);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    font-size: 14px;
+    background: #fdfcf8;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+    color: var(--ink);
+  }
+  .field input::placeholder { color: #a8a394; }
+  .field input:focus {
+    background: #fff;
+    border-color: var(--accent);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(245,158,11,.18);
+  }
+  .field.mono input { font-family: "JetBrains Mono", monospace; letter-spacing: .04em; }
+  .field-meta {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-top: 6px;
+  }
+  .field-hint { font-size: 11.5px; color: var(--ink-soft); }
+  .field-count { font-size: 11px; color: var(--ink-soft); font-family: "JetBrains Mono", monospace; }
+  .field-error {
+    font-size: 12px;
+    color: var(--danger);
+    margin-top: 6px;
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    font-weight: 500;
+  }
+  .field-error::before {
+    content: "!";
+    width: 14px; height: 14px;
+    background: var(--danger);
+    color: #fff;
+    border-radius: 50%;
+    display: inline-grid;
+    place-items: center;
+    font-size: 10px;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .field.has-error input {
+    border-color: var(--danger);
+    background: #fef6f6;
+  }
+  .field.has-error input:focus {
+    box-shadow: 0 0 0 3px rgba(220,38,38,.15);
+  }
+
+  .helper-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: -4px 0 18px;
+    font-size: 12.5px;
+  }
+  .helper-row a {
+    color: var(--p1-ink);
+    text-decoration: none;
+    font-weight: 500;
+    border-bottom: 1px dashed var(--p1-ink);
+    padding-bottom: 1px;
+  }
+  .helper-row a:hover { color: var(--p1); border-bottom-style: solid; }
+
+  /* CAPTCHA */
+  .captcha {
+    border: 1px dashed var(--line-2);
+    border-radius: var(--radius-sm);
+    background: var(--bg-2);
+    padding: 14px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .captcha-check {
+    width: 22px; height: 22px;
+    border: 2px solid var(--line-2);
+    border-radius: 4px;
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .captcha-label { flex: 1; color: var(--ink); font-weight: 500; }
+  .captcha-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    background: #fff;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+
+  /* Banner */
+  .banner {
+    border-radius: var(--radius-sm);
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 13px;
+  }
+  .banner-error {
+    background: #fef2f2;
+    border: 1px solid #fbb6b6;
+    color: var(--p2-ink);
+  }
+  .banner-lock {
+    background: #fff7ed;
+    border: 1px solid #fbd9a5;
+    color: #92400e;
+  }
+  .banner .ic {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .banner-error .ic { background: var(--p2); color: #fff; }
+  .banner-lock .ic { background: var(--accent); color: #fff; }
+  .banner-body { line-height: 1.5; }
+  .banner-body strong { display: block; margin-bottom: 2px; }
+  .banner-body .meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .countdown {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 600;
+    font-size: 14px;
+    color: #92400e;
+  }
+
+  /* CTA */
+  .cta {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 14px 16px;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #c2740a, 0 6px 12px rgba(245,158,11,.25);
+    transition: transform .08s, box-shadow .12s, background .12s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: .02em;
+  }
+  .cta:hover { background: #ea8a09; }
+  .cta:active { transform: translateY(1px); box-shadow: 0 1px 0 #c2740a, 0 3px 8px rgba(245,158,11,.2); }
+  .cta:disabled {
+    background: #d8d3c2;
+    color: #8a8676;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+
+  .loader {
+    width: 16px; height: 16px;
+    border: 2.5px solid rgba(255,255,255,.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .signup-row {
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 18px;
+  }
+  .signup-row a {
+    color: var(--p1-ink);
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px dashed var(--p1-ink);
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin-top: 32px;
+    padding: 16px;
+  }
+  .footer a { color: var(--ink-soft); margin: 0 10px; text-decoration: none; border-bottom: 1px dotted var(--line-2); }
+  .footer a:hover { color: var(--ink); }
+
+  /* Sidekick */
+  .sidekick {
+    padding: 8px;
+    max-width: 280px;
+  }
+  .sidekick-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-bottom: 14px;
+  }
+  .sidekick-card h4 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--ink);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .sidekick-card ul { margin: 0; padding-left: 16px; }
+  .sidekick-card li { margin-bottom: 4px; }
+  .role-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    margin-right: 6px;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid;
+  }
+  .role-system { background: #ede9fe; color: var(--admin-accent); border-color: #ddd6fe; }
+  .role-room-admin { background: #cffafe; color: var(--room-admin-accent); border-color: #a5f3fc; }
+  .role-room-user { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .role-general { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+
+  /* State gallery */
+  .gallery {
+    max-width: 1440px;
+    margin: 64px auto 24px;
+    padding: 0 24px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 28px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .gallery-head h2 {
+    margin: 0;
+    font-size: 16px;
+    font-family: "JetBrains Mono", monospace;
+    color: var(--ink);
+    letter-spacing: -.01em;
+  }
+  .gallery-head p {
+    margin: 0;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: 16px;
+    align-items: start;
+  }
+  .state {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    font-size: 12.5px;
+  }
+  .state-head {
+    padding: 10px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .state-name { font-weight: 700; font-size: 12px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 14px; }
+
+  .mini-field {
+    background: #fdfcf8;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 11.5px;
+    margin-bottom: 8px;
+    color: var(--ink);
+  }
+  .mini-field .lbl { display: block; font-size: 9.5px; color: var(--ink-soft); margin-bottom: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .mini-field.err { border-color: var(--danger); background: #fef6f6; }
+  .mini-field.err .lbl { color: var(--danger); }
+  .mini-error {
+    color: var(--danger);
+    font-size: 10.5px;
+    margin-top: 2px;
+    font-weight: 500;
+  }
+  .mini-banner {
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    font-size: 11px;
+    line-height: 1.4;
+    display: flex; gap: 6px;
+  }
+  .mini-banner.err { background: #fef2f2; border: 1px solid #fbb6b6; color: var(--p2-ink); }
+  .mini-banner.lock { background: #fff7ed; border: 1px solid #fbd9a5; color: #92400e; }
+  .mini-cta {
+    width: 100%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .mini-cta.disabled {
+    background: #d8d3c2;
+    color: #8a8676;
+    cursor: not-allowed;
+  }
+  .mini-cta .loader { width: 11px; height: 11px; border-width: 2px; }
+  .mini-captcha {
+    border: 1px dashed var(--line-2);
+    border-radius: 7px;
+    background: var(--bg-2);
+    padding: 7px 10px;
+    margin-bottom: 8px;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    display: flex; align-items: center; gap: 7px;
+  }
+  .mini-captcha-box {
+    width: 14px; height: 14px; border: 1.5px solid var(--line-2);
+    border-radius: 3px; background: #fff;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ====== Top bar (warm paper, general UI) ====== -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <div>
+      対戦・コーディング
+      <span class="brand-tag">v0.2</span>
+    </div>
+  </div>
+  <div class="topbar-meta">
+    <span>ヘルプ</span>
+    <span>日本語 / English</span>
+  </div>
+</header>
+
+<!-- ====== Main login area ====== -->
+<main class="page">
+  <div class="login-shell">
+
+    <!-- Intro (left) -->
+    <section class="intro" aria-label="サービス紹介">
+      <h1>ブロックを組んで、自動対戦で学ぼう。</h1>
+      <p>Blockly で行動ロジックを組み立て、エージェント同士を戦わせるコーディング学習ゲーム。最初は数行の動きから、すこしずつ賢くしていきます。</p>
+      <div class="feature">
+        <div class="ic blue" aria-hidden="true">B</div>
+        <div><strong>Blockly で書く。</strong> プログラミング未経験でも、ブロックを並べるだけ。</div>
+      </div>
+      <div class="feature">
+        <div class="ic amber" aria-hidden="true">A</div>
+        <div><strong>自動で戦う。</strong> 提出すると、用意したロジックで対戦が始まります。</div>
+      </div>
+      <div class="feature">
+        <div class="ic red" aria-hidden="true">R</div>
+        <div><strong>授業で使える。</strong> ルームを発行すれば、クラスごとに分けて運用できます。</div>
+      </div>
+    </section>
+
+    <!-- Login card (center) -->
+    <section class="login-card-wrap" aria-label="ログインカード">
+      <div class="card">
+        <!-- Tabs -->
+        <div class="tabs" role="tablist" aria-label="ログイン方法">
+          <button class="tab active" role="tab" aria-selected="true" id="tab-A" data-tab="A">
+            通常アカウント
+            <small>A · USER / ADMIN</small>
+          </button>
+          <button class="tab" role="tab" aria-selected="false" id="tab-B" data-tab="B">
+            ルームコードで参加
+            <small>B · ROOM_USER</small>
+          </button>
+          <button class="tab" role="tab" aria-selected="false" id="tab-C" data-tab="C">
+            ユーザー名だけで試す
+            <small>C · QUICK</small>
+          </button>
+        </div>
+
+        <!-- Panel A: 通常アカウント -->
+        <div class="panel" role="tabpanel" data-panel="A" id="panel-A">
+          <div class="panel-hint">
+            <div class="ic" aria-hidden="true">i</div>
+            <div>個人で登録した方、教員 / ルーム管理者、システム管理者の方はこちらから。</div>
+          </div>
+
+          <form id="form-A" novalidate>
+            <!-- bind: POST /api/auth/login (mode=A) -->
+            <div class="field">
+              <label for="A-id">ユーザー名 または メールアドレス<span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="A-id" name="identifier" autocomplete="username" placeholder="user@example.com" required aria-required="true">
+            </div>
+            <div class="field">
+              <label for="A-pw">パスワード<span class="req" aria-hidden="true">*</span></label>
+              <input type="password" id="A-pw" name="password" autocomplete="current-password" placeholder="••••••••" required aria-required="true">
+              <div class="field-meta">
+                <span class="field-hint">大文字小文字 / 数字 / 記号 を含めると安全です。</span>
+              </div>
+            </div>
+
+            <div class="helper-row">
+              <a href="#forgot">パスワードを忘れた場合</a>
+              <span style="color: var(--ink-soft); font-size: 11.5px;">大文字 / 小文字を確認</span>
+            </div>
+
+            <!-- CAPTCHA -->
+            <div class="captcha" aria-label="ボット対策確認">
+              <div class="captcha-check" aria-hidden="true"></div>
+              <span class="captcha-label">私はロボットではありません</span>
+              <span class="captcha-tag">CAPTCHA</span>
+            </div>
+
+            <button type="submit" class="cta">ログイン</button>
+
+            <div class="signup-row">
+              アカウントをお持ちでない方は <a href="#signup">サインアップ</a>
+            </div>
+          </form>
+        </div>
+
+        <!-- Panel B: ルームコードで参加 -->
+        <div class="panel" role="tabpanel" data-panel="B" id="panel-B" hidden>
+          <div class="panel-hint">
+            <div class="ic" aria-hidden="true">i</div>
+            <div>授業や大会の参加者向け。ルーム管理者から配布されたコードでログインします。</div>
+          </div>
+
+          <form id="form-B" novalidate>
+            <!-- bind: POST /api/auth/login (mode=B) -->
+            <div class="field mono">
+              <label for="B-room">ルーム番号<span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="B-room" name="roomCode" placeholder="ROOM-2026-0001" required aria-required="true">
+              <div class="field-meta">
+                <span class="field-hint">配布された印刷物 / 画面で確認してください。</span>
+              </div>
+            </div>
+            <div class="field">
+              <label for="B-name">ユーザー名<span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="B-name" name="displayName" placeholder="班1-たろう" required aria-required="true" maxlength="16">
+              <div class="field-meta">
+                <span class="field-hint">対戦中に表示される名前です。後から変更できます。</span>
+              </div>
+            </div>
+            <div class="field mono">
+              <label for="B-code">発行コード<span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="B-code" name="issueCode" placeholder="A7F2-K3M9" required aria-required="true">
+            </div>
+
+            <div class="helper-row" style="margin-top: 4px;">
+              <span style="color: var(--ink-soft);">ルーム番号や発行コードがわからない場合は、<strong style="color: var(--ink);">ルームの管理者</strong>へ。</span>
+            </div>
+
+            <div class="captcha" aria-label="ボット対策確認">
+              <div class="captcha-check" aria-hidden="true"></div>
+              <span class="captcha-label">私はロボットではありません</span>
+              <span class="captcha-tag">CAPTCHA</span>
+            </div>
+
+            <button type="submit" class="cta">ルームに入る</button>
+          </form>
+        </div>
+
+        <!-- Panel C: クイック参加 -->
+        <div class="panel" role="tabpanel" data-panel="C" id="panel-C" hidden>
+          <div class="panel-hint">
+            <div class="ic" aria-hidden="true">i</div>
+            <div>まずはお試しで遊んでみたい方向け。後から本登録に切り替えられます。</div>
+          </div>
+
+          <form id="form-C" novalidate>
+            <!-- bind: POST /api/auth/login (mode=C) -->
+            <div class="field">
+              <label for="C-name">ユーザー名<span class="req" aria-hidden="true">*</span></label>
+              <input type="text" id="C-name" name="displayName" placeholder="例: コーダー田中" maxlength="16" required aria-required="true">
+              <div class="field-meta">
+                <span class="field-hint">16 文字以下。日本語・英数字どちらも使えます。</span>
+                <span class="field-count" id="C-count">0 / 16</span>
+              </div>
+            </div>
+
+            <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12px; color: var(--ink-soft); margin-bottom: 18px; line-height: 1.55;">
+              <strong style="color: var(--ink);">この端末に紐付く簡易保存です。</strong><br>
+              戦績やコードはブラウザに保存され、端末を変えると引き継げません。後からパスワードを設定して本登録できます。
+            </div>
+
+            <div class="captcha" aria-label="ボット対策確認">
+              <div class="captcha-check" aria-hidden="true"></div>
+              <span class="captcha-label">私はロボットではありません</span>
+              <span class="captcha-tag">CAPTCHA</span>
+            </div>
+
+            <button type="submit" class="cta">この名前ではじめる</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="footer">
+        <a href="#tos">利用規約</a>
+        <a href="#privacy">プライバシーポリシー</a>
+        <a href="#contact">お問い合わせ</a>
+        <div style="margin-top: 8px; opacity: .6; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;">© 2026 対戦・コーディング — v0.2</div>
+      </footer>
+    </section>
+
+    <!-- Sidekick (right) -->
+    <aside class="sidekick" aria-label="ロール早見表">
+      <div class="sidekick-card">
+        <h4>// ロール早見表</h4>
+        <div style="margin-bottom: 8px;"><span class="role-pill role-system">SYSTEM_ADMIN</span><br><span style="font-size: 11px; color: var(--ink-soft);">サービス全体の管理</span></div>
+        <div style="margin-bottom: 8px;"><span class="role-pill role-room-admin">ROOM_ADMIN</span><br><span style="font-size: 11px; color: var(--ink-soft);">ルームを発行・運営</span></div>
+        <div style="margin-bottom: 8px;"><span class="role-pill role-room-user">ROOM_USER</span><br><span style="font-size: 11px; color: var(--ink-soft);">配布コードで参加</span></div>
+        <div><span class="role-pill role-general">GENERAL_USER</span><br><span style="font-size: 11px; color: var(--ink-soft);">通常 or クイック参加</span></div>
+      </div>
+      <div class="sidekick-card">
+        <h4>// セッション</h4>
+        <ul>
+          <li>30 日間ログイン保持</li>
+          <li>不審な動作で自動ロック</li>
+          <li>管理者は二段階認証推奨</li>
+        </ul>
+      </div>
+    </aside>
+
+  </div>
+</main>
+
+<!-- ====== State gallery ====== -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常 / 入力検証エラー / 認証失敗 / レート制限ロック / 送信中 を並列展示</p>
+  </div>
+
+  <div class="gallery-grid">
+    <!-- State 1: Normal -->
+    <article class="state">
+      <header class="state-head">
+        <span class="state-name">通常時</span>
+        <span class="state-tag">idle</span>
+      </header>
+      <div class="state-body">
+        <div class="mini-field"><span class="lbl">ユーザー名 / メール</span>user@example.com</div>
+        <div class="mini-field"><span class="lbl">パスワード</span>••••••••••</div>
+        <div class="mini-captcha"><div class="mini-captcha-box"></div><span style="flex:1; color: var(--ink);">ロボットではありません</span></div>
+        <button class="mini-cta">ログイン</button>
+      </div>
+    </article>
+
+    <!-- State 2: Validation error -->
+    <article class="state">
+      <header class="state-head">
+        <span class="state-name">入力検証エラー</span>
+        <span class="state-tag">field-error</span>
+      </header>
+      <div class="state-body">
+        <div class="mini-field err"><span class="lbl">ユーザー名 / メール</span><span style="color:#a8a394; font-style: italic;">未入力</span></div>
+        <div class="mini-error">ユーザー名またはメールアドレスを入力してください。</div>
+        <div class="mini-field" style="margin-top: 8px;"><span class="lbl">パスワード</span>••••</div>
+        <div class="mini-captcha"><div class="mini-captcha-box"></div><span style="flex:1; color: var(--ink);">ロボットではありません</span></div>
+        <button class="mini-cta">ログイン</button>
+      </div>
+    </article>
+
+    <!-- State 3: Auth failure -->
+    <article class="state">
+      <header class="state-head">
+        <span class="state-name">認証失敗</span>
+        <span class="state-tag">401</span>
+      </header>
+      <div class="state-body">
+        <div class="mini-banner err">
+          <strong style="display:block; margin-right:auto;">!</strong>
+          <span>ユーザー名またはパスワードが正しくありません。あと <strong>3 回</strong> 失敗するとロックされます。</span>
+        </div>
+        <div class="mini-field"><span class="lbl">ユーザー名 / メール</span>user@example.com</div>
+        <div class="mini-field"><span class="lbl">パスワード</span>••••••</div>
+        <button class="mini-cta">ログイン</button>
+      </div>
+    </article>
+
+    <!-- State 4: Rate limit lock -->
+    <article class="state">
+      <header class="state-head">
+        <span class="state-name">レート制限ロック</span>
+        <span class="state-tag">429</span>
+      </header>
+      <div class="state-body">
+        <div class="mini-banner lock">
+          <strong style="display:block; margin-right:auto;">⏱</strong>
+          <span>しばらく待ってから再度お試しください。<br><span style="font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: #92400e;">残り 04:37</span></span>
+        </div>
+        <div class="mini-field" style="opacity: .6;"><span class="lbl">ユーザー名 / メール</span>user@example.com</div>
+        <div class="mini-field" style="opacity: .6;"><span class="lbl">パスワード</span>••••••</div>
+        <button class="mini-cta disabled" disabled>ロック中</button>
+      </div>
+    </article>
+
+    <!-- State 5: Submitting -->
+    <article class="state">
+      <header class="state-head">
+        <span class="state-name">送信中</span>
+        <span class="state-tag">loading</span>
+      </header>
+      <div class="state-body">
+        <div class="mini-field" style="opacity: .7;"><span class="lbl">ユーザー名 / メール</span>user@example.com</div>
+        <div class="mini-field" style="opacity: .7;"><span class="lbl">パスワード</span>••••••••</div>
+        <div class="mini-captcha" style="opacity: .7;"><div class="mini-captcha-box" style="background: var(--success); border-color: var(--success); position: relative;"></div><span style="flex:1; color: var(--ink);">確認済み</span></div>
+        <button class="mini-cta" aria-busy="true"><span class="loader" aria-hidden="true"></span>認証中…</button>
+      </div>
+    </article>
+  </div>
+</section>
+
+<script>
+  /* ===== Dummy data ===== */
+  const TAB_ENDPOINTS = {
+    A: { method: 'POST', path: '/api/auth/login', payload: { mode: 'A', identifier: '', password: '', captchaToken: '' } },
+    B: { method: 'POST', path: '/api/auth/login', payload: { mode: 'B', roomCode: '', displayName: '', issueCode: '', captchaToken: '' } },
+    C: { method: 'POST', path: '/api/auth/login', payload: { mode: 'C', displayName: '', captchaToken: '' } },
+  };
+
+  /* ===== Tabs ===== */
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('[data-panel]');
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      tabs.forEach(x => { x.classList.remove('active'); x.setAttribute('aria-selected', 'false'); });
+      panels.forEach(p => p.hidden = true);
+      t.classList.add('active');
+      t.setAttribute('aria-selected', 'true');
+      document.querySelector(`[data-panel="${t.dataset.tab}"]`).hidden = false;
+    });
+  });
+
+  /* ===== Quick-mode counter ===== */
+  const cName = document.getElementById('C-name');
+  const cCount = document.getElementById('C-count');
+  if (cName && cCount) {
+    cName.addEventListener('input', () => {
+      cCount.textContent = `${cName.value.length} / 16`;
+    });
+  }
+
+  /* ===== Submit handlers (dummy) ===== */
+  document.querySelectorAll('form').forEach(f => {
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const tab = f.id.slice(-1);
+      console.log('[dummy submit]', TAB_ENDPOINTS[tab]);
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+@import "tailwindcss";
+
+:root {
+  --p1: #2563eb;
+  --p1-soft: #dbeafe;
+  --p1-ink: #1e3a8a;
+  --p2: #ef4444;
+  --p2-soft: #fee2e2;
+  --p2-ink: #7f1d1d;
+  --accent: #f59e0b;
+  --accent-soft: #fef3c7;
+  --bg: #f6f4ee;
+  --bg-2: #efece3;
+  --surface: #ffffff;
+  --line: #e7e3d6;
+  --line-2: #d8d3c2;
+  --ink: #1f2330;
+  --ink-soft: #4b5563;
+  --admin-bg: #1f2330;
+  --admin-accent: #7c3aed;
+  --room-admin-accent: #0891b2;
+  --danger: #dc2626;
+  --success: #15803d;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow-sm: 0 1px 2px rgba(31,35,48,.04), 0 1px 1px rgba(31,35,48,.03);
+  --shadow-md: 0 6px 18px rgba(31,35,48,.06), 0 2px 4px rgba(31,35,48,.04);
+}
+
+@theme inline {
+  --color-p1: var(--p1);
+  --color-p1-soft: var(--p1-soft);
+  --color-p1-ink: var(--p1-ink);
+  --color-p2: var(--p2);
+  --color-p2-soft: var(--p2-soft);
+  --color-p2-ink: var(--p2-ink);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-bg: var(--bg);
+  --color-bg-2: var(--bg-2);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-admin-bg: var(--admin-bg);
+  --color-admin-accent: var(--admin-accent);
+  --color-room-admin: var(--room-admin-accent);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+  color: var(--ink);
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 32px 32px, 32px 32px;
+  background-position: -1px -1px;
+  min-height: 100vh;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+a {
+  color: var(--p1-ink);
+}
+
+/* Card surface */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Paper grid background variant */
+.paper-grid {
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Warm paper header (general UI) */
+.topbar-paper {
+  background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+  border-bottom: 1px solid var(--line);
+}
+
+/* Admin dark header */
+.topbar-admin {
+  background: var(--admin-bg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* CTA orange button */
+.btn-cta {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-cta:hover {
+  background: #d97706;
+}
+.btn-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Scope banner */
+.scope-banner-system {
+  background: #2e1065;
+  border-bottom: 1px solid #4c1d95;
+  color: #e9d5ff;
+  font-size: 13px;
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scope-banner-room {
+  background: #0c4a6e;
+  border-bottom: 1px solid #0369a1;
+  color: #bae6fd;
+  font-size: 13px;
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Pulse animation */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.pulse {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--line) 25%,
+    var(--line-2) 50%,
+    var(--line) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}

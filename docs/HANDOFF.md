@@ -1,0 +1,212 @@
+# Handoff — v0.2 UI prototype implementation
+
+This document is written for the next Claude (or human) session that picks up
+this repository. The previous session implemented v0.2 from a design handoff
+bundle, but could not push from its container, so this file is the *only*
+durable record of what was done, what works, and what is intentionally
+unfinished. Read it before making changes.
+
+Previous session URL (may be inaccessible): `https://claude.ai/code/session_016Zpat22zYswrKq8Lr5JndY`
+
+---
+
+## 1. Where we are
+
+The `project/` directory contains 17 static HTML/CSS prototypes that are the
+**visual source of truth**. The previous session converted each prototype into
+a working Next.js page, wired up the corresponding API route handlers, defined
+the Prisma schema and seed, and mounted Socket.io on the same port as Next via
+a custom `server.ts`.
+
+The app **boots, every page returns 200, `tsc --noEmit` is clean, ESLint passes
+with no warnings**. It is *not* yet end-to-end functional: most pages render
+against in-component mock data rather than the API, and Socket.io is not wired
+into the client yet (the server side scaffold exists). See section 4.
+
+### Implemented screens (file ⇄ design)
+
+| Page route                                | Source prototype                          |
+| :---------------------------------------- | :---------------------------------------- |
+| `/login`                                  | `project/login.html`                      |
+| `/signup`                                 | `project/signup.html`                     |
+| `/dashboard`                              | `project/dashboard.html`                  |
+| `/rooms/[roomNumber]`                     | `project/room-top.html`                   |
+| `/match/[matchId]/coding`                 | `project/match-coding.html`               |
+| `/match/[matchId]/battle`                 | `project/match-battle.html`               |
+| `/match/[matchId]/result`                 | `project/match-result.html`               |
+| `/watch/[matchId]`                        | `project/match-watch.html`                |
+| `/admin/system/rooms`                     | `project/admin-system-rooms.html`         |
+| `/admin/system/users`                     | `project/admin-system-users.html`         |
+| `/admin/system/audit`                     | `project/admin-system-audit.html`         |
+| `/admin/rooms/[roomId]`                   | `project/admin-room-overview.html`        |
+| `/admin/rooms/[roomId]/members`           | `project/admin-room-members.html`         |
+| `/admin/rooms/[roomId]/matches`           | `project/admin-room-matches.html`         |
+| `/admin/rooms/[roomId]/standings`         | `project/admin-room-standings.html`       |
+| `/admin/rooms/[roomId]/settings`          | `project/admin-room-settings.html`        |
+| `/error/[code]` (404 / 403 / 500 / maintenance / ws) | `project/errors.html`          |
+
+### Implemented API routes
+
+All routes use `src/lib/db.ts` (Prisma client) and `src/lib/auth.ts`
+(cookie session helpers). Audit-relevant writes call `src/lib/audit.ts`.
+
+```
+/api/auth/{login,logout,signup,signup/promote}
+/api/me                                 GET    — current session user
+/api/me/stats                           GET    — TODO: real aggregation (see route file)
+/api/me/matches                         GET
+/api/rooms/visible                      GET
+/api/rooms/[roomNumber]                 GET
+/api/rooms/[roomNumber]/matches         GET
+/api/rooms/[roomNumber]/standings       GET
+/api/match/[matchId]/public             GET
+/api/match/[matchId]/state              GET
+/api/match/[matchId]/result             GET
+/api/match/[matchId]/replay             GET
+/api/socket                             — (Socket.io path, served by server.ts)
+
+/api/admin/audit                        GET
+/api/admin/users                        GET   POST
+/api/admin/users/[id]                   GET   PATCH   DELETE
+/api/admin/users/[id]/force-password-reset    POST
+/api/admin/users/invite                       POST
+/api/admin/rooms                        GET   POST
+/api/admin/rooms/[id]                   GET   PATCH   DELETE
+/api/admin/rooms/[id]/archive           POST
+/api/admin/rooms/[id]/restore           POST
+/api/admin/rooms/[id]/members           GET   POST
+/api/admin/rooms/[id]/members/[mid]     PATCH   DELETE
+/api/admin/rooms/[id]/members/[mid]/reissue   POST
+/api/admin/rooms/[id]/matches           GET
+/api/admin/rooms/[id]/standings         GET
+```
+
+Note: the spec talked about `/admin/api/*` as a separate namespace; we collapsed
+it under `/api/admin/*` because they share auth + audit code and Next.js gives
+us nothing for the namespace split. See the route guards in `src/lib/auth.ts`.
+
+### Shared layout primitives
+
+- `TopbarPaper` — warm-paper player chrome (used by every non-admin page)
+- `TopbarAdmin` — dark-purple system-admin / dark-teal room-admin chrome
+- `AdminSidenav` — left nav for admin sections; takes `scope: "system" | "room"`
+- `ScopeBanner` — the "対戦の具体操作はできません" banner shown when an admin
+  views (but cannot operate) a match. Imposes the role-aware guardrail in one
+  place; do not inline this text elsewhere.
+
+### Database
+
+`prisma/schema.prisma` defines the four roles, classrooms, members,
+match sessions, and audit events. `prisma/seed.ts` creates one of each role,
+one classroom, and one finished match so the dashboard isn't empty after seed.
+
+Default seed accounts (all `password123!`):
+- `sysadmin` — SYSTEM_ADMIN
+- `teacher01` — ROOM_ADMIN
+- `taro_student`, `hanako_student` — ROOM_USER
+
+---
+
+## 2. Verified working
+
+As of the previous session's last run:
+
+- `npm run dev` boots Next + Socket.io on port 3000
+- Every implemented page returns HTTP 200 (manually walked)
+- `npx tsc --noEmit` — clean
+- `npm run lint` — clean
+- `prisma db push` + `prisma db seed` — succeed against the docker-compose
+  Postgres
+- All 4 roles can log in via `/login` and see their role-appropriate dashboard
+
+## 3. Important design decisions (why, not what)
+
+These are the calls the previous session made that the next session should
+*not* silently undo:
+
+1. **Custom `server.ts` instead of API-route-based Socket.io.** Next 16's route
+   handlers cannot hold a long-lived `Server` instance across hot reloads, and
+   `app.prepare()` is the only way to share the HTTP server with Socket.io.
+   `npm run dev` uses `tsx watch server.ts`; do not switch back to `next dev`.
+2. **Inline styles + Tailwind v4 tokens, no Material UI.** The design uses
+   warm-paper / dark-purple / dark-teal palettes that don't map onto MUI's
+   theme. Each prototype's CSS was lifted into the corresponding React file as
+   inline `style={}` or `className=` with Tailwind utility classes.
+3. **Role-aware chrome at the layout level.** The two `Topbar*` components and
+   `ScopeBanner` are the *only* place where role logic affects chrome. Do not
+   put role checks in individual pages — push them up to layout.
+4. **`/api/admin/*` (not `/admin/api/*`).** See the namespace note above.
+5. **Cookie sessions with bcrypt, not NextAuth.** `next-auth` is in
+   `package.json` from an earlier exploration but is not used; `src/lib/auth.ts`
+   implements signed-cookie sessions directly. Delete `next-auth` if you do a
+   dep cleanup pass.
+6. **Mock data lives inside the page that needs it.** Until the API is wired,
+   pages declare their mock data as a top-level `const` so swapping to a
+   `useEffect(() => fetch())` is mechanical. Don't extract into a shared mocks
+   module — that delays the eventual API wiring.
+
+## 4. Known unfinished work (in priority order)
+
+1. **Wire Socket.io into the client.** `src/lib/socket-client.ts` exposes
+   `getSocket()` but no page calls it yet. The coding/battle/watch pages need:
+   - `socket.emit("join_match", { matchId })` on mount
+   - `socket.on("coding_locked", ...)` and the other events declared in
+     `server.ts`
+   - The matching server-side handlers in `server.ts` currently just log and
+     echo; they need to persist `MatchSession.strategy` and check for
+     both-locked transitions.
+2. **Replace mock data with API calls.** Every page declares mock data inline
+   (see `mockStates` in `src/app/match/[matchId]/battle/page.tsx` line 82 for
+   the pattern). Switch each to `useEffect`+`fetch` against the route that
+   already exists.
+3. **TODOs flagged in routes:**
+   - `src/app/api/me/stats/route.ts:13` — replace placeholder aggregation
+   - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
+     future `InviteCode` model (schema change required)
+   - `src/app/api/auth/signup/route.ts:77` and
+     `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
+4. **No automated tests.** The verification above was manual. Adding Playwright
+   for the 17 pages + Vitest for `src/lib/auth.ts` would catch regressions.
+5. **CI is not set up.** No `.github/workflows/`.
+
+## 5. How to run
+
+```bash
+docker compose up -d                 # Postgres on 127.0.0.1:5432
+npm install
+npm run db:push && npm run db:generate && npm run db:seed
+npm run dev                          # http://localhost:3000
+```
+
+If `npm run dev` fails with a Socket.io port-in-use error, kill leftover `tsx`
+processes (`pkill -f "tsx watch server.ts"`) and retry. This bites once per
+day on average.
+
+## 6. Gotchas
+
+- **Prisma 7** uses the new schema/config split — `prisma.config.ts` is
+  required and is in the repo. The migration commands look the same but the
+  generated client lives in `node_modules/@prisma/client` only after
+  `db:generate`; `db:push` alone is not enough on a fresh install.
+- **Next.js 16** breaking changes vs your training data — `AGENTS.md` warns
+  about this. Read `node_modules/next/dist/docs/` before assuming an API exists.
+  In particular, the route-handler `Request`/`Response` types changed and
+  dynamic params are `Promise<{ id: string }>` (await before use).
+- **`bcryptjs`, not `bcrypt`.** The native build won't compile in some
+  Anthropic cloud sandboxes; `bcryptjs` is pure JS and fine.
+- **Socket.io path is `/api/socket`** (set in both `server.ts` and
+  `socket-client.ts`). Changing one without the other silently breaks realtime.
+- **`session_016Zpat22zYswrKq8Lr5JndY`** is in the v0.2 implementation commit
+  message as a backlink to the previous session, in case someone wants to read
+  the original conversation.
+
+## 7. If you change this file
+
+The two-file convention is:
+
+- `CLAUDE.md` is short — it lists what to read and the few inviolable rules.
+- `docs/HANDOFF.md` (this file) holds the detail.
+
+When you finish a meaningful chunk of work, update section 4 (unfinished) and
+add an entry under section 3 (decisions) if you locked in a new design call.
+Keep section 1 in sync with the codebase — it's the map.

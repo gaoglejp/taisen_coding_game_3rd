@@ -1,0 +1,1417 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>観戦 | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+    --room-admin-accent:#0891b2; --room-admin-accent-soft:#cffafe; --room-admin-accent-ink:#155e75;
+    --cell: 44px;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button { font: inherit; }
+
+  /* ============ Header ============ */
+  .topbar {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 24px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 14px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 13px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .brand-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    background: var(--accent-soft); border: 1px solid #f3d27d;
+    color: #92400e; padding: 2px 7px; border-radius: 4px; font-weight: 600;
+  }
+  .screen-meta {
+    display: flex; align-items: center; gap: 14px;
+    font-size: 12.5px;
+  }
+  .scope-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 5px;
+    border: 1px solid;
+    display: inline-flex; align-items: center; gap: 5px;
+    letter-spacing: .04em;
+  }
+  .scope-public { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .scope-limited { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .meta-block { display: flex; flex-direction: column; }
+  .meta-block .lbl {
+    font-size: 10px; color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+  .meta-block .val { font-weight: 700; font-size: 13px; margin-top: 1px; }
+  .meta-block .val.mono { font-family: "JetBrains Mono", monospace; }
+  .meta-sep { width: 1px; height: 26px; background: var(--line-2); }
+
+  .vs-row { display: flex; align-items: center; gap: 8px; }
+  .p-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px 3px 4px;
+    border-radius: 999px;
+    font-weight: 700; font-size: 12.5px;
+  }
+  .p-chip .av {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid;
+  }
+  .p1-chip { background: var(--p1-soft); color: var(--p1-ink); border: 1px solid #bfd5fa; }
+  .p1-chip .av { background: var(--p1); color: #fff; border-color: var(--p1-ink); }
+  .p2-chip { background: var(--p2-soft); color: var(--p2-ink); border: 1px solid #fbb6b6; }
+  .p2-chip .av { background: var(--p2); color: #fff; border-color: var(--p2-ink); }
+  .vs { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-soft); font-weight: 700; }
+
+  .top-right { display: flex; justify-content: flex-end; align-items: center; gap: 10px; }
+  .viewer-count {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 12px 5px 8px;
+    font-size: 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .viewer-count .eye { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 400; }
+  .viewer-count .delta { color: var(--success); font-size: 10px; }
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--danger); color: #fff;
+    padding: 4px 10px; border-radius: 5px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .live-pill .dot { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: livepulse 1.4s ease-in-out infinite; }
+  .replay-pill {
+    background: var(--ink); color: #fff;
+    padding: 4px 10px; border-radius: 5px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .share-btn {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 6px 11px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .share-btn:hover { background: var(--bg); }
+  @keyframes livepulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+  /* ============ Delay banner ============ */
+  .delay-banner {
+    background: #fff7ed;
+    border-bottom: 1px solid #fbd9a5;
+    color: #92400e;
+    padding: 8px 24px;
+    font-size: 12.5px;
+    display: flex; align-items: center; gap: 10px;
+    justify-content: center;
+  }
+  .delay-banner .ic {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 12px;
+    flex-shrink: 0;
+  }
+  .delay-banner strong { color: #7c2d12; font-weight: 700; }
+
+  /* ============ Shell ============ */
+  .shell {
+    display: grid;
+    grid-template-columns: 320px 1fr 320px;
+    gap: 14px;
+    padding: 14px 18px 0;
+  }
+
+  /* ============ Panel ============ */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+    display: flex; flex-direction: column;
+  }
+  .panel-head {
+    padding: 12px 14px 10px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .panel-head.p1 { background: linear-gradient(180deg, #f5f9ff, #ecf3ff); }
+  .panel-head.p2 { background: linear-gradient(180deg, #fff5f5, #ffecec); }
+  .panel-player {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px;
+  }
+  .panel-player .av {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 2px solid;
+  }
+  .p1 .panel-player .av { background: var(--p1); color: #fff; border-color: var(--p1-ink); }
+  .p2 .panel-player .av { background: var(--p2); color: #fff; border-color: var(--p2-ink); }
+  .panel-player .nm { font-weight: 700; font-size: 14px; }
+  .panel-player .role-pill {
+    margin-left: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; padding: 2px 6px; border-radius: 4px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .p1 .panel-player .role-pill { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .p2 .panel-player .role-pill { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .panel-note {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    line-height: 1.45;
+    background: rgba(255,255,255,.6);
+    border: 1px dashed var(--line-2);
+    border-radius: 6px;
+    padding: 6px 8px;
+  }
+  .panel-note strong { color: var(--ink); font-weight: 700; }
+
+  .panel-body { padding: 12px 14px 14px; flex: 1; overflow-y: auto; }
+  .panel-section { margin-bottom: 12px; }
+  .panel-section:last-child { margin-bottom: 0; }
+  .panel-section .head {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 6px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .panel-section .head .sub { color: var(--ink); font-weight: 700; }
+
+  .self-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .self-tile {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; padding: 7px 9px;
+  }
+  .self-tile .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; color: var(--ink-soft);
+  }
+  .self-tile .v {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px; font-weight: 700; margin-top: 2px;
+  }
+  .self-tile .dir {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #fff; border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 5px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 700;
+    margin-top: 2px;
+  }
+  .hp-row { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 4px; }
+  .hp-row .v { font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 15px; }
+  .hp-row .v small { color: var(--ink-soft); font-weight: 600; font-size: 11px; margin-left: 2px; }
+  .hp-bar { height: 7px; background: var(--bg-2); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; }
+  .p1 .hp-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--p1), #60a5fa); }
+  .p2 .hp-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--p2), #f87171); }
+
+  .det-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent-soft); border: 1px solid #fbd9a5; color: #92400e;
+    border-radius: 999px; padding: 3px 6px 3px 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 600;
+    margin-right: 4px; margin-bottom: 4px;
+  }
+  .det-chip .age {
+    background: rgba(255,255,255,.6);
+    border-radius: 3px; padding: 0 5px;
+    font-size: 10px;
+  }
+  .action-strip { display: flex; gap: 4px; }
+  .action-slot {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 7px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px; font-weight: 700;
+    flex: 1;
+    text-align: center;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .action-slot .num { font-size: 9px; color: var(--ink-soft); background: #fff; padding: 0 4px; border-radius: 3px; }
+  .action-slot.move { background: #eff6ff; color: var(--p1-ink); border-color: #bfd5fa; }
+  .action-slot.shoot { background: #fef2f2; color: var(--p2-ink); border-color: #fbb6b6; }
+  .action-slot.turn { background: #f5f3ff; color: #6b21a8; border-color: #ddd6fe; }
+  .action-slot.scan { background: #f0fdf4; color: var(--success); border-color: #a7f3d0; }
+
+  .lt-list { display: flex; flex-direction: column; gap: 4px; }
+  .lt-row {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 9px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11.5px;
+  }
+  .lt-row .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; color: var(--ink-soft);
+  }
+  .lt-row .v {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 11.5px;
+  }
+  .lt-row .v.hit { color: var(--success); }
+  .lt-row .v.miss { color: var(--p2); }
+  .lt-row .v.idle { color: var(--ink-soft); }
+
+  .score-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .score-tile {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; padding: 7px 9px;
+  }
+  .score-tile .k { font-family: "JetBrains Mono", monospace; font-size: 9.5px; color: var(--ink-soft); }
+  .score-tile .v { font-family: "JetBrains Mono", monospace; font-size: 14px; font-weight: 700; margin-top: 1px; }
+
+  /* ============ Battle board column ============ */
+  .board-col {
+    display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #fdfaf0, #fbf6e7);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .board-col-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px dashed var(--line);
+    background: rgba(255,255,255,.4);
+  }
+  .board-col-head .ttl {
+    font-weight: 700; font-size: 13px;
+  }
+  .board-col-head .ttl small {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    margin-left: 6px;
+  }
+  .turn-counter {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    font-weight: 700;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 3px 9px;
+  }
+  .turn-counter small { color: var(--ink-soft); font-weight: 600; font-size: 10.5px; }
+
+  .board-wrap {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 22px 18px;
+    min-height: 0;
+  }
+  .board {
+    position: relative;
+    width: calc(var(--cell) * 10);
+    height: calc(var(--cell) * 10);
+    background: #fbf7ec;
+    background-image:
+      linear-gradient(rgba(31,35,48,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31,35,48,.07) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    box-shadow: 0 1px 0 #fff inset, 0 4px 12px rgba(31,35,48,.06);
+  }
+  .cell { position: absolute; width: var(--cell); height: var(--cell); display: grid; place-items: center; }
+  .obstacle {
+    width: 80%; height: 80%;
+    background:
+      repeating-linear-gradient(45deg, var(--line-2), var(--line-2) 3px, var(--bg-2) 3px, var(--bg-2) 6px);
+    border: 1px solid var(--ink-soft);
+    border-radius: 4px;
+  }
+  .item {
+    width: 70%; height: 70%;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(31,35,48,.18);
+    animation: floaty 2.4s ease-in-out infinite;
+  }
+  @keyframes floaty { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+  .item.cross   { background: linear-gradient(180deg, #f59e0b, #d97706); }
+  .item.barrier { background: linear-gradient(180deg, #15803d, #166534); }
+  .item.repeat  { background: linear-gradient(180deg, #7c3aed, #6d28d9); }
+  .tank {
+    width: 78%; height: 78%;
+    border-radius: 6px;
+    position: relative;
+    display: grid; place-items: center;
+    color: #fff;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 2px 0 rgba(0,0,0,.18), 0 0 0 2px #fff inset;
+    transition: transform .25s ease;
+  }
+  .tank.p1 { background: linear-gradient(180deg, #3b82f6, var(--p1)); border: 2px solid var(--p1-ink); }
+  .tank.p2 { background: linear-gradient(180deg, #f87171, var(--p2)); border: 2px solid var(--p2-ink); }
+  .tank::after {
+    content: ""; position: absolute;
+    width: 22%; height: 50%;
+    background: rgba(0,0,0,.3);
+    top: -8%; left: 39%;
+    border-radius: 3px 3px 1px 1px;
+  }
+  .tank.dir-N { transform: rotate(0deg); }
+  .tank.dir-E { transform: rotate(90deg); }
+  .tank.dir-S { transform: rotate(180deg); }
+  .tank.dir-W { transform: rotate(-90deg); }
+  .shot-line {
+    position: absolute;
+    background: linear-gradient(90deg, rgba(239,68,68,.05), rgba(239,68,68,.85), rgba(239,68,68,.05));
+    height: 3px;
+    border-radius: 2px;
+    transform-origin: 0 50%;
+    box-shadow: 0 0 6px rgba(239,68,68,.4);
+    animation: shotflash 1.4s ease-out infinite;
+  }
+  @keyframes shotflash {
+    0% { opacity: 0; } 20% { opacity: 1; } 60% { opacity: .9; } 100% { opacity: 0; }
+  }
+
+  /* Replay controls */
+  .replay-controls {
+    padding: 12px 14px;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+  }
+  .rc-buttons { display: flex; gap: 4px; align-items: center; }
+  .rc-btn {
+    appearance: none;
+    border: 1px solid var(--line-2);
+    background: #fff;
+    border-radius: 7px;
+    width: 30px; height: 30px;
+    color: var(--ink);
+    cursor: pointer;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .rc-btn:hover { background: var(--bg); }
+  .rc-btn.play {
+    width: 36px; height: 36px;
+    background: var(--accent); color: #fff; border-color: var(--accent);
+    box-shadow: 0 1px 0 #c2740a;
+  }
+  .rc-btn.play:hover { background: #ea8a09; }
+  .rc-scrubber {
+    position: relative;
+    height: 22px;
+  }
+  .rc-track {
+    position: absolute; left: 0; right: 0; top: 8px;
+    height: 6px; background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .rc-track-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: linear-gradient(90deg, var(--accent), #fbbf24);
+  }
+  .rc-thumb {
+    position: absolute; top: 3px;
+    width: 16px; height: 16px;
+    background: #fff;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 1px 4px rgba(31,35,48,.18);
+  }
+  .rc-tick.event {
+    position: absolute; top: 0px;
+    width: 5px; height: 12px;
+    background: var(--p2);
+    border-radius: 2px;
+    transform: translateX(-50%);
+  }
+  .rc-tick.event.first { background: var(--accent); }
+  .rc-tick.event.item { background: #7c3aed; }
+  .rc-speed {
+    display: flex; gap: 4px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 3px;
+  }
+  .rc-speed-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 4px 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .rc-speed-btn.active { background: var(--accent); color: #fff; }
+  .rc-live-btn {
+    background: var(--danger); color: #fff;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+    letter-spacing: .04em;
+  }
+  .rc-live-btn .dot { width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+  .rc-live-btn.replay {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+  }
+  .rc-live-btn.replay .dot { background: var(--ink-soft); }
+
+  /* ============ Below board: timeline + commentary ============ */
+  .below-grid {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 14px;
+    padding: 0 18px 18px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+  }
+  .card-head {
+    padding: 12px 16px 9px;
+    border-bottom: 1px dashed var(--line);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .card-head h2 {
+    margin: 0; font-size: 13px; font-weight: 700;
+  }
+  .card-head h2 small {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--ink-soft);
+    font-weight: 500;
+    margin-left: 6px;
+  }
+  .card-body { padding: 14px 16px; }
+
+  /* Timeline */
+  .timeline-axis {
+    position: relative;
+    height: 36px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+  }
+  .timeline-cursor {
+    position: absolute;
+    width: 2px; top: -4px; bottom: -4px;
+    background: var(--ink);
+    border-radius: 1px;
+    transform: translateX(-50%);
+  }
+  .timeline-cursor::before {
+    content: "T8";
+    position: absolute;
+    top: -16px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; font-weight: 700;
+    padding: 1px 5px; border-radius: 4px;
+    white-space: nowrap;
+  }
+  .tl-event {
+    position: absolute;
+    top: 4px; bottom: 4px;
+    width: 14px;
+    background: var(--p2);
+    transform: translateX(-50%);
+    border-radius: 4px;
+    display: grid; place-items: center;
+    color: #fff;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid #fff;
+    box-shadow: 0 1px 3px rgba(31,35,48,.18);
+  }
+  .tl-event.first { background: var(--accent); }
+  .tl-event.item { background: #7c3aed; }
+  .timeline-axis-ticks {
+    position: absolute;
+    left: 0; right: 0; bottom: -16px;
+    display: flex;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+  }
+  .timeline-axis-ticks span { flex: 1; text-align: center; }
+  .timeline-legend {
+    display: flex; gap: 14px;
+    margin-top: 22px;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .legend-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    margin-right: 4px;
+    vertical-align: -1px;
+  }
+
+  /* Commentary feed */
+  .com-feed {
+    max-height: 260px;
+    overflow-y: auto;
+    padding: 0 2px;
+  }
+  .com-item {
+    display: grid;
+    grid-template-columns: 32px 1fr;
+    gap: 9px;
+    padding: 9px 0;
+    border-bottom: 1px dashed var(--line);
+    align-items: flex-start;
+  }
+  .com-item:last-child { border-bottom: none; }
+  .com-av {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    display: grid; place-items: center;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .com-av.host { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .com-body { font-size: 12.5px; line-height: 1.5; }
+  .com-body .top { display: flex; align-items: baseline; gap: 6px; margin-bottom: 2px; }
+  .com-body .name { font-weight: 700; font-size: 12.5px; }
+  .com-body .name.host { color: #92400e; }
+  .com-body .time { font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--ink-soft); }
+  .com-body .at-turn {
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .com-text { color: var(--ink); }
+  .com-text em { color: var(--accent); font-style: normal; font-weight: 700; }
+  .com-placeholder {
+    text-align: center;
+    padding: 18px 6px;
+    color: var(--ink-soft);
+    font-size: 12px;
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    background: var(--bg);
+    margin-bottom: 12px;
+  }
+  .com-placeholder strong { color: var(--ink); display: block; font-size: 12.5px; margin-bottom: 2px; }
+
+  /* Share */
+  .share-card {
+    background: linear-gradient(180deg, #fdfdf8, #faf7ed);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px 16px;
+    margin: 0 18px 14px;
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .share-card .copy { flex: 1; min-width: 200px; }
+  .share-card .copy strong { display: block; font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+  .share-card .copy p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .share-url-row {
+    flex: 1; display: flex; gap: 6px; min-width: 280px;
+  }
+  .share-url {
+    flex: 1;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--ink);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .share-actions { display: flex; gap: 6px; }
+  .share-btn-cta {
+    background: var(--accent); color: #fff;
+    border: none;
+    border-radius: 7px;
+    padding: 7px 14px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .share-btn-cta:hover { background: #ea8a09; }
+
+  /* ============ "What is this game?" footer ============ */
+  .footer-explainer {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 16px 22px;
+    margin: 0 18px 24px;
+    display: grid;
+    grid-template-columns: 56px 1fr auto;
+    gap: 16px;
+    align-items: center;
+  }
+  .fe-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 800;
+    font-size: 20px;
+  }
+  .fe-text .ttl { font-size: 13.5px; font-weight: 700; margin-bottom: 3px; }
+  .fe-text .sub { font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+  .fe-cta {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .fe-cta:hover { background: var(--bg); }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 28px auto 32px;
+    padding: 0 28px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 14px; }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 11px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 9px;
+    padding: 2px 5px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 10px; }
+  .mini-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-flex; align-items: center; gap: 4px;
+    letter-spacing: .04em;
+    border: 1px solid;
+  }
+  .mini-pill.public { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .mini-pill.limited { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .mini-pill.live { background: var(--danger); color: #fff; border-color: var(--danger); }
+  .mini-pill.replay { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .mini-pill.delay { background: #fff7ed; color: #92400e; border-color: #fbd9a5; }
+  .mini-pill.live .d { width: 5px; height: 5px; border-radius: 50%; background: #fff; animation: livepulse 1.4s ease-in-out infinite; }
+  .mini-board {
+    width: 100%; aspect-ratio: 1;
+    background: #fbf7ec;
+    background-image:
+      linear-gradient(rgba(31,35,48,.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31,35,48,.08) 1px, transparent 1px);
+    background-size: 12.5% 12.5%;
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    position: relative;
+    margin-top: 7px;
+  }
+  .mini-board .mt {
+    position: absolute;
+    width: 9%; height: 9%;
+    border-radius: 2px;
+  }
+  .mini-board .mt.p1 { background: var(--p1); border: 1px solid var(--p1-ink); }
+  .mini-board .mt.p2 { background: var(--p2); border: 1px solid var(--p2-ink); }
+  .mini-cta {
+    background: var(--accent); color: #fff;
+    border: none; padding: 6px;
+    border-radius: 5px; font-size: 10px; font-weight: 700;
+    width: 100%; margin-top: 7px;
+  }
+  .mini-cta.ghost {
+    background: #fff; color: var(--ink-soft);
+    border: 1px solid var(--line-2);
+  }
+  .mini-empty {
+    text-align: center;
+    padding: 14px 6px 8px;
+    color: var(--ink-soft);
+  }
+  .mini-empty .ill {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    margin: 0 auto 6px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+  }
+  .mini-empty strong { display: block; color: var(--ink); font-size: 11.5px; margin-bottom: 2px; }
+  .mini-empty p { margin: 0; font-size: 10.5px; line-height: 1.45; }
+  .state-err-banner {
+    background: var(--p2-soft); border: 1px solid #fbb6b6;
+    color: var(--p2-ink); border-radius: 6px;
+    padding: 7px 9px; font-size: 10.5px; line-height: 1.45;
+  }
+  .state-err-banner strong { display: block; font-size: 11px; margin-bottom: 2px; }
+  .state-warn {
+    background: #fff7ed; border: 1px solid #fbd9a5;
+    color: #92400e; border-radius: 6px;
+    padding: 6px 9px; font-size: 10.5px; line-height: 1.45;
+    margin-bottom: 6px;
+  }
+  .end-banner {
+    background: linear-gradient(180deg, #fdfdf8, #fef3c7);
+    border: 1px solid #fbd9a5;
+    border-radius: 7px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+    font-size: 10.5px;
+    text-align: center;
+  }
+  .end-banner strong { display: block; font-size: 11.5px; color: var(--p1-ink); margin-bottom: 2px; }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <span>対戦・コーディング</span>
+    <span class="brand-tag">v0.2</span>
+  </div>
+
+  <div class="screen-meta">
+    <span class="scope-pill scope-public" aria-label="公開試合">⌖ 公開</span>
+    <div class="meta-block">
+      <span class="lbl">// MATCH</span>
+      <span class="val mono">#M-22064</span>
+    </div>
+    <div class="meta-sep"></div>
+    <div class="meta-block">
+      <span class="lbl">// ROOM</span>
+      <span class="val">3-A クラス・5月課題</span>
+    </div>
+    <div class="meta-sep"></div>
+    <div class="meta-block">
+      <span class="lbl">// 対戦カード</span>
+      <span class="val vs-row">
+        <span class="p-chip p1-chip"><span class="av">TR</span>たろう_06</span>
+        <span class="vs">vs</span>
+        <span class="p-chip p2-chip"><span class="av">HC</span>HanaCoder</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="top-right">
+    <span class="live-pill" aria-label="ライブ配信中"><span class="dot" aria-hidden="true"></span>LIVE</span>
+    <span class="viewer-count" aria-label="観戦者数">
+      <span class="eye" aria-hidden="true">👁</span>
+      14
+      <span class="delta">+3</span>
+    </span>
+    <button class="share-btn" aria-label="リンクをコピー">⌘ 共有</button>
+  </div>
+</header>
+
+<!-- ============ Delay banner ============ -->
+<div class="delay-banner" role="status">
+  <div class="ic" aria-hidden="true">⏱</div>
+  <div>
+    <strong>公式戦のため 15 秒遅延配信中</strong>
+    <span style="margin-left:6px; color: var(--ink-soft);">プレイヤーの公平性を保つため、観戦表示はリアルタイムから少し遅れています。</span>
+  </div>
+</div>
+
+<!-- ============ Shell ============ -->
+<div class="shell">
+
+  <!-- ===== P1 panel ===== -->
+  <aside class="panel p1" aria-label="P1 認識パネル">
+    <header class="panel-head p1">
+      <div class="panel-player">
+        <div class="av" aria-hidden="true">TR</div>
+        <div class="nm">たろう_06</div>
+        <span class="role-pill">P1</span>
+      </div>
+      <div class="panel-note">
+        ここに表示している情報が <strong>P1 のプログラムの判断材料</strong> です。
+      </div>
+    </header>
+    <div class="panel-body">
+      <section class="panel-section">
+        <div class="head">// self</div>
+        <div class="self-grid">
+          <div class="self-tile"><div class="k">座標</div><div class="v">x=3 y=6</div></div>
+          <div class="self-tile"><div class="k">向き</div><div class="dir">↑ NORTH</div></div>
+        </div>
+        <div class="self-tile" style="margin-top:6px;">
+          <div class="hp-row">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft);">HP</span>
+            <span class="v">84<small>/100</small></span>
+          </div>
+          <div class="hp-bar"><span style="width: 84%;"></span></div>
+        </div>
+      </section>
+      <section class="panel-section">
+        <div class="head">// detected_targets <span class="sub">1 件</span></div>
+        <span class="det-chip">forward: +3 · right: +3 <span class="age">age 0</span></span>
+      </section>
+      <section class="panel-section">
+        <div class="head">// last_actions</div>
+        <div class="action-strip">
+          <div class="action-slot move"><span class="num">slot1</span>MOVE FWD</div>
+          <div class="action-slot shoot"><span class="num">slot2</span>SHOOT</div>
+        </div>
+      </section>
+      <section class="panel-section">
+        <div class="head">// last_turn</div>
+        <div class="lt-list">
+          <div class="lt-row"><span class="k">damaged</span><span class="v idle">0</span></div>
+          <div class="lt-row"><span class="k">shoot_result</span><span class="v miss">MISS</span></div>
+          <div class="lt-row"><span class="k">scan_detected</span><span class="v hit">true</span></div>
+        </div>
+      </section>
+      <section class="panel-section">
+        <div class="head">// 累計スコア</div>
+        <div class="score-row">
+          <div class="score-tile"><div class="k">dealt</div><div class="v">24</div></div>
+          <div class="score-tile"><div class="k">taken</div><div class="v">16</div></div>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <!-- ===== Board ===== -->
+  <section class="board-col" aria-label="実盤面">
+    <header class="board-col-head">
+      <div class="ttl">実盤面 <small>// ground truth</small></div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span style="font-size:11px; color: var(--ink-soft); font-family:'JetBrains Mono',monospace;">10 × 10</span>
+        <span class="turn-counter">Turn 8<small> / 20</small></span>
+      </div>
+    </header>
+
+    <div class="board-wrap">
+      <div class="board" id="board" aria-label="10x10 盤面"></div>
+    </div>
+
+    <!-- Replay controls -->
+    <div class="replay-controls">
+      <div class="rc-buttons">
+        <button class="rc-btn" aria-label="最初へ">⏮</button>
+        <button class="rc-btn" aria-label="1 ターン戻る">⏪</button>
+        <button class="rc-btn play" aria-label="再生">▶</button>
+        <button class="rc-btn" aria-label="1 ターン進む">⏩</button>
+        <button class="rc-btn" aria-label="最後へ">⏭</button>
+      </div>
+      <div class="rc-scrubber" id="scrubber">
+        <div class="rc-track"><div class="rc-track-fill" style="width: 40%;"></div></div>
+        <div class="rc-thumb" style="left: 40%;" aria-label="現在ターン 8"></div>
+        <span class="rc-tick event first" style="left: 15%;" title="First @ T3"></span>
+        <span class="rc-tick event item" style="left: 25%;" title="アイテム @ T5"></span>
+        <span class="rc-tick event" style="left: 35%;" title="命中 @ T7"></span>
+        <span class="rc-tick event" style="left: 40%;" title="命中 @ T8"></span>
+      </div>
+      <div class="rc-speed" role="group" aria-label="再生速度">
+        <button class="rc-speed-btn">0.5x</button>
+        <button class="rc-speed-btn active">1x</button>
+        <button class="rc-speed-btn">2x</button>
+        <button class="rc-speed-btn">4x</button>
+      </div>
+      <button class="rc-live-btn" aria-label="ライブに追従">
+        <span class="dot" aria-hidden="true"></span>
+        LIVE に戻る
+      </button>
+    </div>
+  </section>
+
+  <!-- ===== P2 panel ===== -->
+  <aside class="panel p2" aria-label="P2 認識パネル">
+    <header class="panel-head p2">
+      <div class="panel-player">
+        <div class="av" aria-hidden="true">HC</div>
+        <div class="nm">HanaCoder</div>
+        <span class="role-pill">P2</span>
+      </div>
+      <div class="panel-note">
+        ここに表示している情報が <strong>P2 のプログラムの判断材料</strong> です。
+      </div>
+    </header>
+    <div class="panel-body">
+      <section class="panel-section">
+        <div class="head">// self</div>
+        <div class="self-grid">
+          <div class="self-tile"><div class="k">座標</div><div class="v">x=6 y=3</div></div>
+          <div class="self-tile"><div class="k">向き</div><div class="dir">↓ SOUTH</div></div>
+        </div>
+        <div class="self-tile" style="margin-top:6px;">
+          <div class="hp-row">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft);">HP</span>
+            <span class="v">76<small>/100</small></span>
+          </div>
+          <div class="hp-bar"><span style="width: 76%;"></span></div>
+        </div>
+      </section>
+      <section class="panel-section">
+        <div class="head">// detected_targets <span class="sub">1 件</span></div>
+        <span class="det-chip">forward: +3 · right: −3 <span class="age">age 0</span></span>
+      </section>
+      <section class="panel-section">
+        <div class="head">// last_actions</div>
+        <div class="action-strip">
+          <div class="action-slot turn"><span class="num">slot1</span>TURN R</div>
+          <div class="action-slot move"><span class="num">slot2</span>MOVE FWD</div>
+        </div>
+      </section>
+      <section class="panel-section">
+        <div class="head">// last_turn</div>
+        <div class="lt-list">
+          <div class="lt-row"><span class="k">damaged</span><span class="v">8 ↓</span></div>
+          <div class="lt-row"><span class="k">shoot_result</span><span class="v idle">—</span></div>
+          <div class="lt-row"><span class="k">scan_detected</span><span class="v idle">false</span></div>
+        </div>
+      </section>
+      <section class="panel-section">
+        <div class="head">// 累計スコア</div>
+        <div class="score-row">
+          <div class="score-tile"><div class="k">dealt</div><div class="v">16</div></div>
+          <div class="score-tile"><div class="k">taken</div><div class="v">24</div></div>
+        </div>
+      </section>
+    </div>
+  </aside>
+</div>
+
+<!-- ============ Below: timeline + commentary ============ -->
+<div class="below-grid">
+  <section class="card" aria-label="試合タイムライン">
+    <header class="card-head">
+      <h2>試合タイムライン <small>// 0 → 20</small></h2>
+      <span style="font-family:'JetBrains Mono',monospace; font-size:11px;">現在: <strong style="color: var(--ink);">T8</strong></span>
+    </header>
+    <div class="card-body">
+      <div class="timeline-axis">
+        <span class="timeline-cursor" style="left: 40%;" aria-label="現在ターン"></span>
+        <div class="tl-event first" style="left: 15%;" title="P1 が FirstDamage @ T3">★</div>
+        <div class="tl-event item"  style="left: 22%;" title="P2 アイテム取得 @ T4">◇</div>
+        <div class="tl-event" style="left: 28%;" title="命中 @ T5">●</div>
+        <div class="tl-event item"  style="left: 35%;" title="P1 BARRIER @ T6">◇</div>
+        <div class="tl-event" style="left: 40%;" title="命中 @ T8">●</div>
+        <div class="timeline-axis-ticks">
+          <span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span><span>12</span><span>14</span><span>16</span><span>18</span><span>20</span>
+        </div>
+      </div>
+      <div class="timeline-legend">
+        <span><span class="legend-dot" style="background: var(--accent);"></span>First Damage</span>
+        <span><span class="legend-dot" style="background: #7c3aed;"></span>アイテム取得</span>
+        <span><span class="legend-dot" style="background: var(--p2);"></span>命中</span>
+        <span><span class="legend-dot" style="background: var(--success);"></span>決着</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-label="解説ノート">
+    <header class="card-head">
+      <h2>解説ノート <small>// commentary feed</small></h2>
+      <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft);">future: live receive</span>
+    </header>
+    <div class="card-body">
+      <div class="com-placeholder">
+        <strong>📝 解説ライブ受信領域 (今回はモック)</strong>
+        本番では実況・先生のメモが流れます。
+      </div>
+      <div class="com-feed">
+        <div class="com-item">
+          <div class="com-av host" aria-hidden="true">NK</div>
+          <div class="com-body">
+            <div class="top">
+              <span class="name host">中村先生</span>
+              <span class="at-turn">T3</span>
+              <span class="time">14:30:11</span>
+            </div>
+            <div class="com-text">P1 がいきなり <em>FirstDamage</em>。最初の SCAN を捨てて前進、当てた判断が良いです。</div>
+          </div>
+        </div>
+        <div class="com-item">
+          <div class="com-av" aria-hidden="true">MI</div>
+          <div class="com-body">
+            <div class="top">
+              <span class="name">misora.dev</span>
+              <span class="at-turn">T5</span>
+              <span class="time">14:31:42</span>
+            </div>
+            <div class="com-text">P2 が CROSS_ATTACK を拾った。射程拡張、次のターンは P1 が逃げ場あるか?</div>
+          </div>
+        </div>
+        <div class="com-item">
+          <div class="com-av host" aria-hidden="true">NK</div>
+          <div class="com-body">
+            <div class="top">
+              <span class="name host">中村先生</span>
+              <span class="at-turn">T7</span>
+              <span class="time">14:33:08</span>
+            </div>
+            <div class="com-text">P2 の SHOOT 命中。被ダメージが累積してきました。ここで P1 が <em>退避ロジック</em> を持っているかが分かれ目。</div>
+          </div>
+        </div>
+        <div class="com-item">
+          <div class="com-av" aria-hidden="true">YK</div>
+          <div class="com-body">
+            <div class="top">
+              <span class="name">yukikko</span>
+              <span class="at-turn">T8</span>
+              <span class="time">14:33:55</span>
+            </div>
+            <div class="com-text">P1 また MISS… 命中率はやや低め。次は SCAN 入れた方がいいかも。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ============ Share ============ -->
+<section class="share-card" aria-label="シェア">
+  <div class="copy">
+    <strong>この試合をシェア</strong>
+    <p>リンクをコピーして友達やクラスメイトに共有しましょう。</p>
+  </div>
+  <div class="share-url-row">
+    <div class="share-url" aria-label="共有 URL" id="share-url">https://taisen-coding.example.jp/watch/M-22064</div>
+    <div class="share-actions">
+      <button class="share-btn-cta" id="copy-link">⌘ リンクをコピー</button>
+      <button class="share-btn">𝕏 共有</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ "What is this game?" footer ============ -->
+<aside class="footer-explainer" aria-label="ゲームの説明">
+  <div class="fe-icon" aria-hidden="true">?</div>
+  <div class="fe-text">
+    <div class="ttl">これは何のゲーム?</div>
+    <div class="sub">
+      「対戦・コーディング」は、Blockly でロボットの行動ロジックを組んで自動対戦させる、プログラミング学習ゲームです。
+      盤面のロボットは事前に書かれた「もし敵が前方なら攻撃する」のようなルールで動きます。
+    </div>
+  </div>
+  <a class="fe-cta" href="#about">サービスについて →</a>
+</aside>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>公開観戦 / 限定 (要ログイン) / アクセス拒否 / Live↔Replay 切替 / 遅延配信 / 試合終了</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Public -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">公開観戦</span><span class="state-tag">public</span></header>
+      <div class="state-body">
+        <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap; margin-bottom:5px;">
+          <span class="mini-pill public">⌖ 公開</span>
+          <span class="mini-pill live"><span class="d" aria-hidden="true"></span>LIVE</span>
+        </div>
+        <div style="font-family:'JetBrains Mono', monospace; font-size:10px; color: var(--ink-soft);">観戦 14 名</div>
+        <div class="mini-board">
+          <div class="mt p1" style="left: 30%; top: 60%;"></div>
+          <div class="mt p2" style="left: 60%; top: 30%;"></div>
+        </div>
+        <button class="mini-cta">⌘ リンクをコピー</button>
+      </div>
+    </article>
+
+    <!-- Limited -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">限定観戦</span><span class="state-tag">login</span></header>
+      <div class="state-body">
+        <div style="display:flex; gap:5px; align-items:center; flex-wrap:wrap; margin-bottom:5px;">
+          <span class="mini-pill limited">🔒 限定</span>
+          <span class="mini-pill live"><span class="d" aria-hidden="true"></span>LIVE</span>
+        </div>
+        <div class="state-warn" style="margin-top: 5px;">
+          このルームの観戦には<br>ログインが必要です。
+        </div>
+        <div class="mini-board" style="filter: blur(2.5px); pointer-events: none;">
+          <div class="mt p1" style="left: 35%; top: 55%;"></div>
+          <div class="mt p2" style="left: 55%; top: 40%;"></div>
+        </div>
+        <button class="mini-cta">ログインして観戦</button>
+      </div>
+    </article>
+
+    <!-- Forbidden -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">アクセス拒否</span><span class="state-tag">403</span></header>
+      <div class="state-body">
+        <div class="state-err-banner">
+          <strong>403 Forbidden</strong>
+          このマッチは観戦権限がありません。
+        </div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">⛔</div>
+          <strong>表示できません</strong>
+          <p>ルーム管理者に観戦許可を<br>依頼してください。</p>
+        </div>
+        <button class="mini-cta ghost">← 戻る</button>
+      </div>
+    </article>
+
+    <!-- Live ↔ Replay toggle -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">Live ↔ Replay</span><span class="state-tag">toggle</span></header>
+      <div class="state-body">
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom: 5px;">
+          <span class="mini-pill replay">⏵ REPLAY</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft);">T6 / T8 を巻き戻し中</span>
+        </div>
+        <div class="mini-board">
+          <div class="mt p1" style="left: 30%; top: 55%;"></div>
+          <div class="mt p2" style="left: 55%; top: 35%;"></div>
+        </div>
+        <button class="mini-cta" style="background: var(--danger);">
+          <span style="display:inline-block; width: 6px; height: 6px; border-radius: 50%; background: #fff; margin-right: 4px;"></span>
+          LIVE に戻る
+        </button>
+      </div>
+    </article>
+
+    <!-- Delayed broadcast -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">遅延配信</span><span class="state-tag">delayed</span></header>
+      <div class="state-body">
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom: 5px;">
+          <span class="mini-pill public">⌖ 公開</span>
+          <span class="mini-pill delay">⏱ +15s</span>
+        </div>
+        <div class="state-warn" style="margin-top:5px;">
+          <strong>公式戦のため 15 秒遅延</strong>
+          公平性のためリアルタイムから少し遅れます。
+        </div>
+        <div class="mini-board">
+          <div class="mt p1" style="left: 30%; top: 60%;"></div>
+          <div class="mt p2" style="left: 60%; top: 30%;"></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Ended -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">試合終了</span><span class="state-tag">ended</span></header>
+      <div class="state-body">
+        <div style="display:flex; gap:5px; align-items:center; margin-bottom: 5px;">
+          <span class="mini-pill public">⌖ 公開</span>
+          <span class="mini-pill" style="background:var(--success); color:#fff; border-color:var(--success);">✓ ENDED</span>
+        </div>
+        <div class="end-banner" style="margin-top: 5px;">
+          <strong>勝者: たろう_06</strong>
+          <span style="color: var(--ink-soft);">T16 で決着</span>
+        </div>
+        <div class="mini-board">
+          <div class="mt p1" style="left: 45%; top: 45%;"></div>
+          <div class="mt p2" style="left: 55%; top: 40%; opacity: .35;"></div>
+        </div>
+        <button class="mini-cta">⏵ もう一度リプレイ</button>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — GET /api/match/:matchId/public + /replay
+     ========================================================= */
+  const META = {
+    matchId: 'M-22064',
+    visibility: 'PUBLIC',  // PUBLIC | LIMITED
+    delaySeconds: 15,
+    mode: 'LIVE',          // LIVE | REPLAY | ENDED
+    viewerCount: 14,
+  };
+
+  const BOARD = {
+    width: 10, height: 10,
+    obstacles: [[2,6],[2,7],[4,4],[4,5],[7,3],[7,4],[1,2],[8,7],[5,8]],
+    items: [
+      { x:5, y:5, kind:'CROSS' },
+      { x:2, y:1, kind:'BARRIER' },
+      { x:8, y:4, kind:'REPEAT' },
+    ],
+    tanks: [
+      { id:'P1', x:3, y:6, dir:'N', name:'TR' },
+      { id:'P2', x:6, y:3, dir:'S', name:'HC' },
+    ],
+    shot: { from:{x:3,y:6}, to:{x:3,y:3}, hit:false },
+  };
+
+  const cellPx = 44;
+  const board = document.getElementById('board');
+  BOARD.obstacles.forEach(([x,y]) => {
+    board.insertAdjacentHTML('beforeend', `<div class="cell" style="left:${x*cellPx}px; top:${y*cellPx}px;"><div class="obstacle"></div></div>`);
+  });
+  const im = { CROSS:{c:'cross',g:'+'}, BARRIER:{c:'barrier',g:'■'}, REPEAT:{c:'repeat',g:'↻'} };
+  BOARD.items.forEach(it => {
+    board.insertAdjacentHTML('beforeend', `<div class="cell" style="left:${it.x*cellPx}px; top:${it.y*cellPx}px;" title="${it.kind}"><div class="item ${im[it.kind].c}">${im[it.kind].g}</div></div>`);
+  });
+  BOARD.tanks.forEach(t => {
+    const cls = t.id === 'P1' ? 'p1' : 'p2';
+    board.insertAdjacentHTML('beforeend', `<div class="cell" style="left:${t.x*cellPx}px; top:${t.y*cellPx}px;"><div class="tank ${cls} dir-${t.dir}">${t.name}</div></div>`);
+  });
+  {
+    const sx = BOARD.shot.from.x * cellPx + cellPx/2;
+    const sy = BOARD.shot.from.y * cellPx + cellPx/2;
+    const ex = BOARD.shot.to.x * cellPx + cellPx/2;
+    const ey = BOARD.shot.to.y * cellPx + cellPx/2;
+    const dx = ex - sx, dy = ey - sy;
+    const len = Math.hypot(dx, dy);
+    const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    board.insertAdjacentHTML('beforeend', `<div class="shot-line" style="left:${sx}px; top:${sy-1.5}px; width:${len}px; transform: rotate(${ang}deg);"></div>`);
+  }
+
+  /* Speed chip toggle */
+  document.querySelectorAll('.rc-speed-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.rc-speed-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    });
+  });
+
+  /* Copy share link */
+  document.getElementById('copy-link').addEventListener('click', e => {
+    const url = document.getElementById('share-url').textContent;
+    try {
+      navigator.clipboard.writeText(url);
+      e.target.textContent = '✓ コピー済み';
+      setTimeout(() => { e.target.textContent = '⌘ リンクをコピー'; }, 1500);
+    } catch (_) {}
+  });
+
+  console.log('[dummy GET /api/match/:matchId/public]', META);
+</script>
+</body>
+</html>

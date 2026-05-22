@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ダッシュボード | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330; --admin-accent:#7c3aed; --room-admin-accent:#0891b2;
+    --danger:#dc2626; --success:#15803d;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 1px 2px rgba(31,35,48,.04), 0 1px 1px rgba(31,35,48,.03);
+    --shadow-md: 0 6px 18px rgba(31,35,48,.06), 0 2px 4px rgba(31,35,48,.04);
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 2px;
+  }
+  button { font: inherit; }
+  a { color: var(--p1-ink); }
+
+  /* ===== Topbar (general UI: warm paper) ===== */
+  .topbar {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 32px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 24px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 15px;
+  }
+  .brand-mark {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: var(--ink);
+    color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 13px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .brand-tag {
+    font-size: 10.5px;
+    color: #92400e;
+    font-weight: 600;
+    padding: 2px 8px;
+    background: var(--accent-soft);
+    border: 1px solid #f3d27d;
+    border-radius: 999px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .screen-name {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--ink-soft);
+    letter-spacing: .02em;
+  }
+  .screen-name strong { color: var(--ink); font-weight: 600; }
+  .topbar-right {
+    display: flex; justify-content: flex-end; align-items: center; gap: 12px;
+  }
+  .user-chip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 12px 6px 6px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--p1-soft);
+    color: var(--p1-ink);
+    display: grid; place-items: center;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .role-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 4px;
+    letter-spacing: .04em;
+    border: 1px solid;
+  }
+  .rb-room-user { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .rb-general { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .btn-icon {
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .btn-icon:hover { background: #fff; color: var(--ink); }
+
+  /* ===== Page ===== */
+  .page {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 32px 32px 24px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+  }
+
+  /* ===== Card base ===== */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+  }
+  .card-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 16px 20px 12px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .card-head h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: .01em;
+  }
+  .card-head .sub {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .card-head .more {
+    font-size: 12px;
+    color: var(--p1-ink);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--p1-ink);
+    padding-bottom: 1px;
+  }
+  .card-body { padding: 16px 20px 20px; }
+
+  /* ===== Hero ===== */
+  .hero {
+    background:
+      radial-gradient(800px 300px at 100% -40%, rgba(245,158,11,.13), transparent 60%),
+      linear-gradient(180deg, #fdfaf0, #fbf6e7);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 28px 30px 26px;
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-md);
+  }
+  .hero::after {
+    content: "";
+    position: absolute;
+    right: -60px; top: -60px;
+    width: 220px; height: 220px;
+    border: 8px solid rgba(245,158,11,.18);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .hero-greeting {
+    font-size: 13px;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    margin-bottom: 4px;
+  }
+  .hero h1 {
+    margin: 0 0 14px;
+    font-size: 26px;
+    letter-spacing: -.01em;
+  }
+  .hero h1 .name { color: var(--accent); }
+  .status-row {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 22px;
+  }
+  .status-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 6px 12px 6px 8px;
+    font-size: 12.5px;
+    font-weight: 500;
+  }
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    box-shadow: 0 0 0 3px rgba(21,128,61,.18);
+  }
+  .status-dot.warn { background: var(--accent); box-shadow: 0 0 0 3px rgba(245,158,11,.18); }
+  .status-dot.idle { background: #94a3b8; box-shadow: 0 0 0 3px rgba(148,163,184,.18); }
+  .status-chip .meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-left: 4px;
+  }
+
+  .hero-ctas { display: flex; gap: 12px; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 22px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #c2740a, 0 6px 12px rgba(245,158,11,.22);
+    display: inline-flex; align-items: center; gap: 8px;
+    transition: transform .08s, box-shadow .12s, background .12s;
+  }
+  .btn-primary:hover { background: #ea8a09; }
+  .btn-primary:active { transform: translateY(1px); }
+  .btn-secondary {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    padding: 11px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-secondary:hover { background: var(--bg); }
+
+  /* ===== Room cards ===== */
+  .room-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+  }
+  .room-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color .15s, box-shadow .15s, transform .08s;
+  }
+  .room-card:hover {
+    border-color: var(--line-2);
+    box-shadow: var(--shadow-md);
+  }
+  .room-top {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+  }
+  .room-name {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .room-code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+    letter-spacing: .02em;
+  }
+  .kind-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+    white-space: nowrap;
+    letter-spacing: .03em;
+  }
+  .kind-classroom { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .kind-tournament { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .kind-lobby { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+
+  .room-meta {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    border-top: 1px dashed var(--line);
+    padding-top: 10px;
+  }
+  .room-meta .v {
+    color: var(--ink);
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .room-cta {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 1px 0 #c2740a;
+  }
+  .room-cta:hover { background: #ea8a09; }
+  .room-cta.ghost {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    box-shadow: none;
+  }
+  .room-cta.ghost:hover { background: var(--bg); }
+
+  /* ===== Recent matches table ===== */
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .table th, .table td {
+    text-align: left;
+    padding: 11px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .table th {
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 600;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    background: var(--bg);
+  }
+  .table tbody tr { transition: background .12s; }
+  .table tbody tr:hover { background: #fdfaf0; }
+  .table tbody tr:last-child td { border-bottom: none; }
+  .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .opponent {
+    display: flex; gap: 8px; align-items: center;
+    font-weight: 600;
+  }
+  .opp-avatar {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--p2-soft);
+    color: var(--p2-ink);
+    display: grid; place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid #fbb6b6;
+  }
+  .result {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: 1px solid;
+    letter-spacing: .03em;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .result-win { background: #ecfdf5; color: var(--success); border-color: #a7f3d0; }
+  .result-loss { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .result-draw { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .reason { font-size: 12.5px; color: var(--ink-soft); }
+  .replay-link {
+    color: var(--p1-ink);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 12.5px;
+    border-bottom: 1px dashed var(--p1-ink);
+    padding-bottom: 1px;
+  }
+
+  /* ===== Right column / stats ===== */
+  .stats-stack { display: flex; flex-direction: column; gap: 14px; }
+
+  .winrate-card {
+    background:
+      radial-gradient(400px 200px at -10% -30%, rgba(37,99,235,.08), transparent 60%),
+      linear-gradient(180deg, #fdfdf8, #faf7ed);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px 20px 20px;
+  }
+  .wr-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    letter-spacing: .04em;
+  }
+  .wr-value {
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1;
+    margin: 6px 0 2px;
+  }
+  .wr-value small {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    margin-left: 4px;
+  }
+  .wr-record {
+    display: flex; gap: 12px; align-items: baseline;
+    font-size: 12.5px;
+    margin-top: 4px;
+  }
+  .wr-record .w { color: var(--success); font-weight: 700; }
+  .wr-record .l { color: var(--p2); font-weight: 700; }
+  .wr-record .d { color: var(--ink-soft); font-weight: 700; }
+  .wr-trend {
+    margin-top: 14px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  .wr-trend-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin-bottom: 4px;
+  }
+  .wr-trend-head strong { color: var(--ink); }
+
+  .tile-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stat-tile {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 11px 12px;
+  }
+  .stat-tile .lbl {
+    font-size: 11px;
+    color: var(--ink-soft);
+    font-weight: 500;
+  }
+  .stat-tile .val {
+    font-size: 18px;
+    font-weight: 700;
+    margin-top: 2px;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: -.01em;
+  }
+  .stat-tile .delta {
+    font-size: 10.5px;
+    margin-top: 2px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .delta.up { color: var(--success); }
+  .delta.down { color: var(--p2); }
+  .delta.flat { color: var(--ink-soft); }
+
+  /* ===== Hints ===== */
+  .hint-card {
+    background:
+      radial-gradient(300px 160px at 100% 0%, rgba(245,158,11,.08), transparent 70%),
+      #fff;
+  }
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .loss-tag {
+    background: var(--p2-soft);
+    color: var(--p2-ink);
+    border: 1px solid #fbb6b6;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .hint-block {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    margin-top: 10px;
+  }
+  .hint-block .head {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    margin-bottom: 6px;
+  }
+  .hint-block code {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin-top: 4px;
+    line-height: 1.55;
+  }
+
+  /* ===== Empty state ===== */
+  .empty {
+    text-align: center;
+    padding: 28px 16px 20px;
+    color: var(--ink-soft);
+  }
+  .empty-illust {
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    display: grid; place-items: center;
+    color: var(--ink-soft);
+    margin: 0 auto 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 22px;
+  }
+  .empty strong { color: var(--ink); display: block; margin-bottom: 4px; font-size: 13.5px; }
+  .empty p { margin: 0; font-size: 12.5px; }
+
+  /* ===== Sparkline ===== */
+  .sparkline { display: block; width: 100%; height: 36px; }
+
+  /* ===== State gallery ===== */
+  .gallery {
+    max-width: 1440px;
+    margin: 32px auto 32px;
+    padding: 0 32px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 28px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .gallery-head h2 {
+    margin: 0; font-size: 15px;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: -.01em;
+  }
+  .gallery-head p { margin: 0; font-size: 12.5px; color: var(--ink-soft); }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0,1fr));
+    gap: 16px;
+  }
+  .state {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .state-head {
+    padding: 10px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 12px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 14px; font-size: 12px; }
+  .state-h {
+    background: linear-gradient(180deg, #fdfaf0, #fbf6e7);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px;
+    margin-bottom: 10px;
+  }
+  .state-h .hi { font-size: 13.5px; font-weight: 700; }
+  .state-h .sub { font-size: 10.5px; color: var(--ink-soft); margin-top: 2px; }
+  .mini-cta {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 6px 12px;
+    font-size: 10.5px;
+    font-weight: 700;
+    border-radius: 6px;
+    margin-top: 8px;
+    display: inline-block;
+  }
+  .mini-row {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .mini-room {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 10px;
+    margin-bottom: 6px;
+  }
+  .mini-empty {
+    text-align: center;
+    padding: 18px 6px;
+    color: var(--ink-soft);
+    background: var(--bg);
+    border-radius: 8px;
+    border: 1px dashed var(--line-2);
+    font-size: 11px;
+  }
+  .mini-empty strong { color: var(--ink); font-size: 11.5px; display: block; margin-bottom: 2px; }
+  .skel {
+    background: linear-gradient(90deg, var(--bg-2) 0%, #eee9da 50%, var(--bg-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 6px;
+    height: 12px;
+    margin-bottom: 8px;
+  }
+  .skel.big { height: 22px; }
+  .skel.cta { height: 36px; border-radius: 10px; }
+  .skel.tall { height: 60px; }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Topbar ===== -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <span>対戦・コーディング</span>
+    <span class="brand-tag">v0.2</span>
+  </div>
+  <div class="screen-name"><strong>ダッシュボード</strong> · /dashboard</div>
+  <div class="topbar-right">
+    <div class="user-chip" aria-label="ログイン中のユーザー">
+      <div class="avatar" aria-hidden="true">タロ</div>
+      <span>たろう_06</span>
+      <span class="role-badge rb-room-user">ROOM_USER</span>
+    </div>
+    <button class="btn-icon" aria-label="設定">設定</button>
+    <button class="btn-icon" aria-label="ログアウト">ログアウト</button>
+  </div>
+</header>
+
+<main class="page">
+  <div class="layout">
+
+    <!-- ===== Left column ===== -->
+    <div>
+
+      <!-- Hero -->
+      <!-- bind: GET /api/me -->
+      <section class="hero" aria-label="ヒーロー">
+        <div class="hero-greeting">// 2026-05-20 (火) · 14:32</div>
+        <h1>おかえりなさい、<span class="name" data-bind="me.displayName">たろう_06</span> さん。</h1>
+        <div class="status-row">
+          <span class="status-chip">
+            <span class="status-dot warn" aria-hidden="true"></span>
+            <span>コーディング中のマッチがあります</span>
+            <span class="meta">#M-2206</span>
+          </span>
+          <span class="status-chip">
+            <span class="status-dot idle" aria-hidden="true"></span>
+            <span>次の対戦予定</span>
+            <span class="meta">水 15:00</span>
+          </span>
+        </div>
+        <div class="hero-ctas">
+          <button class="btn-primary">対戦ルームに入る</button>
+          <button class="btn-secondary">練習する (ソロバトル)</button>
+        </div>
+      </section>
+
+      <!-- Visible rooms -->
+      <!-- bind: GET /api/rooms/visible -->
+      <section class="card" style="margin-top: 24px;" aria-label="対戦可能ルーム">
+        <header class="card-head">
+          <div>
+            <h2>対戦可能ルーム</h2>
+            <div class="sub" style="margin-top: 4px;">// 所属ルーム + 参加可能なロビー</div>
+          </div>
+          <a href="#all-rooms" class="more">すべて見る</a>
+        </header>
+        <div class="card-body">
+          <div class="room-grid" id="room-grid"></div>
+        </div>
+      </section>
+
+      <!-- Recent matches -->
+      <!-- bind: GET /api/me/matches?limit=5 -->
+      <section class="card" style="margin-top: 24px;" aria-label="最近の対戦">
+        <header class="card-head">
+          <div>
+            <h2>最近の対戦</h2>
+            <div class="sub" style="margin-top: 4px;">// 直近 5 件</div>
+          </div>
+          <a href="#all-matches" class="more">対戦履歴をすべて見る</a>
+        </header>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>日時</th>
+              <th>相手</th>
+              <th>結果</th>
+              <th>終了理由</th>
+              <th style="text-align:right;">リプレイ</th>
+            </tr>
+          </thead>
+          <tbody id="match-tbody"></tbody>
+        </table>
+      </section>
+
+    </div>
+
+    <!-- ===== Right column ===== -->
+    <div class="stats-stack">
+
+      <!-- Win rate -->
+      <!-- bind: GET /api/me/stats -->
+      <section class="winrate-card" aria-label="戦績サマリー">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+          <div>
+            <div class="wr-label">// 通算 勝率</div>
+            <div class="wr-value">58<small>%</small></div>
+            <div class="wr-record">
+              <span><span class="w">29</span> 勝</span>
+              <span><span class="l">19</span> 負</span>
+              <span><span class="d">2</span> 分</span>
+            </div>
+          </div>
+          <div style="text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-soft);">
+            50 戦
+          </div>
+        </div>
+        <div class="wr-trend">
+          <div class="wr-trend-head">
+            <span>// 直近 12 戦のスパークライン</span>
+            <strong>+4 連勝中</strong>
+          </div>
+          <svg class="sparkline" viewBox="0 0 240 36" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="sparkfill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="#f59e0b" stop-opacity=".4"/>
+                <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <path d="M0,28 L20,24 L40,26 L60,18 L80,22 L100,14 L120,18 L140,12 L160,10 L180,14 L200,8 L220,10 L240,4 L240,36 L0,36 Z" fill="url(#sparkfill)"/>
+            <path d="M0,28 L20,24 L40,26 L60,18 L80,22 L100,14 L120,18 L140,12 L160,10 L180,14 L200,8 L220,10 L240,4" fill="none" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+      </section>
+
+      <!-- Stat tiles -->
+      <section class="card" aria-label="詳細指標">
+        <header class="card-head">
+          <h2>詳細指標</h2>
+          <span class="sub">// last 30 days</span>
+        </header>
+        <div class="card-body">
+          <div class="tile-list">
+            <div class="stat-tile">
+              <div class="lbl">平均ターン数</div>
+              <div class="val">14.2</div>
+              <div class="delta down">−1.4 ↓</div>
+            </div>
+            <div class="stat-tile">
+              <div class="lbl">与ダメージ平均</div>
+              <div class="val">38.7</div>
+              <div class="delta up">+3.1 ↑</div>
+            </div>
+            <div class="stat-tile">
+              <div class="lbl">被ダメージ平均</div>
+              <div class="val">22.4</div>
+              <div class="delta up">−2.0 ↓</div>
+            </div>
+            <div class="stat-tile">
+              <div class="lbl">ファーストダメージ率</div>
+              <div class="val">61<span style="font-size:12px;">%</span></div>
+              <div class="delta flat">±0</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hints -->
+      <section class="card hint-card" aria-label="改善のヒント">
+        <header class="card-head">
+          <h2>改善のヒント</h2>
+          <span class="sub">// from last 5 losses</span>
+        </header>
+        <div class="card-body">
+          <div style="font-size: 12px; color: var(--ink-soft); margin-bottom: 8px;">直近敗北の傾向タグ</div>
+          <div class="tag-row">
+            <span class="loss-tag">待機過多</span>
+            <span class="loss-tag">索敵不足</span>
+            <span class="loss-tag">盲撃ち多め</span>
+          </div>
+
+          <div class="hint-block">
+            <div class="head">// 試してみるブロック</div>
+            <code>もし「敵が見える」なら<br>　→ 「攻撃する」<br>そうでなければ<br>　→ 「索敵を 1 マス進める」</code>
+            <div style="font-size: 11.5px; color: var(--ink-soft); margin-top: 8px; line-height: 1.5;">
+              「待機」を「索敵」に置き換えるだけで、敵に先制される頻度が下がります。
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+  </div>
+</main>
+
+<!-- ===== State gallery ===== -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常 / 初回ログイン直後 / ルーム未所属 / 読み込み中</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常時</span><span class="state-tag">ready</span></header>
+      <div class="state-body">
+        <div class="state-h">
+          <div class="hi">おかえりなさい、たろう_06 さん</div>
+          <div class="sub">コーディング中のマッチあり · #M-2206</div>
+          <span class="mini-cta">対戦ルームに入る</span>
+        </div>
+        <div class="mini-room">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="font-size:11.5px;">2-A クラス・5月課題</strong>
+            <span class="kind-badge kind-classroom" style="font-size:8.5px; padding:2px 5px;">CLASSROOM</span>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft); margin-top:4px;">ROOM-2026-0142 · 募集中 3</div>
+        </div>
+        <div class="mini-row"><span style="display:flex; gap:6px; align-items:center;"><span class="result result-win" style="font-size:9.5px; padding:1px 6px;">WIN</span>HanaCoder</span><span style="color:var(--ink-soft); font-family:'JetBrains Mono',monospace; font-size:10px;">12T</span></div>
+        <div class="mini-row"><span style="display:flex; gap:6px; align-items:center;"><span class="result result-loss" style="font-size:9.5px; padding:1px 6px;">LOSS</span>K-9bot</span><span style="color:var(--ink-soft); font-family:'JetBrains Mono',monospace; font-size:10px;">18T</span></div>
+      </div>
+    </article>
+
+    <!-- First login -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">初回ログイン直後</span><span class="state-tag">empty-history</span></header>
+      <div class="state-body">
+        <div class="state-h">
+          <div class="hi">はじめまして、しんじん01 さん</div>
+          <div class="sub">まずは練習バトルで操作を覚えましょう</div>
+          <span class="mini-cta">練習する</span>
+        </div>
+        <div class="mini-room">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="font-size:11.5px;">2-A クラス・5月課題</strong>
+            <span class="kind-badge kind-classroom" style="font-size:8.5px; padding:2px 5px;">CLASSROOM</span>
+          </div>
+          <div style="font-family:'JetBrains Mono',monospace; font-size:10px; color: var(--ink-soft); margin-top:4px;">ROOM-2026-0142 · 募集中 3</div>
+        </div>
+        <div class="mini-empty" style="margin-top:8px;">
+          <strong>まだ対戦履歴がありません</strong>
+          1 戦すると、ここに結果が表示されます。
+        </div>
+      </div>
+    </article>
+
+    <!-- No room (general user) -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">ルーム未所属</span><span class="state-tag">no-room</span></header>
+      <div class="state-body">
+        <div class="state-h">
+          <div class="hi">おかえりなさい、freekun さん</div>
+          <div class="sub" style="display:flex; gap:6px; align-items:center;">
+            <span class="role-badge rb-general" style="font-size:8.5px;">GENERAL_USER</span>
+            まだルームに参加していません
+          </div>
+          <span class="mini-cta">公開ロビーを探す</span>
+        </div>
+        <div class="mini-empty">
+          <strong>現在参加可能なルームはありません</strong>
+          ルーム番号と発行コードを<br>管理者から受け取ってください。
+        </div>
+        <div style="font-size:11px; color:var(--ink-soft); margin-top:8px; text-align:center;">
+          または <a href="#join" style="color:var(--p1-ink);">ルームコードで参加</a>
+        </div>
+      </div>
+    </article>
+
+    <!-- Loading skeleton -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">読み込み中</span><span class="state-tag">skeleton</span></header>
+      <div class="state-body">
+        <div class="state-h" style="background:var(--bg-2);">
+          <div class="skel big" style="width: 70%;"></div>
+          <div class="skel" style="width: 50%;"></div>
+          <div class="skel cta" style="width: 50%; margin-top: 6px;"></div>
+        </div>
+        <div class="skel tall"></div>
+        <div class="skel" style="width: 80%;"></div>
+        <div class="skel" style="width: 60%;"></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* ===================================================
+     Dummy data — these arrays simulate API responses.
+     =================================================== */
+  const ROOMS = [
+    {
+      id: 'ROOM-2026-0142',
+      name: '2-A クラス・5月課題',
+      kind: 'CLASSROOM',
+      openMatches: 3,
+      members: 28,
+      ownerNote: '担任: 中村先生',
+    },
+    {
+      id: 'ROOM-2026-0288',
+      name: '春の校内トーナメント',
+      kind: 'TOURNAMENT',
+      openMatches: 6,
+      members: 64,
+      ownerNote: '本戦 1 回戦 受付中',
+    },
+    {
+      id: 'ROOM-2026-0301',
+      name: 'みんなで遊ぶ・初心者歓迎',
+      kind: 'LOBBY',
+      openMatches: 12,
+      members: 134,
+      ownerNote: '常設・自由参加',
+    },
+  ];
+
+  const MATCHES = [
+    { at: '05/20 14:02', opponent: 'HanaCoder',  result: 'win',  reason: '相手 HP 0',           replay: 'R-22064' },
+    { at: '05/20 11:47', opponent: 'K-9bot',     result: 'loss', reason: 'ターン上限',         replay: 'R-22055' },
+    { at: '05/19 21:18', opponent: 'misora.dev', result: 'win',  reason: '相手 HP 0',           replay: 'R-22041' },
+    { at: '05/19 19:30', opponent: 'tanu_55',    result: 'draw', reason: '双方ターン上限',     replay: 'R-22033' },
+    { at: '05/18 16:09', opponent: 'kuroneko',   result: 'win',  reason: '相手投了',           replay: 'R-22019' },
+  ];
+
+  /* ---- Render rooms ---- */
+  const roomGrid = document.getElementById('room-grid');
+  const kindMeta = {
+    CLASSROOM:  { cls: 'kind-classroom',  label: 'CLASSROOM' },
+    TOURNAMENT: { cls: 'kind-tournament', label: 'TOURNAMENT' },
+    LOBBY:      { cls: 'kind-lobby',      label: 'PUBLIC_LOBBY' },
+  };
+  ROOMS.forEach(r => {
+    const m = kindMeta[r.kind];
+    const ctaCls = r.kind === 'LOBBY' ? 'room-cta ghost' : 'room-cta';
+    const ctaLabel = r.kind === 'LOBBY' ? '覗いてみる' : '入室する';
+    roomGrid.insertAdjacentHTML('beforeend', `
+      <article class="room-card">
+        <div class="room-top">
+          <div>
+            <div class="room-name">${r.name}</div>
+            <div class="room-code">${r.id}</div>
+          </div>
+          <span class="kind-badge ${m.cls}" title="${m.label}">${m.label}</span>
+        </div>
+        <div style="font-size:12px; color: var(--ink-soft); line-height:1.45;">${r.ownerNote}</div>
+        <div class="room-meta">
+          <div>募集中マッチ <span class="v">${r.openMatches}</span></div>
+          <div>参加者 <span class="v">${r.members}</span></div>
+        </div>
+        <button class="${ctaCls}">${ctaLabel}</button>
+      </article>
+    `);
+  });
+
+  /* ---- Render matches ---- */
+  const tbody = document.getElementById('match-tbody');
+  const resultMeta = {
+    win:  { cls: 'result-win',  label: 'WIN'  },
+    loss: { cls: 'result-loss', label: 'LOSS' },
+    draw: { cls: 'result-draw', label: 'DRAW' },
+  };
+  MATCHES.forEach(m => {
+    const r = resultMeta[m.result];
+    const initial = m.opponent.slice(0, 2).toUpperCase();
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td class="when">${m.at}</td>
+        <td>
+          <span class="opponent">
+            <span class="opp-avatar" aria-hidden="true">${initial}</span>
+            ${m.opponent}
+          </span>
+        </td>
+        <td><span class="result ${r.cls}">${r.label}</span></td>
+        <td class="reason">${m.reason}</td>
+        <td style="text-align:right;"><a href="#replay-${m.replay}" class="replay-link">▶ ${m.replay}</a></td>
+      </tr>
+    `);
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,1309 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>監査ログ | システム管理 | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330;
+    --admin-accent:#7c3aed; --admin-accent-soft:#ede9fe;
+    --room-admin-accent:#0891b2; --room-admin-accent-soft:#cffafe; --room-admin-accent-ink:#155e75;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--admin-accent); outline-offset: 2px; }
+  button, a { font: inherit; }
+  a { color: var(--p1-ink); }
+
+  /* ============ Topbar ============ */
+  .topbar {
+    background: var(--admin-bg);
+    color: #e5e7eb;
+    padding: 12px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid #0f1117;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(180deg, #2a2e3c, #1a1c25);
+    color: #e5e7eb;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 13px;
+    border: 1px solid #3a3e4d;
+  }
+  .brand-text { font-weight: 700; font-size: 14px; color: #f3f4f6; display: flex; align-items: baseline; gap: 8px; }
+  .brand-text .tag {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    padding: 2px 7px; background: var(--admin-accent);
+    color: #fff; border-radius: 4px; letter-spacing: .04em; font-weight: 600;
+  }
+  .breadcrumb {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px; color: #9ca3af;
+    padding-left: 16px; margin-left: 8px;
+    border-left: 1px solid #3a3e4d;
+  }
+  .breadcrumb strong { color: #e5e7eb; font-weight: 600; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .admin-chip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 12px 5px 5px;
+    background: #2a2e3c; border: 1px solid #3a3e4d;
+    border-radius: 999px;
+    font-size: 12.5px; font-weight: 600; color: #e5e7eb;
+  }
+  .admin-avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--admin-accent); color: #fff;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .role-pill-top {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; font-weight: 600;
+    padding: 3px 7px; border-radius: 4px;
+    background: var(--admin-accent); color: #fff; letter-spacing: .04em;
+  }
+  .top-link {
+    color: #9ca3af; background: transparent;
+    border: 1px solid #3a3e4d; border-radius: 8px;
+    padding: 6px 10px; font-size: 12px; cursor: pointer;
+  }
+  .top-link:hover { color: #f3f4f6; background: #2a2e3c; }
+
+  /* Scope banner */
+  .scope-banner {
+    background: #fdfaf0;
+    border-bottom: 1px solid var(--line);
+    padding: 10px 28px;
+    display: flex; align-items: center; gap: 12px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .scope-icon {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 12px;
+  }
+  .scope-banner strong { color: var(--ink); font-weight: 600; }
+  .scope-banner .sep { color: var(--line-2); margin: 0 4px; }
+
+  /* Shell */
+  .shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 100px);
+  }
+
+  /* Side nav */
+  .sidenav {
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    padding: 18px 14px;
+  }
+  .nav-section-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: .08em;
+    padding: 8px 10px 6px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px;
+    font-size: 13px; color: var(--ink-soft);
+    text-decoration: none; margin-bottom: 2px;
+    font-weight: 500; border: 1px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg); color: var(--ink); }
+  .nav-item.active {
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+    border-color: #ddd6fe;
+    font-weight: 600;
+  }
+  .nav-icon {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--bg-2); border: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 700;
+    display: grid; place-items: center;
+  }
+  .nav-item.active .nav-icon {
+    background: var(--admin-accent);
+    border-color: var(--admin-accent);
+    color: #fff;
+  }
+  .nav-divider { height: 1px; background: var(--line); margin: 10px 6px; }
+  .nav-footnote {
+    margin: 16px 4px 0;
+    padding: 10px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    background: var(--bg);
+    line-height: 1.5;
+  }
+
+  /* Main */
+  .main { padding: 24px 32px 32px; min-width: 0; }
+  .page-head {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+    margin-bottom: 16px;
+  }
+  .page-head h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+  .page-head .sub { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+  .page-head .sub strong { color: var(--ink); }
+  .immutable-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  /* Peak warning */
+  .peak-banner {
+    background: var(--danger-soft);
+    border: 1px solid #fbb6b6;
+    color: var(--p2-ink);
+    border-radius: 12px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
+    display: flex; gap: 12px; align-items: center;
+    font-size: 13px;
+  }
+  .peak-banner .ic {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--danger); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 14px;
+    flex-shrink: 0;
+  }
+  .peak-banner strong { display: block; font-weight: 700; margin-bottom: 2px; font-size: 13.5px; color: var(--p2-ink); }
+  .peak-banner .meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--p2-ink);
+    margin-top: 3px;
+  }
+  .peak-banner .meta strong {
+    display: inline;
+    margin: 0;
+    color: var(--danger);
+  }
+  .peak-banner .actions {
+    margin-left: auto;
+    display: flex; gap: 6px;
+  }
+  .peak-banner .actions button {
+    background: #fff;
+    border: 1px solid #fbb6b6;
+    color: var(--p2-ink);
+    padding: 6px 11px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .peak-banner .actions button:hover { background: var(--p2-soft); }
+
+  /* Filters */
+  .filter-bar {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    margin-bottom: 14px;
+    display: grid;
+    gap: 10px;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+  }
+  .filter-row-1, .filter-row-2 {
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  }
+  .filter-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-right: 2px;
+  }
+  .period-group {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 2px;
+  }
+  .period-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .period-btn.active {
+    background: #fff;
+    color: var(--admin-accent);
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  .custom-range {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 4px 9px;
+    border-radius: 6px;
+  }
+  .custom-range input {
+    border: none; background: transparent;
+    font: inherit; font-size: 11px;
+    width: 84px;
+    color: var(--ink);
+    outline: none;
+  }
+  .search-wrap {
+    flex: 1; min-width: 200px;
+    display: flex; align-items: center; gap: 8px;
+    background: #fdfcf8;
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 7px 11px;
+  }
+  .search-wrap input {
+    flex: 1; border: none; background: transparent;
+    font: inherit; font-size: 12.5px; color: var(--ink); outline: none;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .search-wrap .ic { color: var(--ink-soft); font-size: 12px; }
+  .filter-group {
+    display: inline-flex;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 2px;
+  }
+  .filter-chip {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 5px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    border-radius: 5px;
+    cursor: pointer;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .02em;
+  }
+  .filter-chip:hover { color: var(--ink); }
+  .filter-chip.active {
+    background: #fff;
+    color: var(--admin-accent);
+    box-shadow: 0 1px 2px rgba(0,0,0,.05);
+  }
+  .filter-chip .num {
+    font-size: 9px;
+    background: var(--bg-2); color: var(--ink-soft);
+    padding: 0 4px; border-radius: 3px;
+    margin-left: 3px;
+  }
+  .filter-chip.active .num {
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+  }
+  .actor-input {
+    display: inline-flex; align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 3px 7px;
+    gap: 6px;
+    min-width: 200px;
+  }
+  .actor-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    border-radius: 999px;
+    padding: 2px 5px 2px 3px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .actor-chip .av {
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--admin-accent); color: #fff;
+    display: grid; place-items: center;
+    font-size: 8.5px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .actor-chip .x { color: var(--admin-accent); cursor: pointer; font-size: 11px; padding: 0 3px; }
+  .actor-input input {
+    flex: 1; border: none; background: transparent;
+    font: inherit; font-size: 11.5px;
+    color: var(--ink); outline: none;
+    min-width: 80px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .toolbar-right {
+    margin-left: auto;
+    display: flex; gap: 8px;
+  }
+  .btn-ghost {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 7px;
+    padding: 7px 11px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .btn-ghost:hover { background: var(--bg); }
+
+  /* Active filter summary */
+  .filter-summary {
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    border-radius: 7px;
+    padding: 6px 11px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    margin-top: 4px;
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .filter-summary strong { color: #5b21b6; }
+  .filter-summary .reset {
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    color: var(--admin-accent);
+    text-decoration: underline;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* Table */
+  .table-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    min-height: 600px;
+  }
+  .table-wrap {
+    overflow: auto;
+    border-right: 1px solid var(--line);
+  }
+  table.audit {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  table.audit thead {
+    background: linear-gradient(180deg, #fdfaf0, #fbf6e7);
+    position: sticky; top: 0; z-index: 2;
+  }
+  table.audit th, table.audit td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+  table.audit th {
+    font-size: 10px;
+    color: var(--ink-soft);
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  table.audit tbody tr {
+    cursor: pointer;
+    transition: background .12s;
+  }
+  table.audit tbody tr:hover { background: #fdfaf0; }
+  table.audit tbody tr.selected {
+    background: var(--admin-accent-soft);
+    box-shadow: inset 3px 0 0 var(--admin-accent);
+  }
+  table.audit tbody tr:last-child td { border-bottom: none; }
+
+  .ts {
+    color: var(--ink-soft);
+    font-size: 11.5px;
+  }
+  .ts strong { color: var(--ink); font-weight: 700; }
+  .actor-cell { display: inline-flex; align-items: center; gap: 6px; }
+  .actor-cell .av {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 9.5px;
+    font-weight: 700;
+    border: 1px solid;
+  }
+  .actor-cell .av.sys { background: var(--admin-accent-soft); color: var(--admin-accent); border-color: #ddd6fe; }
+  .actor-cell .av.room-admin { background: var(--room-admin-accent-soft); color: var(--room-admin-accent-ink); border-color: #a5f3fc; }
+  .actor-cell .av.user { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .actor-cell .av.sys-auto { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .actor-cell .nm {
+    font-weight: 600;
+    color: var(--ink);
+    font-size: 12px;
+  }
+  .actor-cell .badge {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    border: 1px solid;
+    font-weight: 700;
+    letter-spacing: .03em;
+  }
+  .actor-cell .badge.sys { background: var(--admin-accent-soft); color: var(--admin-accent); border-color: #ddd6fe; }
+  .actor-cell .badge.room-admin { background: var(--room-admin-accent-soft); color: var(--room-admin-accent-ink); border-color: #a5f3fc; }
+  .actor-cell .badge.user { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .actor-cell .badge.sys-auto { background: var(--bg-2); color: var(--ink); border-color: var(--line-2); }
+
+  .action-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: .03em;
+    display: inline-flex; align-items: center; gap: 4px;
+  }
+  .action-create { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .action-update { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .action-delete { background: var(--danger-soft); color: var(--danger); border-color: #fbb6b6; }
+  .action-auth { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .action-fail { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .action-permission { background: var(--admin-accent-soft); color: var(--admin-accent); border-color: #ddd6fe; }
+  .action-badge .dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .target-cell .ttype {
+    font-size: 9.5px;
+    color: var(--ink-soft);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-right: 5px;
+    font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .target-cell .tid {
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 11.5px;
+  }
+  .summary-cell {
+    color: var(--ink);
+    font-size: 12px;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+  }
+  .summary-cell em {
+    background: var(--accent-soft);
+    color: #92400e;
+    font-style: normal;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    padding: 0 4px;
+    border-radius: 3px;
+    margin: 0 2px;
+  }
+  .ip-cell {
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .ua-cell {
+    font-size: 11px;
+    color: var(--ink-soft);
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .expand {
+    width: 24px; height: 24px;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .expand:hover { background: var(--bg); color: var(--ink); }
+
+  /* Detail panel */
+  .detail-panel {
+    background: #fafaf2;
+    overflow-y: auto;
+    padding: 16px 18px;
+    min-width: 0;
+  }
+  .detail-head {
+    margin-bottom: 12px;
+  }
+  .detail-head .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 4px;
+  }
+  .detail-head h3 {
+    margin: 0;
+    font-size: 14px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .detail-head .when {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .detail-section { margin-bottom: 14px; }
+  .detail-section .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 5px;
+  }
+  .json-pre {
+    background: #1a1c25;
+    color: #e5e7eb;
+    border-radius: 8px;
+    padding: 11px 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .json-pre .key { color: #fbbf24; }
+  .json-pre .str { color: #86efac; }
+  .json-pre .num { color: #93c5fd; }
+  .json-pre .bool { color: #f0abfc; }
+  .json-pre .punct { color: #9ca3af; }
+  .json-pre .nullv { color: #9ca3af; font-style: italic; }
+  .detail-meta {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+  }
+  .detail-meta .row {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 8px;
+    padding: 3px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .detail-meta .row:last-child { border-bottom: none; }
+  .detail-meta .k { color: var(--ink-soft); }
+  .detail-meta .v { color: var(--ink); word-break: break-all; }
+  .integrity-row {
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    border-radius: 7px;
+    padding: 8px 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    margin-top: 8px;
+    line-height: 1.5;
+  }
+  .integrity-row strong { color: #5b21b6; }
+  .integrity-hash {
+    word-break: break-all;
+    color: var(--ink);
+    background: #fff;
+    border: 1px solid #ddd6fe;
+    padding: 4px 6px;
+    border-radius: 4px;
+    margin-top: 4px;
+    font-size: 10px;
+  }
+
+  /* Pagination */
+  .pagination {
+    grid-column: span 2;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px;
+    border-top: 1px solid var(--line);
+    background: var(--bg);
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+  .pagination .pages { display: flex; gap: 4px; }
+  .page-btn {
+    appearance: none;
+    width: 26px; height: 26px;
+    border: 1px solid var(--line);
+    background: #fff;
+    border-radius: 5px;
+    font: inherit; font-size: 11px;
+    color: var(--ink-soft); cursor: pointer;
+    font-family: "JetBrains Mono", monospace; font-weight: 600;
+  }
+  .page-btn:hover { background: var(--bg); }
+  .page-btn.active {
+    background: var(--admin-accent);
+    color: #fff;
+    border-color: var(--admin-accent);
+  }
+  .page-btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 30px auto 32px;
+    padding: 0 32px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 14px; }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 11px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 9px;
+    padding: 2px 5px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 11px; }
+  .mini-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 10px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-empty {
+    text-align: center;
+    padding: 18px 6px 12px;
+    color: var(--ink-soft);
+  }
+  .mini-empty .ill {
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    margin: 0 auto 6px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+  }
+  .mini-empty strong { display: block; color: var(--ink); font-size: 11.5px; margin-bottom: 2px; }
+  .mini-empty p { margin: 0; font-size: 10.5px; line-height: 1.45; }
+  .mini-warn {
+    background: var(--danger-soft); border: 1px solid #fbb6b6;
+    color: var(--p2-ink); border-radius: 6px;
+    padding: 6px 8px; font-size: 10px;
+    margin-bottom: 7px; line-height: 1.45;
+  }
+  .mini-warn strong { display: block; font-size: 11px; }
+  .mini-search-meta {
+    background: var(--admin-accent-soft);
+    border: 1px solid #ddd6fe;
+    color: var(--admin-accent);
+    border-radius: 5px;
+    padding: 4px 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    margin-bottom: 7px;
+  }
+  .mini-export {
+    background: linear-gradient(180deg, #fff, var(--bg));
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 10px;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .mini-export .ic {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    background: var(--admin-accent); color: #fff;
+    margin: 0 auto 6px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px; font-weight: 700;
+  }
+  .mini-export .progress {
+    height: 4px;
+    background: var(--bg-2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 6px 0;
+  }
+  .mini-export .progress > span {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, var(--admin-accent), #a78bfa);
+    width: 62%;
+    animation: progressmove 2.2s linear infinite;
+  }
+  @keyframes progressmove {
+    from { transform: translateX(-30%); }
+    to { transform: translateX(30%); }
+  }
+  .mini-export strong { display: block; font-size: 10.5px; }
+  .mini-export .meta { font-family: "JetBrains Mono", monospace; font-size: 9.5px; color: var(--ink-soft); margin-top: 3px; }
+  .mini-action {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 3px;
+    border: 1px solid;
+    font-weight: 700;
+  }
+  .mini-action.create { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .mini-action.update { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .mini-action.delete { background: var(--danger-soft); color: var(--danger); border-color: #fbb6b6; }
+  .mini-action.auth   { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .mini-action.fail   { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .mini-action.permission { background: var(--admin-accent-soft); color: var(--admin-accent); border-color: #ddd6fe; }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Topbar ============ -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <div class="brand-text">
+      対戦・コーディング
+      <span class="tag">SYSTEM ADMIN</span>
+    </div>
+    <div class="breadcrumb">/ system / <strong>audit</strong></div>
+  </div>
+  <div class="topbar-right">
+    <button class="top-link">ヘルプ</button>
+    <button class="top-link">通知</button>
+    <div class="admin-chip">
+      <div class="admin-avatar" aria-hidden="true">NK</div>
+      <span>nakamura.sys</span>
+      <span class="role-pill-top">SYSTEM_ADMIN</span>
+    </div>
+    <button class="top-link">ログアウト</button>
+  </div>
+</header>
+
+<!-- Scope banner -->
+<div class="scope-banner" role="status">
+  <div class="scope-icon" aria-hidden="true">!</div>
+  <div>
+    <strong>あなたはシステム管理者として閲覧中です。</strong>
+    <span class="sep">/</span>
+    監査ログは <strong>閲覧専用</strong> です。改ざんはできません。エクスポートのみ可能です。
+  </div>
+</div>
+
+<!-- Shell -->
+<div class="shell">
+
+  <aside class="sidenav" aria-label="サイドナビ">
+    <div class="nav-section-label">// SYSTEM</div>
+    <a class="nav-item" href="#home"><span class="nav-icon">H</span>システム管理ホーム</a>
+    <a class="nav-item" href="#rooms"><span class="nav-icon">R</span>ルーム</a>
+    <a class="nav-item" href="#users"><span class="nav-icon">U</span>アカウント検索</a>
+    <a class="nav-item active" href="#audit" aria-current="page"><span class="nav-icon">L</span>監査ログ</a>
+    <div class="nav-divider"></div>
+    <div class="nav-section-label">// CONFIG</div>
+    <a class="nav-item" href="#settings"><span class="nav-icon">S</span>システム設定</a>
+
+    <div class="nav-footnote">
+      append-only / 改ざん不可。各レコードに HMAC ハッシュチェーンが付与されます。
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <header class="page-head">
+      <div>
+        <h1>監査ログ</h1>
+        <div class="sub">サービス全体の重要操作 (ROOM/USER/MATCH/AUTH) を時系列で記録します。<strong>閲覧専用</strong> · エクスポートのみ可能。</div>
+      </div>
+      <span class="immutable-pill" aria-label="改ざん不可">⚖ APPEND-ONLY</span>
+    </header>
+
+    <!-- Peak warning -->
+    <div class="peak-banner" role="alert">
+      <div class="ic" aria-hidden="true">⚠</div>
+      <div>
+        <strong>ログイン失敗が短時間に集中しています。</strong>
+        <div class="meta">直近 1 時間に <strong>LOGIN_FAILURE</strong> が <strong>42 件</strong> · 通常時の <strong>14×</strong> · IP 帯 <strong>203.0.113.0/24</strong> から集中。</div>
+      </div>
+      <div class="actions">
+        <button>↻ 自動更新 5s</button>
+        <button>IP をブロックリストへ →</button>
+      </div>
+    </div>
+
+    <!-- Filter bar -->
+    <!-- bind: GET /admin/api/audit?from=&to=&action=&actor=&target=&q=&cursor= -->
+    <section class="filter-bar" aria-label="フィルタ">
+      <div class="filter-row-1">
+        <span class="filter-label">// 期間</span>
+        <div class="period-group" role="group">
+          <button class="period-btn">直近 1h</button>
+          <button class="period-btn active">直近 24h</button>
+          <button class="period-btn">直近 7 日</button>
+          <button class="period-btn">直近 30 日</button>
+          <button class="period-btn">全期間</button>
+        </div>
+        <div class="custom-range">
+          <input type="text" value="2026-05-21 14:00">
+          <span>→</span>
+          <input type="text" value="2026-05-22 14:00">
+        </div>
+        <div class="toolbar-right">
+          <button class="btn-ghost">↓ CSV</button>
+          <button class="btn-ghost">↓ JSON</button>
+        </div>
+      </div>
+
+      <div class="filter-row-2">
+        <span class="filter-label">// アクション</span>
+        <div class="filter-group">
+          <button class="filter-chip active">ALL <span class="num">4,218</span></button>
+          <button class="filter-chip">CREATE <span class="num">186</span></button>
+          <button class="filter-chip">UPDATE <span class="num">344</span></button>
+          <button class="filter-chip">DELETE <span class="num">12</span></button>
+          <button class="filter-chip">AUTH <span class="num">3,612</span></button>
+          <button class="filter-chip">FAIL <span class="num">64</span></button>
+          <button class="filter-chip">PERMISSION <span class="num">8</span></button>
+        </div>
+        <span class="filter-label" style="margin-left: 8px;">// 対象</span>
+        <div class="filter-group">
+          <button class="filter-chip active">ALL</button>
+          <button class="filter-chip">ROOM</button>
+          <button class="filter-chip">USER</button>
+          <button class="filter-chip">MATCH</button>
+        </div>
+      </div>
+
+      <div class="filter-row-2">
+        <span class="filter-label">// アクター</span>
+        <div class="actor-input">
+          <span class="actor-chip">
+            <span class="av">NK</span>
+            nakamura.sys
+            <span class="x">×</span>
+          </span>
+          <input type="text" placeholder="ユーザー名で追加…">
+        </div>
+        <span class="filter-label" style="margin-left: 8px;">// キーワード</span>
+        <div class="search-wrap" style="min-width: 200px;">
+          <span class="ic" aria-hidden="true">⌕</span>
+          <input type="text" value="ROOM-2026-0142" placeholder="対象 ID / 概要に含む語">
+        </div>
+      </div>
+
+      <div class="filter-summary">
+        <span>filters:</span>
+        <span><strong>24h</strong> · period</span>
+        <span><strong>ALL</strong> · action</span>
+        <span><strong>ALL</strong> · target</span>
+        <span>actor = <strong>nakamura.sys</strong></span>
+        <span>q = <strong>"ROOM-2026-0142"</strong></span>
+        <span style="margin-left: auto; color: var(--admin-accent);">→ <strong>18 件</strong> hit</span>
+        <button class="reset">クリア</button>
+      </div>
+    </section>
+
+    <!-- Table card + detail -->
+    <section class="table-card" aria-label="監査イベント">
+      <div class="table-wrap">
+        <table class="audit">
+          <thead>
+            <tr>
+              <th style="width: 150px;">発生時刻</th>
+              <th style="width: 180px;">アクター</th>
+              <th style="width: 200px;">アクション</th>
+              <th style="width: 180px;">対象</th>
+              <th>概要</th>
+              <th style="width: 120px;">IP</th>
+              <th style="width: 80px;">UA</th>
+              <th style="width: 36px;"></th>
+            </tr>
+          </thead>
+          <tbody id="audit-tbody"></tbody>
+        </table>
+      </div>
+
+      <!-- Detail panel -->
+      <aside class="detail-panel" aria-label="詳細パネル">
+        <div class="detail-head">
+          <div class="lbl">// event id</div>
+          <h3>evt_a7f29k3m_2026052214321841</h3>
+          <div class="when">2026-05-22T14:32:18.412+09:00 · <strong style="color: var(--ink);">26 秒前</strong></div>
+        </div>
+
+        <div class="detail-section">
+          <div class="lbl">// meta</div>
+          <div class="detail-meta">
+            <div class="row"><span class="k">action</span><span class="v">USER_DISABLE</span></div>
+            <div class="row"><span class="k">actor</span><span class="v">nakamura.sys (SYSTEM_ADMIN)</span></div>
+            <div class="row"><span class="k">target</span><span class="v">USER / acc_8m4dP2R</span></div>
+            <div class="row"><span class="k">result</span><span class="v" style="color: var(--success); font-weight: 700;">SUCCESS</span></div>
+            <div class="row"><span class="k">ip</span><span class="v">203.0.113.42</span></div>
+            <div class="row"><span class="k">ua</span><span class="v">Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) Chrome/124.0</span></div>
+            <div class="row"><span class="k">session</span><span class="v">sess_8a2c…f3</span></div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="lbl">// payload</div>
+          <pre class="json-pre">{
+  <span class="key">"action"</span><span class="punct">:</span> <span class="str">"USER_DISABLE"</span><span class="punct">,</span>
+  <span class="key">"target"</span><span class="punct">:</span> {
+    <span class="key">"type"</span><span class="punct">:</span> <span class="str">"USER"</span><span class="punct">,</span>
+    <span class="key">"id"</span><span class="punct">:</span> <span class="str">"acc_8m4dP2R"</span><span class="punct">,</span>
+    <span class="key">"username"</span><span class="punct">:</span> <span class="str">"spam_acct_0917"</span>
+  }<span class="punct">,</span>
+  <span class="key">"diff"</span><span class="punct">:</span> {
+    <span class="key">"status"</span><span class="punct">:</span> {
+      <span class="key">"from"</span><span class="punct">:</span> <span class="str">"ACTIVE"</span><span class="punct">,</span>
+      <span class="key">"to"</span><span class="punct">:</span> <span class="str">"DISABLED"</span>
+    }
+  }<span class="punct">,</span>
+  <span class="key">"reason"</span><span class="punct">:</span> <span class="str">"不正な大量アカウント作成のため"</span><span class="punct">,</span>
+  <span class="key">"reversible"</span><span class="punct">:</span> <span class="bool">true</span>
+}</pre>
+        </div>
+
+        <div class="integrity-row">
+          <strong>⛓ ハッシュチェーン (改ざん検証)</strong>
+          <div style="margin-top: 4px;">prev → cur</div>
+          <div class="integrity-hash">a7f29c1d2e8b4a6f5d3e7c9b2a1f5d8c3e7b9f2a4c6d8e1b3a5f7c9d2e4b6f8a</div>
+        </div>
+      </aside>
+
+      <!-- Pagination spans both columns -->
+      <div class="pagination" role="navigation" aria-label="ページネーション">
+        <div>1 - 8 / <strong style="color: var(--ink);">4,218</strong> 件 · cursor=<span style="font-family:'JetBrains Mono',monospace;">evt_a7f29k3m_…</span></div>
+        <div class="pages">
+          <button class="page-btn" disabled>‹</button>
+          <button class="page-btn active" aria-current="page">1</button>
+          <button class="page-btn">2</button>
+          <button class="page-btn">3</button>
+          <button class="page-btn">…</button>
+          <button class="page-btn">528</button>
+          <button class="page-btn">›</button>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace;">表示件数 50 ▾</div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常 / ゼロ件 / フィルタ過剰ゼロ / 集中検知 (ピーク) / エクスポート処理中</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常</span><span class="state-tag">ok</span></header>
+      <div class="state-body">
+        <div class="mini-row"><span>14:32:18</span><span class="mini-action delete">USR_DEL</span></div>
+        <div class="mini-row"><span>14:30:42</span><span class="mini-action auth">LOGIN</span></div>
+        <div class="mini-row"><span>14:28:11</span><span class="mini-action create">ROOM_NEW</span></div>
+        <div class="mini-row"><span>14:25:09</span><span class="mini-action update">RM_PATCH</span></div>
+        <div class="mini-row"><span>14:22:53</span><span class="mini-action permission">PERM</span></div>
+        <div class="mini-row"><span>14:18:30</span><span class="mini-action auth">LOGIN</span></div>
+      </div>
+    </article>
+
+    <!-- Zero -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">ゼロ件</span><span class="state-tag">empty</span></header>
+      <div class="state-body">
+        <div class="mini-search-meta">
+          period = <strong>1h</strong> · target = USER
+        </div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">∅</div>
+          <strong>該当イベントなし</strong>
+          <p>この期間にイベントは<br>記録されていません。</p>
+        </div>
+      </div>
+    </article>
+
+    <!-- Over-filtered -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">フィルタ過剰</span><span class="state-tag">narrow</span></header>
+      <div class="state-body">
+        <div class="mini-search-meta">
+          action=DELETE · actor=ueda · q="OBSOLETE"
+        </div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">?</div>
+          <strong>条件が厳しすぎます</strong>
+          <p>3 条件すべて一致する<br>イベントはありません。</p>
+        </div>
+        <button style="background:var(--admin-accent); color:#fff; border:none; padding:5px 9px; border-radius:5px; font-size:10px; font-weight:700; margin-top:6px;">条件を 1 つ外す</button>
+      </div>
+    </article>
+
+    <!-- Peak warning -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">集中検知</span><span class="state-tag">spike</span></header>
+      <div class="state-body">
+        <div class="mini-warn">
+          <strong>⚠ LOGIN_FAILURE 集中</strong>
+          直近 1h で 42 件 (通常 14×)
+        </div>
+        <div class="mini-row"><span>14:32:01</span><span class="mini-action fail">FAIL</span></div>
+        <div class="mini-row"><span>14:31:48</span><span class="mini-action fail">FAIL</span></div>
+        <div class="mini-row"><span>14:31:32</span><span class="mini-action fail">FAIL</span></div>
+        <div class="mini-row"><span>14:31:20</span><span class="mini-action fail">FAIL</span></div>
+      </div>
+    </article>
+
+    <!-- Exporting -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">エクスポート中</span><span class="state-tag">export</span></header>
+      <div class="state-body">
+        <div class="mini-export">
+          <div class="ic" aria-hidden="true">↓</div>
+          <strong>CSV を生成中…</strong>
+          <div class="progress"><span></span></div>
+          <div class="meta">4,218 件 · 62%</div>
+        </div>
+        <div style="font-family:'JetBrains Mono',monospace; font-size:9.5px; color: var(--ink-soft); text-align:center;">
+          完了したら DL リンクが届きます
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — GET /admin/api/audit
+     ========================================================= */
+  const EVENTS = [
+    {
+      id: 'evt_a7f29k3m', ts: '14:32:18',
+      actor: { name:'nakamura.sys',     role:'sys',        i:'NK', badge:'SYS' },
+      action: 'USER_DISABLE',          cat: 'delete',
+      target: { type:'USER',  id:'acc_8m4dP2R' },
+      summary: 'spam_acct_0917 を <em>DISABLED</em> に変更 (理由: 不正な大量アカウント作成)',
+      ip: '203.0.113.42', ua: 'Chrome/124', selected: true,
+    },
+    {
+      id: 'evt_8b9c1L2k', ts: '14:30:42',
+      actor: { name:'nakamura.sys',     role:'sys',        i:'NK', badge:'SYS' },
+      action: 'USER_INVITE',           cat: 'create',
+      target: { type:'USER',  id:'ueda.sensei@…' },
+      summary: 'ROOM_ADMIN として招待リンクを発行',
+      ip: '203.0.113.42', ua: 'Chrome/124',
+    },
+    {
+      id: 'evt_4d2e7M3n', ts: '14:28:11',
+      actor: { name:'nakamura.sensei',  role:'room-admin', i:'NK', badge:'R_ADM' },
+      action: 'ROOM_CREATE',           cat: 'create',
+      target: { type:'ROOM',  id:'ROOM-2026-0142' },
+      summary: 'CLASSROOM「3-A クラス・5月課題」を作成',
+      ip: '198.51.100.18', ua: 'Safari/17',
+    },
+    {
+      id: 'evt_9g5h3F7p', ts: '14:25:09',
+      actor: { name:'nakamura.sensei',  role:'room-admin', i:'NK', badge:'R_ADM' },
+      action: 'ROOM_UPDATE',           cat: 'update',
+      target: { type:'ROOM',  id:'ROOM-2026-0142' },
+      summary: 'rule.maxTurn を <em>20 → 24</em> に変更',
+      ip: '198.51.100.18', ua: 'Safari/17',
+    },
+    {
+      id: 'evt_1k4m6N8q', ts: '14:22:53',
+      actor: { name:'nakamura.sys',     role:'sys',        i:'NK', badge:'SYS' },
+      action: 'PERMISSION_GRANT',      cat: 'permission',
+      target: { type:'USER',  id:'acc_4d2e7M3' },
+      summary: 'ueda.sensei に <em>ROOM_ADMIN</em> を付与 (scope: ROOM-2026-0287)',
+      ip: '203.0.113.42', ua: 'Chrome/124',
+    },
+    {
+      id: 'evt_5p3q1R6r', ts: '14:18:30',
+      actor: { name:'nakamura.sensei',  role:'room-admin', i:'NK', badge:'R_ADM' },
+      action: 'LOGIN_SUCCESS',         cat: 'auth',
+      target: { type:'USER',  id:'acc_8b9c1L2' },
+      summary: '2FA 認証成功',
+      ip: '198.51.100.18', ua: 'Safari/17',
+    },
+    {
+      id: 'evt_3w7y5T1s', ts: '14:15:08',
+      actor: { name:'(unknown)',         role:'sys-auto',   i:'?',  badge:'AUTO' },
+      action: 'LOGIN_FAILURE',         cat: 'fail',
+      target: { type:'USER',  id:'admin' },
+      summary: 'パスワード不一致 · 連続 <em>3</em> 回目',
+      ip: '203.0.113.71', ua: 'curl/8.4',
+    },
+    {
+      id: 'evt_2h6j8K9t', ts: '14:08:42',
+      actor: { name:'nakamura.sensei',  role:'room-admin', i:'NK', badge:'R_ADM' },
+      action: 'MATCH_CANCEL',          cat: 'delete',
+      target: { type:'MATCH', id:'#M-22039' },
+      summary: 'マッチを <em>NO_SHOW</em> でキャンセル',
+      ip: '198.51.100.18', ua: 'Safari/17',
+    },
+  ];
+
+  const catMeta = {
+    create:     { cls:'action-create' },
+    update:     { cls:'action-update' },
+    delete:     { cls:'action-delete' },
+    auth:       { cls:'action-auth' },
+    fail:       { cls:'action-fail' },
+    permission: { cls:'action-permission' },
+  };
+
+  const tbody = document.getElementById('audit-tbody');
+  EVENTS.forEach(e => {
+    const c = catMeta[e.cat];
+    const sel = e.selected ? 'selected' : '';
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr class="${sel}">
+        <td class="ts"><strong>${e.ts}</strong></td>
+        <td>
+          <span class="actor-cell">
+            <span class="av ${e.actor.role}">${e.actor.i}</span>
+            <span class="nm">${e.actor.name}</span>
+            <span class="badge ${e.actor.role}">${e.actor.badge}</span>
+          </span>
+        </td>
+        <td><span class="action-badge ${c.cls}"><span class="dot" aria-hidden="true"></span>${e.action}</span></td>
+        <td>
+          <span class="target-cell">
+            <span class="ttype">${e.target.type}</span>
+            <span class="tid">${e.target.id}</span>
+          </span>
+        </td>
+        <td class="summary-cell">${e.summary}</td>
+        <td class="ip-cell">${e.ip}</td>
+        <td class="ua-cell" title="${e.ua}">${e.ua}</td>
+        <td><button class="expand" aria-label="詳細">↗</button></td>
+      </tr>
+    `);
+  });
+
+  /* Row selection */
+  tbody.addEventListener('click', e => {
+    const tr = e.target.closest('tr');
+    if (!tr) return;
+    tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+    tr.classList.add('selected');
+  });
+
+  /* Filter chip toggling */
+  document.querySelectorAll('.filter-group, .period-group').forEach(group => {
+    group.addEventListener('click', e => {
+      const t = e.target.closest('.filter-chip, .period-btn');
+      if (!t) return;
+      group.querySelectorAll('.filter-chip, .period-btn').forEach(c => c.classList.remove('active'));
+      t.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

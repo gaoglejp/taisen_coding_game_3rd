@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>対戦 (リプレイ) | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --danger:#dc2626; --success:#15803d;
+    --cell: 46px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button { font: inherit; }
+
+  /* ============ Header ============ */
+  .topbar {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 24px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 14px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 13px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .brand-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    background: var(--accent-soft); border: 1px solid #f3d27d;
+    color: #92400e; padding: 2px 7px; border-radius: 4px; font-weight: 600;
+  }
+
+  .match-meta {
+    display: flex; align-items: center; gap: 16px;
+    font-size: 12.5px;
+  }
+  .meta-block { display: flex; flex-direction: column; }
+  .meta-block .lbl {
+    font-size: 10px; color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .04em; text-transform: uppercase;
+  }
+  .meta-block .val { font-weight: 700; font-size: 13px; margin-top: 1px; }
+  .meta-block .val.mono { font-family: "JetBrains Mono", monospace; }
+  .meta-sep { width: 1px; height: 28px; background: var(--line-2); }
+
+  .vs-row {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .p-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 9px 3px 4px;
+    border-radius: 999px;
+    font-weight: 700; font-size: 12.5px;
+  }
+  .p-chip .av {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid;
+  }
+  .p1-chip { background: var(--p1-soft); color: var(--p1-ink); border: 1px solid #bfd5fa; }
+  .p1-chip .av { background: var(--p1); color: #fff; border-color: var(--p1-ink); }
+  .p2-chip { background: var(--p2-soft); color: var(--p2-ink); border: 1px solid #fbb6b6; }
+  .p2-chip .av { background: var(--p2); color: #fff; border-color: var(--p2-ink); }
+  .vs { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--ink-soft); font-weight: 700; }
+
+  .top-right {
+    display: flex; justify-content: flex-end; align-items: center; gap: 12px;
+  }
+  .spectator-count {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 11px;
+    font-size: 12px; color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    display: inline-flex; align-items: center; gap: 6px;
+    font-weight: 600;
+  }
+  .spectator-count .eye { font-family: 'Plus Jakarta Sans', sans-serif; }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--danger);
+    animation: livepulse 1.4s ease-in-out infinite;
+  }
+  @keyframes livepulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  .top-link {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .top-link.cta {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+    box-shadow: 0 1px 0 #c2740a;
+    font-weight: 700;
+  }
+  .top-link.cta:hover { background: #ea8a09; }
+  .top-link[disabled] { opacity: .4; cursor: not-allowed; }
+
+  /* ============ Shell ============ */
+  .shell {
+    display: grid;
+    grid-template-columns: 320px 1fr 320px;
+    gap: 14px;
+    padding: 14px 18px;
+    align-items: stretch;
+  }
+
+  /* ============ Panel (recognition) ============ */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(31,35,48,.04);
+    display: flex; flex-direction: column;
+  }
+  .panel-head {
+    padding: 12px 14px 10px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .panel-head.p1 { background: linear-gradient(180deg, #f5f9ff, #ecf3ff); }
+  .panel-head.p2 { background: linear-gradient(180deg, #fff5f5, #ffecec); }
+  .panel-player {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 6px;
+  }
+  .panel-player .av {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 2px solid;
+  }
+  .p1 .panel-player .av { background: var(--p1); color: #fff; border-color: var(--p1-ink); }
+  .p2 .panel-player .av { background: var(--p2); color: #fff; border-color: var(--p2-ink); }
+  .panel-player .nm { font-weight: 700; font-size: 14px; }
+  .panel-player .role-pill {
+    margin-left: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; padding: 2px 6px; border-radius: 4px;
+    font-weight: 600;
+    border: 1px solid;
+  }
+  .p1 .panel-player .role-pill { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .p2 .panel-player .role-pill { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .panel-note {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    line-height: 1.45;
+    background: rgba(255,255,255,.6);
+    border: 1px dashed var(--line-2);
+    border-radius: 6px;
+    padding: 6px 8px;
+    margin-top: 4px;
+  }
+  .panel-note strong { color: var(--ink); font-weight: 700; }
+
+  .panel-body { padding: 12px 14px 14px; flex: 1; overflow-y: auto; }
+  .panel-section { margin-bottom: 14px; }
+  .panel-section:last-child { margin-bottom: 0; }
+  .panel-section .head {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 6px;
+    display: flex; align-items: baseline; justify-content: space-between;
+  }
+  .panel-section .head .sub { color: var(--ink); font-weight: 700; }
+
+  /* Self status */
+  .self-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .self-tile {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; padding: 7px 9px;
+  }
+  .self-tile .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .self-tile .v {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px; font-weight: 700;
+    margin-top: 2px;
+  }
+  .self-tile .v.coord { letter-spacing: 0; }
+  .self-tile .dir {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: #fff; border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 5px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 700;
+    margin-top: 2px;
+  }
+  .hp-row {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin-bottom: 4px;
+  }
+  .hp-row .v {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 16px;
+  }
+  .hp-row .v small { color: var(--ink-soft); font-weight: 600; font-size: 11px; margin-left: 2px; }
+  .hp-bar {
+    height: 8px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .p1 .hp-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--p1), #60a5fa); }
+  .p2 .hp-bar > span { display: block; height: 100%; background: linear-gradient(90deg, var(--p2), #f87171); }
+
+  /* Surroundings compass */
+  .surroundings {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: 1fr 1fr 1fr;
+    gap: 4px;
+    margin: 0 auto;
+    max-width: 200px;
+  }
+  .sur-cell {
+    border-radius: 7px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 6px 4px;
+    text-align: center;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    display: flex; flex-direction: column;
+    align-items: center; gap: 2px;
+    min-height: 52px;
+  }
+  .sur-cell.self {
+    background: #fff;
+    border: 2px dashed var(--ink-soft);
+  }
+  .sur-cell.empty { visibility: hidden; }
+  .sur-cell .dir-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .sur-cell .glyph {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+  .sur-cell .lbl-text {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 600;
+    margin-top: 1px;
+  }
+  .sur-cell.wall   { background: #f4f2e7; color: var(--ink); border-color: var(--line-2); }
+  .sur-cell.obstacle { background: var(--bg-2); color: var(--ink); border-color: var(--line-2); }
+  .sur-cell.player { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .sur-cell.open { background: #f0fdf4; color: var(--success); border-color: #a7f3d0; }
+
+  /* detected target chips */
+  .det-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent-soft); border: 1px solid #fbd9a5; color: #92400e;
+    border-radius: 999px; padding: 3px 6px 3px 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 600;
+    margin-right: 4px; margin-bottom: 4px;
+  }
+  .det-chip .age {
+    background: rgba(255,255,255,.6);
+    border-radius: 3px;
+    padding: 0 5px;
+    font-size: 10px;
+  }
+
+  /* action badges */
+  .action-strip { display: flex; gap: 4px; align-items: center; }
+  .action-slot {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4px 7px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--ink);
+    flex: 1;
+    text-align: center;
+    display: flex; align-items: center; justify-content: center; gap: 4px;
+  }
+  .action-slot .num {
+    font-size: 9px; color: var(--ink-soft);
+    background: #fff; padding: 0 4px; border-radius: 3px;
+  }
+  .action-slot.move { background: #eff6ff; color: var(--p1-ink); border-color: #bfd5fa; }
+  .action-slot.shoot { background: #fef2f2; color: var(--p2-ink); border-color: #fbb6b6; }
+  .action-slot.turn { background: #f5f3ff; color: #6b21a8; border-color: #ddd6fe; }
+  .action-slot.scan { background: #f0fdf4; color: var(--success); border-color: #a7f3d0; }
+  .action-slot.wait { color: var(--ink-soft); }
+
+  /* last turn */
+  .lt-list { display: flex; flex-direction: column; gap: 4px; }
+  .lt-row {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px 9px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 11.5px;
+  }
+  .lt-row .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .lt-row .v {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 11.5px;
+  }
+  .lt-row .v.hit { color: var(--success); }
+  .lt-row .v.miss { color: var(--p2); }
+  .lt-row .v.idle { color: var(--ink-soft); }
+
+  /* score */
+  .score-row {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .score-tile {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 7px; padding: 7px 9px;
+  }
+  .score-tile .k {
+    font-family: "JetBrains Mono", monospace; font-size: 9.5px;
+    color: var(--ink-soft);
+  }
+  .score-tile .v {
+    font-family: "JetBrains Mono", monospace; font-size: 15px;
+    font-weight: 700; margin-top: 1px;
+  }
+  .score-first {
+    background: var(--accent-soft); border: 1px solid #fbd9a5;
+    color: #92400e; border-radius: 7px;
+    padding: 6px 9px;
+    font-size: 11px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+    margin-top: 6px;
+  }
+  .score-first.none {
+    background: var(--bg); border-color: var(--line);
+    color: var(--ink-soft);
+  }
+  .score-first .ic {
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .score-first.none .ic { background: var(--ink-soft); }
+
+  /* ============ Battle board column ============ */
+  .board-col {
+    display: flex; flex-direction: column;
+    background: linear-gradient(180deg, #fdfaf0, #fbf6e7);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .board-col-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px;
+    border-bottom: 1px dashed var(--line);
+    background: rgba(255,255,255,.4);
+  }
+  .board-col-head .ttl {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 700; font-size: 13px;
+  }
+  .turn-counter {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    font-weight: 700;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 3px 9px;
+  }
+  .turn-counter small { color: var(--ink-soft); font-weight: 600; font-size: 10.5px; }
+
+  /* Board */
+  .board-wrap {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    padding: 18px;
+    min-height: 0;
+  }
+  .board {
+    position: relative;
+    width: calc(var(--cell) * 10);
+    height: calc(var(--cell) * 10);
+    background: #fbf7ec;
+    background-image:
+      linear-gradient(rgba(31,35,48,.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31,35,48,.07) 1px, transparent 1px);
+    background-size: var(--cell) var(--cell);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    box-shadow: 0 1px 0 #fff inset, 0 4px 12px rgba(31,35,48,.06);
+  }
+  .board::before {
+    /* Outer axis labels (top) */
+    content: "";
+    position: absolute; inset: 0;
+    pointer-events: none;
+  }
+  .axis-x, .axis-y {
+    position: absolute;
+    display: flex;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+    pointer-events: none;
+  }
+  .axis-x { top: -16px; left: 0; right: 0; }
+  .axis-x span { flex: 1; text-align: center; }
+  .axis-y { top: 0; bottom: 0; left: -18px; flex-direction: column; }
+  .axis-y span { flex: 1; display: flex; align-items: center; justify-content: flex-end; padding-right: 4px; }
+
+  .cell-overlay {
+    position: absolute;
+    pointer-events: none;
+  }
+  .cell {
+    position: absolute;
+    width: var(--cell); height: var(--cell);
+    display: grid; place-items: center;
+  }
+  .obstacle {
+    width: 80%; height: 80%;
+    background:
+      repeating-linear-gradient(45deg, var(--line-2), var(--line-2) 3px, var(--bg-2) 3px, var(--bg-2) 6px);
+    border: 1px solid var(--ink-soft);
+    border-radius: 4px;
+  }
+  .item {
+    width: 70%; height: 70%;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 4px rgba(31,35,48,.18);
+    animation: floaty 2.4s ease-in-out infinite;
+  }
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-2px); }
+  }
+  .item.cross   { background: linear-gradient(180deg, #f59e0b, #d97706); }
+  .item.barrier { background: linear-gradient(180deg, #15803d, #166534); }
+  .item.repeat  { background: linear-gradient(180deg, #7c3aed, #6d28d9); }
+
+  /* Tank */
+  .tank {
+    width: 78%; height: 78%;
+    border-radius: 6px;
+    position: relative;
+    display: grid; place-items: center;
+    color: #fff;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    box-shadow: 0 2px 0 rgba(0,0,0,.18), 0 0 0 2px #fff inset;
+    transition: transform .25s ease;
+  }
+  .tank.p1 { background: linear-gradient(180deg, #3b82f6, var(--p1)); border: 2px solid var(--p1-ink); }
+  .tank.p2 { background: linear-gradient(180deg, #f87171, var(--p2)); border: 2px solid var(--p2-ink); }
+  .tank::after {
+    /* cannon */
+    content: "";
+    position: absolute;
+    width: 22%;
+    height: 50%;
+    background: rgba(0,0,0,.3);
+    top: -8%;
+    left: 39%;
+    border-radius: 3px 3px 1px 1px;
+  }
+  .tank.dir-N { transform: rotate(0deg); }
+  .tank.dir-E { transform: rotate(90deg); }
+  .tank.dir-S { transform: rotate(180deg); }
+  .tank.dir-W { transform: rotate(-90deg); }
+
+  /* Sightline (shot trail) */
+  .shot-line {
+    position: absolute;
+    background: linear-gradient(90deg, rgba(239,68,68,.05), rgba(239,68,68,.85), rgba(239,68,68,.05));
+    height: 3px;
+    border-radius: 2px;
+    transform-origin: 0 50%;
+    box-shadow: 0 0 6px rgba(239,68,68,.4);
+    animation: shotflash 1.4s ease-out infinite;
+  }
+  @keyframes shotflash {
+    0% { opacity: 0; }
+    20% { opacity: 1; }
+    60% { opacity: .9; }
+    100% { opacity: 0; }
+  }
+  .hit-burst {
+    position: absolute;
+    width: var(--cell);
+    height: var(--cell);
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(239,68,68,.45), rgba(239,68,68,0) 70%);
+    pointer-events: none;
+    animation: hitpulse 1.4s ease-out infinite;
+  }
+  @keyframes hitpulse {
+    0% { transform: scale(.6); opacity: .9; }
+    100% { transform: scale(1.4); opacity: 0; }
+  }
+
+  /* legend */
+  .board-legend {
+    padding: 8px 14px;
+    border-top: 1px dashed var(--line);
+    border-bottom: 1px dashed var(--line);
+    display: flex; flex-wrap: wrap; gap: 12px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    background: rgba(255,255,255,.3);
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+  .legend-swatch {
+    width: 14px; height: 14px; border-radius: 3px;
+    border: 1px solid;
+  }
+  .legend-swatch.obs {
+    background: repeating-linear-gradient(45deg, var(--line-2), var(--line-2) 2px, var(--bg-2) 2px, var(--bg-2) 4px);
+    border-color: var(--ink-soft);
+  }
+  .legend-swatch.it-cross { background: var(--accent); border-color: #d97706; border-radius: 50%; }
+  .legend-swatch.it-bar { background: var(--success); border-color: #166534; border-radius: 50%; }
+  .legend-swatch.it-rep { background: #7c3aed; border-color: #6d28d9; border-radius: 50%; }
+
+  /* Replay controls */
+  .replay-controls {
+    padding: 12px 14px;
+    background: #fff;
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: center;
+  }
+  .rc-buttons { display: flex; gap: 4px; align-items: center; }
+  .rc-btn {
+    appearance: none;
+    border: 1px solid var(--line-2);
+    background: #fff;
+    border-radius: 7px;
+    width: 32px; height: 32px;
+    color: var(--ink);
+    cursor: pointer;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+  }
+  .rc-btn:hover { background: var(--bg); border-color: var(--line); }
+  .rc-btn.play {
+    width: 38px; height: 38px;
+    background: var(--accent); color: #fff; border-color: var(--accent);
+    box-shadow: 0 1px 0 #c2740a;
+  }
+  .rc-btn.play:hover { background: #ea8a09; }
+  .rc-btn.play.paused { background: #fff; color: var(--ink); border-color: var(--line-2); box-shadow: none; }
+  .rc-scrubber-wrap {
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .rc-scrubber {
+    position: relative;
+    height: 22px;
+  }
+  .rc-track {
+    position: absolute; left: 0; right: 0; top: 8px;
+    height: 6px; background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .rc-track-fill {
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: linear-gradient(90deg, var(--accent), #fbbf24);
+  }
+  .rc-thumb {
+    position: absolute; top: 3px;
+    width: 16px; height: 16px;
+    background: #fff;
+    border: 2px solid var(--accent);
+    border-radius: 50%;
+    transform: translateX(-50%);
+    box-shadow: 0 1px 4px rgba(31,35,48,.18);
+  }
+  .rc-ticks {
+    position: absolute; top: 21px; left: 0; right: 0;
+    height: 6px;
+  }
+  .rc-tick {
+    position: absolute; top: 0; bottom: 0; width: 1px;
+    background: var(--line-2);
+    transform: translateX(-50%);
+  }
+  .rc-tick.major {
+    width: 2px; background: var(--ink-soft);
+    height: 4px;
+  }
+  .rc-tick.event {
+    width: 5px; height: 12px;
+    background: var(--p2);
+    border-radius: 2px;
+    top: -2px;
+  }
+  .rc-tick.event.first { background: var(--accent); }
+  .rc-tick.event.win { background: var(--success); }
+  .rc-tick.event.item { background: #7c3aed; }
+  .rc-speed {
+    display: flex; gap: 4px; align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 3px;
+  }
+  .rc-speed-btn {
+    appearance: none;
+    border: none;
+    background: transparent;
+    padding: 4px 9px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-soft);
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  .rc-speed-btn:hover { color: var(--ink); }
+  .rc-speed-btn.active { background: var(--accent); color: #fff; }
+  .rc-detail-toggle {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 5px 10px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    font-size: 11.5px;
+    cursor: pointer;
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .rc-detail-toggle input { accent-color: var(--accent); }
+
+  /* Turn log */
+  .turn-log {
+    background: #fff;
+    border-top: 1px solid var(--line);
+    padding: 8px 14px;
+    max-height: 110px;
+    overflow-y: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    line-height: 1.7;
+  }
+  .turn-log .tl-line {
+    display: grid;
+    grid-template-columns: 44px auto 1fr;
+    gap: 8px;
+    padding: 1px 0;
+    border-bottom: 1px dashed var(--line);
+    color: var(--ink-soft);
+  }
+  .turn-log .tl-line:last-child { border-bottom: none; }
+  .turn-log .t { color: var(--ink-soft); font-weight: 700; }
+  .turn-log .who.p1 { color: var(--p1-ink); font-weight: 700; }
+  .turn-log .who.p2 { color: var(--p2-ink); font-weight: 700; }
+  .turn-log .ev { color: var(--ink); }
+  .turn-log .ev .miss { color: var(--p2); font-weight: 700; }
+  .turn-log .ev .hit { color: var(--success); font-weight: 700; }
+  .turn-log .ev .item { color: #7c3aed; font-weight: 700; }
+  .turn-log .tl-line.current { background: var(--accent-soft); margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
+
+  /* ============ Bottom timeline ============ */
+  .timeline-bar {
+    margin: 0 18px 16px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px 16px;
+  }
+  .timeline-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .timeline-head .ttl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--ink);
+    font-weight: 700;
+  }
+  .timeline-axis {
+    position: relative;
+    height: 36px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    margin-bottom: 6px;
+  }
+  .timeline-cursor {
+    position: absolute;
+    width: 2px; top: -4px; bottom: -4px;
+    background: var(--ink);
+    border-radius: 1px;
+    transform: translateX(-50%);
+  }
+  .timeline-cursor::before {
+    content: "T8";
+    position: absolute;
+    top: -16px; left: 50%; transform: translateX(-50%);
+    background: var(--ink); color: #fff;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; font-weight: 700;
+    padding: 1px 5px; border-radius: 4px;
+    white-space: nowrap;
+  }
+  .tl-event {
+    position: absolute;
+    top: 4px; bottom: 4px;
+    width: 14px;
+    background: var(--p2);
+    transform: translateX(-50%);
+    border-radius: 4px;
+    display: grid; place-items: center;
+    color: #fff;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1.5px solid #fff;
+    box-shadow: 0 1px 3px rgba(31,35,48,.18);
+  }
+  .tl-event.first { background: var(--accent); }
+  .tl-event.win { background: var(--success); width: 20px; }
+  .tl-event.item { background: #7c3aed; }
+  .tl-event.hit { background: var(--p2); }
+  .tl-event:hover { transform: translateX(-50%) translateY(-2px); }
+  .timeline-axis-ticks {
+    position: absolute;
+    left: 0; right: 0; bottom: -16px;
+    display: flex;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+  }
+  .timeline-axis-ticks span { flex: 1; text-align: center; }
+  .timeline-legend {
+    display: flex; gap: 14px;
+    margin-top: 20px;
+    font-size: 11px;
+    color: var(--ink-soft);
+  }
+  .legend-dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 3px;
+    margin-right: 4px;
+    vertical-align: -1px;
+  }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 28px auto 32px;
+    padding: 0 28px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 14px; }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 11px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 9px;
+    padding: 2px 5px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 10px; }
+  .mini-controls {
+    display: flex; gap: 4px; align-items: center; justify-content: center;
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px; padding: 5px;
+    margin-top: 7px;
+  }
+  .mini-btn {
+    width: 22px; height: 22px;
+    background: #fff; border: 1px solid var(--line-2);
+    border-radius: 4px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--ink);
+    display: grid; place-items: center;
+  }
+  .mini-btn.play { background: var(--accent); color: #fff; border-color: var(--accent); width: 26px; height: 26px; }
+  .mini-btn.paused { background: #fff; color: var(--ink); border-color: var(--line-2); }
+  .mini-scrub {
+    flex: 1; height: 4px; background: var(--bg-2); border-radius: 3px;
+    position: relative;
+    margin: 0 6px;
+  }
+  .mini-scrub-fill {
+    height: 100%; background: var(--accent); border-radius: 3px;
+  }
+  .mini-board {
+    width: 100%; aspect-ratio: 1;
+    background: #fbf7ec;
+    background-image:
+      linear-gradient(rgba(31,35,48,.08) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(31,35,48,.08) 1px, transparent 1px);
+    background-size: 12.5% 12.5%;
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    position: relative;
+  }
+  .mini-board .mt {
+    position: absolute;
+    width: 9%; height: 9%;
+    border-radius: 2px;
+  }
+  .mini-board .mt.p1 { background: var(--p1); border: 1px solid var(--p1-ink); }
+  .mini-board .mt.p2 { background: var(--p2); border: 1px solid var(--p2-ink); }
+  .live-pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--danger); color: #fff;
+    padding: 2px 7px; border-radius: 4px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; font-weight: 700;
+    letter-spacing: .04em;
+  }
+  .live-pill .d { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: livepulse 1.4s ease-in-out infinite; }
+  .pause-pill {
+    background: var(--bg-2); color: var(--ink);
+    padding: 2px 7px; border-radius: 4px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px; font-weight: 700;
+  }
+  .end-banner {
+    background: linear-gradient(180deg, #fdfdf8, #fef3c7);
+    border: 1px solid #fbd9a5;
+    border-radius: 7px;
+    padding: 7px 9px;
+    margin-bottom: 6px;
+    font-size: 10.5px;
+    text-align: center;
+  }
+  .end-banner strong { display: block; font-size: 11.5px; color: var(--p1-ink); margin-bottom: 2px; }
+  .end-cta {
+    background: var(--accent); color: #fff;
+    border: none; padding: 6px;
+    border-radius: 6px; font-size: 10.5px; font-weight: 700;
+    width: 100%; margin-top: 6px;
+  }
+  .state-err {
+    background: var(--p2-soft); border: 1px solid #fbb6b6;
+    color: var(--p2-ink); border-radius: 6px;
+    padding: 7px 9px; font-size: 10.5px; margin-bottom: 6px;
+  }
+  .state-err strong { display: block; font-size: 11px; margin-bottom: 2px; }
+  .skel {
+    background: linear-gradient(90deg, var(--bg-2) 0%, #eee9da 50%, var(--bg-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 4px;
+    height: 8px;
+    margin-bottom: 5px;
+  }
+  .skel.big { height: 12px; }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <span>対戦・コーディング</span>
+    <span class="brand-tag">v0.2</span>
+  </div>
+
+  <div class="match-meta">
+    <div class="meta-block">
+      <span class="lbl">// ROOM</span>
+      <span class="val">3-A クラス・5月課題</span>
+    </div>
+    <div class="meta-sep"></div>
+    <div class="meta-block">
+      <span class="lbl">// MATCH</span>
+      <span class="val mono">#M-22064</span>
+    </div>
+    <div class="meta-sep"></div>
+    <div class="meta-block">
+      <span class="lbl">// 対戦カード</span>
+      <span class="val vs-row">
+        <span class="p-chip p1-chip"><span class="av">TR</span>たろう_06</span>
+        <span class="vs">vs</span>
+        <span class="p-chip p2-chip"><span class="av">HC</span>HanaCoder</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="top-right">
+    <span class="spectator-count" aria-label="観戦者数">
+      <span class="eye" aria-hidden="true">👁</span>
+      <span>14</span>
+    </span>
+    <a class="top-link cta" href="#result">結果へ →</a>
+  </div>
+</header>
+
+<!-- ============ Shell ============ -->
+<div class="shell">
+
+  <!-- ===== P1 panel ===== -->
+  <aside class="panel p1" aria-label="P1 認識パネル">
+    <header class="panel-head p1">
+      <div class="panel-player">
+        <div class="av" aria-hidden="true">TR</div>
+        <div class="nm">たろう_06</div>
+        <span class="role-pill">P1</span>
+      </div>
+      <div class="panel-note">
+        ここに表示している情報が <strong>プログラムの判断材料</strong> です。実盤面とは独立。
+      </div>
+    </header>
+    <div class="panel-body">
+
+      <!-- self -->
+      <section class="panel-section">
+        <div class="head">// self</div>
+        <div class="self-grid">
+          <div class="self-tile">
+            <div class="k">座標</div>
+            <div class="v coord">x=3 y=6</div>
+          </div>
+          <div class="self-tile">
+            <div class="k">向き</div>
+            <div class="dir">↑ NORTH</div>
+          </div>
+        </div>
+        <div class="self-tile" style="margin-top:6px;">
+          <div class="hp-row">
+            <span class="k" style="font-family:'JetBrains Mono',monospace; font-size: 10px; color: var(--ink-soft);">HP</span>
+            <span class="v">84<small>/100</small></span>
+          </div>
+          <div class="hp-bar"><span style="width: 84%;"></span></div>
+        </div>
+      </section>
+
+      <!-- surroundings -->
+      <section class="panel-section">
+        <div class="head">// surroundings</div>
+        <div class="surroundings">
+          <div class="sur-cell empty"></div>
+          <div class="sur-cell open"><span class="dir-label">FWD</span><span class="glyph">·</span><span class="lbl-text">OPEN</span></div>
+          <div class="sur-cell empty"></div>
+          <div class="sur-cell obstacle"><span class="dir-label">LEFT</span><span class="glyph">▦</span><span class="lbl-text">OBSTACLE</span></div>
+          <div class="sur-cell self"><span class="dir-label">SELF</span><span class="glyph">▲</span><span class="lbl-text" style="color:var(--ink-soft);">N</span></div>
+          <div class="sur-cell open"><span class="dir-label">RIGHT</span><span class="glyph">·</span><span class="lbl-text">OPEN</span></div>
+          <div class="sur-cell empty"></div>
+          <div class="sur-cell wall"><span class="dir-label">BACK</span><span class="glyph">▣</span><span class="lbl-text">WALL</span></div>
+          <div class="sur-cell empty"></div>
+        </div>
+      </section>
+
+      <!-- detected -->
+      <section class="panel-section">
+        <div class="head">// detected_targets <span class="sub">1 件</span></div>
+        <span class="det-chip">forward: +3 · right: +3 <span class="age">age 0</span></span>
+      </section>
+
+      <!-- last actions -->
+      <section class="panel-section">
+        <div class="head">// last_actions</div>
+        <div class="action-strip">
+          <div class="action-slot move"><span class="num">slot1</span>MOVE FWD</div>
+          <div class="action-slot shoot"><span class="num">slot2</span>SHOOT</div>
+        </div>
+      </section>
+
+      <!-- last turn -->
+      <section class="panel-section">
+        <div class="head">// last_turn</div>
+        <div class="lt-list">
+          <div class="lt-row"><span class="k">damaged</span><span class="v idle">0</span></div>
+          <div class="lt-row"><span class="k">shoot_result</span><span class="v miss">MISS</span></div>
+          <div class="lt-row"><span class="k">scan_detected</span><span class="v hit">true</span></div>
+          <div class="lt-row"><span class="k">moved</span><span class="v">+1 FORWARD</span></div>
+        </div>
+      </section>
+
+      <!-- score -->
+      <section class="panel-section">
+        <div class="head">// 累計スコア</div>
+        <div class="score-row">
+          <div class="score-tile">
+            <div class="k">damageDealt</div>
+            <div class="v">24</div>
+          </div>
+          <div class="score-tile">
+            <div class="k">damageTaken</div>
+            <div class="v">16</div>
+          </div>
+        </div>
+        <div class="score-first">
+          <div class="ic" aria-hidden="true">★</div>
+          firstDamage 取得済み (T3)
+        </div>
+      </section>
+
+    </div>
+  </aside>
+
+  <!-- ===== Battle board ===== -->
+  <section class="board-col" aria-label="実盤面">
+    <header class="board-col-head">
+      <div class="ttl">
+        <span>実盤面 <span style="font-family:'JetBrains Mono',monospace; color: var(--ink-soft); font-size: 11px; font-weight: 500;">// ground truth</span></span>
+      </div>
+      <div style="display:flex; gap:10px; align-items:center;">
+        <span style="font-size:11px; color: var(--ink-soft); font-family:'JetBrains Mono',monospace;">10 × 10</span>
+        <span class="turn-counter">Turn 8<small> / 20</small></span>
+      </div>
+    </header>
+
+    <div class="board-wrap">
+      <div class="board" id="board" aria-label="10x10 盤面">
+        <!-- Cells populated by JS -->
+
+        <!-- Axis labels -->
+        <div class="axis-x"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></div>
+        <div class="axis-y"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></div>
+      </div>
+    </div>
+
+    <div class="board-legend" aria-label="凡例">
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--p1); border-color: var(--p1-ink);"></span>P1 (たろう_06)</span>
+      <span class="legend-item"><span class="legend-swatch" style="background:var(--p2); border-color: var(--p2-ink);"></span>P2 (HanaCoder)</span>
+      <span class="legend-item"><span class="legend-swatch obs"></span>障害物</span>
+      <span class="legend-item"><span class="legend-swatch it-cross"></span>CROSS_ATTACK</span>
+      <span class="legend-item"><span class="legend-swatch it-bar"></span>BARRIER</span>
+      <span class="legend-item"><span class="legend-swatch it-rep"></span>REPEAT_ACTIONS</span>
+    </div>
+
+    <!-- Replay controls -->
+    <div class="replay-controls">
+      <div class="rc-buttons">
+        <button class="rc-btn" aria-label="最初へ">⏮</button>
+        <button class="rc-btn" aria-label="1 ターン戻る">⏪</button>
+        <button class="rc-btn play" aria-label="再生">▶</button>
+        <button class="rc-btn" aria-label="1 ターン進む">⏩</button>
+        <button class="rc-btn" aria-label="最後へ">⏭</button>
+      </div>
+      <div class="rc-scrubber-wrap">
+        <div class="rc-scrubber" id="scrubber">
+          <div class="rc-track"><div class="rc-track-fill" style="width: 40%;"></div></div>
+          <div class="rc-thumb" style="left: 40%;" aria-label="現在ターン 8"></div>
+          <!-- Event markers -->
+          <span class="rc-tick event first" style="left: 15%;" title="First damage @ T3"></span>
+          <span class="rc-tick event item" style="left: 25%;" title="アイテム取得 @ T5"></span>
+          <span class="rc-tick event" style="left: 35%;" title="命中 @ T7"></span>
+          <span class="rc-tick event" style="left: 40%;" title="命中 @ T8"></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-family:'JetBrains Mono',monospace; font-size: 10.5px; color: var(--ink-soft);">T8 / T20</span>
+          <label class="rc-detail-toggle">
+            <input type="checkbox" checked>
+            slot1 / slot2 詳細
+          </label>
+        </div>
+      </div>
+      <div class="rc-speed" role="group" aria-label="再生速度">
+        <button class="rc-speed-btn">0.5x</button>
+        <button class="rc-speed-btn active">1x</button>
+        <button class="rc-speed-btn">2x</button>
+        <button class="rc-speed-btn">4x</button>
+      </div>
+    </div>
+
+    <!-- Turn log -->
+    <div class="turn-log" id="turn-log" aria-label="ターンログ"></div>
+
+  </section>
+
+  <!-- ===== P2 panel ===== -->
+  <aside class="panel p2" aria-label="P2 認識パネル">
+    <header class="panel-head p2">
+      <div class="panel-player">
+        <div class="av" aria-hidden="true">HC</div>
+        <div class="nm">HanaCoder</div>
+        <span class="role-pill">P2</span>
+      </div>
+      <div class="panel-note">
+        ここに表示している情報が <strong>プログラムの判断材料</strong> です。実盤面とは独立。
+      </div>
+    </header>
+    <div class="panel-body">
+
+      <!-- self -->
+      <section class="panel-section">
+        <div class="head">// self</div>
+        <div class="self-grid">
+          <div class="self-tile">
+            <div class="k">座標</div>
+            <div class="v coord">x=6 y=3</div>
+          </div>
+          <div class="self-tile">
+            <div class="k">向き</div>
+            <div class="dir">↓ SOUTH</div>
+          </div>
+        </div>
+        <div class="self-tile" style="margin-top:6px;">
+          <div class="hp-row">
+            <span class="k" style="font-family:'JetBrains Mono',monospace; font-size: 10px; color: var(--ink-soft);">HP</span>
+            <span class="v">76<small>/100</small></span>
+          </div>
+          <div class="hp-bar"><span style="width: 76%;"></span></div>
+        </div>
+      </section>
+
+      <!-- surroundings -->
+      <section class="panel-section">
+        <div class="head">// surroundings</div>
+        <div class="surroundings">
+          <div class="sur-cell empty"></div>
+          <div class="sur-cell open"><span class="dir-label">FWD</span><span class="glyph">·</span><span class="lbl-text">OPEN</span></div>
+          <div class="sur-cell empty"></div>
+          <div class="sur-cell open"><span class="dir-label">LEFT</span><span class="glyph">·</span><span class="lbl-text">OPEN</span></div>
+          <div class="sur-cell self"><span class="dir-label">SELF</span><span class="glyph">▼</span><span class="lbl-text" style="color:var(--ink-soft);">S</span></div>
+          <div class="sur-cell wall"><span class="dir-label">RIGHT</span><span class="glyph">▣</span><span class="lbl-text">WALL</span></div>
+          <div class="sur-cell empty"></div>
+          <div class="sur-cell open"><span class="dir-label">BACK</span><span class="glyph">·</span><span class="lbl-text">OPEN</span></div>
+          <div class="sur-cell empty"></div>
+        </div>
+      </section>
+
+      <!-- detected -->
+      <section class="panel-section">
+        <div class="head">// detected_targets <span class="sub">1 件</span></div>
+        <span class="det-chip">forward: +3 · right: −3 <span class="age">age 0</span></span>
+      </section>
+
+      <!-- last actions -->
+      <section class="panel-section">
+        <div class="head">// last_actions</div>
+        <div class="action-strip">
+          <div class="action-slot turn"><span class="num">slot1</span>TURN R</div>
+          <div class="action-slot move"><span class="num">slot2</span>MOVE FWD</div>
+        </div>
+      </section>
+
+      <!-- last turn -->
+      <section class="panel-section">
+        <div class="head">// last_turn</div>
+        <div class="lt-list">
+          <div class="lt-row"><span class="k">damaged</span><span class="v">8 ↓</span></div>
+          <div class="lt-row"><span class="k">shoot_result</span><span class="v idle">—</span></div>
+          <div class="lt-row"><span class="k">scan_detected</span><span class="v idle">false</span></div>
+          <div class="lt-row"><span class="k">moved</span><span class="v">+1 FORWARD</span></div>
+        </div>
+      </section>
+
+      <!-- score -->
+      <section class="panel-section">
+        <div class="head">// 累計スコア</div>
+        <div class="score-row">
+          <div class="score-tile">
+            <div class="k">damageDealt</div>
+            <div class="v">16</div>
+          </div>
+          <div class="score-tile">
+            <div class="k">damageTaken</div>
+            <div class="v">24</div>
+          </div>
+        </div>
+        <div class="score-first none">
+          <div class="ic" aria-hidden="true">·</div>
+          firstDamage 未取得
+        </div>
+      </section>
+
+    </div>
+  </aside>
+</div>
+
+<!-- ============ Bottom timeline ============ -->
+<section class="timeline-bar" aria-label="試合タイムライン">
+  <div class="timeline-head">
+    <span class="ttl">// 試合タイムライン (T0 → T20)</span>
+    <span style="font-family:'JetBrains Mono',monospace; font-size: 11px;">現在: <strong style="color: var(--ink);">T8</strong></span>
+  </div>
+  <div class="timeline-axis" id="timeline-axis">
+    <span class="timeline-cursor" style="left: 40%;" aria-label="現在ターン"></span>
+    <div class="tl-event first" style="left: 15%;" title="P1 が FirstDamage を取得 @ T3" aria-label="First damage T3">★</div>
+    <div class="tl-event item"  style="left: 22%;" title="P2 が CROSS_ATTACK を取得 @ T4" aria-label="アイテム取得 T4">◇</div>
+    <div class="tl-event hit"   style="left: 28%;" title="命中 @ T5" aria-label="命中 T5">●</div>
+    <div class="tl-event item"  style="left: 35%;" title="P1 が BARRIER を取得 @ T6" aria-label="アイテム取得 T6">◇</div>
+    <div class="tl-event hit"   style="left: 40%;" title="命中 @ T8" aria-label="命中 T8">●</div>
+    <div class="timeline-axis-ticks">
+      <span>0</span><span>2</span><span>4</span><span>6</span><span>8</span><span>10</span><span>12</span><span>14</span><span>16</span><span>18</span><span>20</span>
+    </div>
+  </div>
+  <div class="timeline-legend">
+    <span><span class="legend-dot" style="background: var(--accent);"></span>First Damage</span>
+    <span><span class="legend-dot" style="background: #7c3aed;"></span>アイテム取得</span>
+    <span><span class="legend-dot" style="background: var(--p2);"></span>命中</span>
+    <span><span class="legend-dot" style="background: var(--success);"></span>決着</span>
+  </div>
+</section>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常リプレイ / ライブ追従 / 一時停止 / 試合終了直後 / 読み込み中 / 取得失敗</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal replay -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常リプレイ</span><span class="state-tag">replay</span></header>
+      <div class="state-body">
+        <div style="display:flex; justify-content: space-between; align-items: center; font-family:'JetBrains Mono',monospace; font-size:10px; margin-bottom: 6px;">
+          <span>T8 / T20</span>
+          <span>1x</span>
+        </div>
+        <div class="mini-board">
+          <div class="mt p1" style="left: 30%; top: 60%;"></div>
+          <div class="mt p2" style="left: 60%; top: 30%;"></div>
+        </div>
+        <div class="mini-controls">
+          <span class="mini-btn">⏪</span>
+          <span class="mini-btn play">▶</span>
+          <span class="mini-btn">⏩</span>
+          <div class="mini-scrub"><div class="mini-scrub-fill" style="width: 40%;"></div></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Live -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">ライブ追従</span><span class="state-tag">live</span></header>
+      <div class="state-body">
+        <div style="display:flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span class="live-pill"><span class="d" aria-hidden="true"></span>LIVE</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size:10px;">追従中</span>
+        </div>
+        <div class="mini-board">
+          <div class="mt p1" style="left: 40%; top: 50%;"></div>
+          <div class="mt p2" style="left: 55%; top: 35%;"></div>
+        </div>
+        <div class="mini-controls">
+          <span class="mini-btn">⏪</span>
+          <span class="mini-btn play">▶</span>
+          <span class="mini-btn">⏩</span>
+          <div class="mini-scrub"><div class="mini-scrub-fill" style="width: 100%;"></div></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Paused -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">一時停止</span><span class="state-tag">paused</span></header>
+      <div class="state-body">
+        <div style="display:flex; justify-content: space-between; align-items: center; font-family:'JetBrains Mono',monospace; font-size:10px; margin-bottom: 6px;">
+          <span class="pause-pill">II PAUSED</span>
+          <span>T11 / T20</span>
+        </div>
+        <div class="mini-board">
+          <div class="mt p1" style="left: 35%; top: 55%;"></div>
+          <div class="mt p2" style="left: 55%; top: 40%;"></div>
+        </div>
+        <div class="mini-controls">
+          <span class="mini-btn">⏪</span>
+          <span class="mini-btn play paused">II</span>
+          <span class="mini-btn">⏩</span>
+          <div class="mini-scrub"><div class="mini-scrub-fill" style="width: 55%;"></div></div>
+        </div>
+      </div>
+    </article>
+
+    <!-- Ended -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">試合終了直後</span><span class="state-tag">ended</span></header>
+      <div class="state-body">
+        <div class="end-banner">
+          <strong>勝者: たろう_06</strong>
+          <span style="color: var(--ink-soft);">相手 HP 0 / T16 で決着</span>
+        </div>
+        <div class="mini-board">
+          <div class="mt p1" style="left: 45%; top: 45%;"></div>
+          <div class="mt p2" style="left: 55%; top: 40%; opacity: .35;"></div>
+        </div>
+        <button class="end-cta">結果を見る →</button>
+      </div>
+    </article>
+
+    <!-- Loading -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">読み込み中</span><span class="state-tag">skeleton</span></header>
+      <div class="state-body">
+        <div class="skel big" style="width: 50%;"></div>
+        <div class="mini-board" style="background: var(--bg-2); background-image: none;">
+          <div class="skel" style="position:absolute; top: 30%; left: 20%; width: 60%; height: 6px;"></div>
+          <div class="skel" style="position:absolute; top: 50%; left: 30%; width: 40%; height: 6px;"></div>
+          <div class="skel" style="position:absolute; top: 70%; left: 25%; width: 50%; height: 6px;"></div>
+        </div>
+        <div class="skel" style="width: 70%; margin-top: 6px;"></div>
+      </div>
+    </article>
+
+    <!-- Error -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">取得失敗</span><span class="state-tag">error</span></header>
+      <div class="state-body">
+        <div class="state-err">
+          <strong>リプレイを取得できません</strong>
+          サーバが応答していません。少し時間をおいて再度開いてください。
+        </div>
+        <div class="mini-board" style="background: var(--bg-2); background-image: none; display: grid; place-items: center; color: var(--ink-soft); font-family:'JetBrains Mono',monospace; font-size:10px;">!</div>
+        <button class="end-cta" style="background:#fff; color: var(--ink); border:1px solid var(--line-2); margin-top: 6px;">↻ 再試行</button>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — simulates GET /api/match/:matchId/replay
+     ========================================================= */
+
+  // Board: 10x10. Coords: (x=col, y=row), origin top-left.
+  const BOARD = {
+    width: 10, height: 10,
+    obstacles: [
+      [2,6], [2,7], [4,4], [4,5], [7,3], [7,4],
+      [1,2], [8,7], [5,8],
+    ],
+    items: [
+      { x: 5, y: 5, kind: 'CROSS' },
+      { x: 2, y: 1, kind: 'BARRIER' },
+      { x: 8, y: 4, kind: 'REPEAT' },
+    ],
+    tanks: [
+      { id: 'P1', x: 3, y: 6, dir: 'N', name: 'TR' },
+      { id: 'P2', x: 6, y: 3, dir: 'S', name: 'HC' },
+    ],
+    // Current shot: from P1 forward 3 cells, MISS — shown as fading line.
+    shot: { from: { x: 3, y: 6 }, to: { x: 3, y: 3 }, hit: false },
+  };
+
+  const TURN_LOG = [
+    { t: 1, who: 'P1', text: 'MOVE_FORWARD → MOVE_FORWARD' },
+    { t: 1, who: 'P2', text: 'SCAN_FORWARD' },
+    { t: 2, who: 'P1', text: 'SCAN_FORWARD' },
+    { t: 2, who: 'P2', text: 'MOVE_FORWARD → TURN_LEFT' },
+    { t: 3, who: 'P1', text: 'MOVE_FORWARD → SHOOT_FORWARD <span class="hit">HIT 8</span> ★ first damage' },
+    { t: 3, who: 'P2', text: 'MOVE_FORWARD' },
+    { t: 4, who: 'P1', text: 'TURN_RIGHT → MOVE_FORWARD' },
+    { t: 4, who: 'P2', text: 'PICKUP <span class="item">CROSS_ATTACK</span>' },
+    { t: 5, who: 'P1', text: 'MOVE_FORWARD → SHOOT_FORWARD <span class="miss">MISS</span>' },
+    { t: 5, who: 'P2', text: 'SHOOT_FORWARD <span class="hit">HIT 8</span>' },
+    { t: 6, who: 'P1', text: 'PICKUP <span class="item">BARRIER</span>' },
+    { t: 6, who: 'P2', text: 'MOVE_FORWARD → SCAN_FORWARD' },
+    { t: 7, who: 'P1', text: 'SCAN_FORWARD' },
+    { t: 7, who: 'P2', text: 'SHOOT_FORWARD <span class="hit">HIT 8</span>' },
+    { t: 8, who: 'P1', text: 'MOVE_FORWARD → SHOOT_FORWARD <span class="miss">MISS</span>', current: true },
+    { t: 8, who: 'P2', text: 'TURN_RIGHT → MOVE_FORWARD', current: true },
+  ];
+
+  /* ---- Render board ---- */
+  const board = document.getElementById('board');
+  const cellPx = 46;
+
+  // Obstacles
+  BOARD.obstacles.forEach(([x,y]) => {
+    board.insertAdjacentHTML('beforeend', `
+      <div class="cell" style="left:${x*cellPx}px; top:${y*cellPx}px;">
+        <div class="obstacle"></div>
+      </div>
+    `);
+  });
+
+  // Items
+  const itemMeta = {
+    CROSS:   { cls:'cross',   glyph:'+' },
+    BARRIER: { cls:'barrier', glyph:'■' },
+    REPEAT:  { cls:'repeat',  glyph:'↻' },
+  };
+  BOARD.items.forEach(it => {
+    const m = itemMeta[it.kind];
+    board.insertAdjacentHTML('beforeend', `
+      <div class="cell" style="left:${it.x*cellPx}px; top:${it.y*cellPx}px;" title="${it.kind}">
+        <div class="item ${m.cls}">${m.glyph}</div>
+      </div>
+    `);
+  });
+
+  // Tanks
+  BOARD.tanks.forEach(t => {
+    const cls = t.id === 'P1' ? 'p1' : 'p2';
+    board.insertAdjacentHTML('beforeend', `
+      <div class="cell" style="left:${t.x*cellPx}px; top:${t.y*cellPx}px;">
+        <div class="tank ${cls} dir-${t.dir}">${t.name}</div>
+      </div>
+    `);
+  });
+
+  // Shot line (P1 forward 3 cells north): from center of (3,6) to center of (3,3)
+  // visual: vertical line, x = 3*46+23 = 161, y from 6*46+23=299 up to 3*46+23=161
+  // We'll express as absolute rect.
+  {
+    const sx = BOARD.shot.from.x * cellPx + cellPx/2;
+    const sy = BOARD.shot.from.y * cellPx + cellPx/2;
+    const ex = BOARD.shot.to.x * cellPx + cellPx/2;
+    const ey = BOARD.shot.to.y * cellPx + cellPx/2;
+    const dx = ex - sx, dy = ey - sy;
+    const len = Math.hypot(dx, dy);
+    const ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    board.insertAdjacentHTML('beforeend', `
+      <div class="shot-line" style="left:${sx}px; top:${sy-1.5}px; width:${len}px; transform: rotate(${ang}deg);"></div>
+    `);
+    // Hit burst at end (even on MISS to indicate impact point)
+    board.insertAdjacentHTML('beforeend', `
+      <div class="hit-burst" style="left:${ex - cellPx/2}px; top:${ey - cellPx/2}px;"></div>
+    `);
+  }
+
+  /* ---- Turn log ---- */
+  const log = document.getElementById('turn-log');
+  TURN_LOG.forEach(l => {
+    log.insertAdjacentHTML('beforeend', `
+      <div class="tl-line ${l.current ? 'current' : ''}">
+        <span class="t">T${String(l.t).padStart(2,'0')}</span>
+        <span class="who ${l.who.toLowerCase()}">${l.who}</span>
+        <span class="ev">${l.text}</span>
+      </div>
+    `);
+  });
+  // Scroll to current
+  setTimeout(() => {
+    const current = log.querySelector('.tl-line.current');
+    if (current) log.scrollTop = current.offsetTop - 20;
+  }, 50);
+
+  /* ---- Replay control wiring (visual only) ---- */
+  document.querySelectorAll('.rc-speed-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.rc-speed-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

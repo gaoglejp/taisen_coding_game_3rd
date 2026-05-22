@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SYSTEM_ADMIN
+  ROOM_ADMIN
+  GENERAL_USER
+  ROOM_USER
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+  PENDING
+  EXPIRED
+}
+
+enum RoomKind {
+  CLASSROOM
+  TOURNAMENT
+  PUBLIC_LOBBY
+}
+
+enum RoomStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum MemberStatus {
+  ACTIVE
+  DISABLED
+  EXPIRED
+}
+
+enum MatchStatus {
+  WAITING
+  CODING
+  BATTLING
+  FINISHED
+  CANCELED
+}
+
+enum MatchEndReason {
+  HP_ZERO
+  TIMEOUT
+  DISCONNECT
+  NO_SHOW
+  LEAVE
+  CANCELED
+}
+
+enum AuditAction {
+  ROOM_CREATE
+  ROOM_UPDATE
+  ROOM_DELETE
+  ROOM_ARCHIVE
+  ROOM_RESTORE
+  USER_INVITE
+  USER_DISABLE
+  USER_ENABLE
+  USER_PROMOTE
+  USER_FORCE_PASSWORD_RESET
+  USER_DISABLE_2FA
+  MEMBER_ISSUE
+  MEMBER_REISSUE
+  MEMBER_DISABLE
+  MATCH_CREATE
+  MATCH_CANCEL
+  LOGIN_SUCCESS
+  LOGIN_FAILURE
+  LOGOUT
+  PERMISSION_GRANT
+}
+
+model User {
+  id               String     @id @default(cuid())
+  username         String     @unique
+  displayName      String?
+  email            String?    @unique
+  passwordHash     String?
+  role             UserRole   @default(GENERAL_USER)
+  status           UserStatus @default(ACTIVE)
+  twoFactorEnabled Boolean    @default(false)
+  quickToken       String?    @unique
+  lastLoginAt      DateTime?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  memberships     RoomMembership[]
+  matchesAsP1     Match[]          @relation("Player1")
+  matchesAsP2     Match[]          @relation("Player2")
+  auditLogsActor  AuditLog[]       @relation("Actor")
+  adminRooms      Room[]           @relation("RoomAdmins")
+  activities      RoomActivity[]
+
+  @@index([role])
+  @@index([status])
+}
+
+model Room {
+  id                 String     @id @default(cuid())
+  roomNumber         String     @unique
+  name               String
+  description        String?
+  kind               RoomKind
+  status             RoomStatus @default(ACTIVE)
+  expiresAt          DateTime?
+  rulePreset         Json       @default("{}")
+  watchingPublic     String     @default("MEMBERS_ONLY")
+  rankingPublic      String     @default("MEMBERS_ONLY")
+  replayShareEnabled Boolean    @default(true)
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  admins      User[]           @relation("RoomAdmins")
+  memberships RoomMembership[]
+  matches     Match[]
+  activities  RoomActivity[]
+  auditLogs   AuditLog[]       @relation("RoomTarget")
+
+  @@index([kind])
+  @@index([status])
+}
+
+model RoomMembership {
+  id            String       @id @default(cuid())
+  user          User         @relation(fields: [userId], references: [id])
+  userId        String
+  room          Room         @relation(fields: [roomId], references: [id])
+  roomId        String
+  status        MemberStatus @default(ACTIVE)
+  issueCode     String?
+  issueCodeUsed Boolean      @default(false)
+  expiresAt     DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([userId, roomId])
+  @@index([status])
+}
+
+model Match {
+  id               String          @id @default(cuid())
+  matchNumber      Int
+  room             Room            @relation(fields: [roomId], references: [id])
+  roomId           String
+  player1          User?           @relation("Player1", fields: [player1Id], references: [id])
+  player1Id        String?
+  player2          User?           @relation("Player2", fields: [player2Id], references: [id])
+  player2Id        String?
+  status           MatchStatus     @default(WAITING)
+  endReason        MatchEndReason?
+  winnerId         String?
+  strategy1        Json?
+  strategy2        Json?
+  replayData       Json?
+  round            Int?
+  isPublicWatch    Boolean         @default(true)
+  codingDeadlineAt DateTime?
+  startedAt        DateTime?
+  endedAt          DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([roomId, matchNumber])
+  @@index([status])
+}
+
+model RoomActivity {
+  id        String   @id @default(cuid())
+  room      Room     @relation(fields: [roomId], references: [id])
+  roomId    String
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  type      String
+  message   String
+  relatedId String?
+  createdAt DateTime @default(now())
+
+  @@index([roomId])
+}
+
+model AuditLog {
+  id           String      @id @default(cuid())
+  action       AuditAction
+  actor        User?       @relation("Actor", fields: [actorId], references: [id])
+  actorId      String?
+  targetType   String?
+  targetId     String?
+  targetRoom   Room?       @relation("RoomTarget", fields: [targetRoomId], references: [id])
+  targetRoomId String?
+  summary      String?
+  metadata     Json?
+  ipAddress    String?
+  userAgent    String?
+  prevHash     String?
+  hash         String?
+  createdAt    DateTime    @default(now())
+
+  @@index([action])
+  @@index([actorId])
+  @@index([createdAt])
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  roomId    String?
+  title     String
+  body      String
+  pinned    Boolean  @default(false)
+  authorId  String?
+  createdAt DateTime @default(now())
+}

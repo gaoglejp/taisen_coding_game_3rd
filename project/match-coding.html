@@ -1,0 +1,1497 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>コーディング | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+    /* Block category colors */
+    --cat-action:#2563eb; --cat-action-soft:#dbeafe;
+    --cat-control:#7c3aed; --cat-control-soft:#ede9fe;
+    --cat-condition:#15803d; --cat-condition-soft:#dcfce7;
+    --cat-number:#f59e0b; --cat-number-soft:#fef3c7;
+    --cat-help:#6b7280; --cat-help-soft:#e5e7eb;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    min-height: 100vh;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button { font: inherit; }
+
+  /* ============ Header ============ */
+  .topbar {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 24px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 14px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 13px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .brand-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    background: var(--accent-soft); border: 1px solid #f3d27d;
+    color: #92400e; padding: 2px 7px; border-radius: 4px; font-weight: 600;
+  }
+  .match-info {
+    display: flex; align-items: center; gap: 18px;
+    font-size: 12.5px;
+  }
+  .mi-block { display: flex; flex-direction: column; align-items: flex-start; }
+  .mi-block .lbl { font-size: 10px; color: var(--ink-soft); font-family: "JetBrains Mono", monospace; letter-spacing: .04em; text-transform: uppercase; }
+  .mi-block .val { font-weight: 700; font-size: 13px; margin-top: 1px; }
+  .mi-block .val.mono { font-family: "JetBrains Mono", monospace; }
+  .mi-sep { width: 1px; height: 28px; background: var(--line-2); }
+  .opp-row { display: flex; align-items: center; gap: 8px; }
+  .opp-av {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--p2-soft); color: var(--p2-ink);
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700; font-family: "JetBrains Mono", monospace;
+    border: 1px solid #fbb6b6;
+  }
+  .opp-note {
+    font-size: 10px; color: var(--ink-soft);
+    background: var(--bg-2); padding: 1px 6px; border-radius: 4px;
+    font-family: "JetBrains Mono", monospace; margin-left: 4px;
+  }
+
+  .top-right {
+    display: flex; align-items: center; gap: 12px; justify-content: flex-end;
+  }
+  .countdown {
+    display: flex; flex-direction: column; align-items: flex-end;
+    padding: 4px 10px 4px 12px;
+    border-left: 1px solid var(--line-2);
+  }
+  .countdown .lbl { font-size: 10px; color: var(--ink-soft); font-family: "JetBrains Mono", monospace; letter-spacing: .04em; text-transform: uppercase; }
+  .countdown .val {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 26px; font-weight: 700;
+    letter-spacing: .02em; line-height: 1.1;
+    color: var(--ink);
+  }
+  .countdown.warn .val { color: var(--accent); }
+  .countdown.danger .val { color: var(--danger); }
+  .cta-primary {
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 10px;
+    padding: 11px 18px; font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #c2740a, 0 6px 12px rgba(245,158,11,.22);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .cta-primary:hover { background: #ea8a09; }
+  .cta-primary:disabled, .cta-primary.disabled {
+    background: #d8d3c2; color: #8a8676;
+    box-shadow: none; cursor: not-allowed;
+  }
+  .cta-primary.busy {
+    background: #fff;
+    color: var(--ink-soft);
+    border: 1px solid var(--line-2);
+    box-shadow: none;
+    font-weight: 600;
+  }
+  .loader-sm {
+    width: 13px; height: 13px;
+    border: 2px solid rgba(31,35,48,.18);
+    border-top-color: var(--ink);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  .loader-white {
+    width: 13px; height: 13px;
+    border: 2px solid rgba(255,255,255,.35);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ============ Shell ============ */
+  .shell {
+    display: grid;
+    grid-template-columns: 220px 1fr 360px;
+    height: calc(100vh - 64px - 42px);
+    min-height: 720px;
+    border-top: 1px solid var(--line);
+  }
+
+  /* ============ Toolbox (left) ============ */
+  .toolbox {
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .toolbox-search {
+    padding: 12px 12px 8px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .toolbox-search input {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--line-2);
+    border-radius: 7px;
+    font: inherit;
+    font-size: 12px;
+    background: #fdfcf8;
+    outline: none;
+  }
+  .toolbox-search input:focus {
+    border-color: var(--accent);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(245,158,11,.15);
+  }
+  .pinned {
+    padding: 8px 10px 10px;
+    border-bottom: 1px dashed var(--line);
+    background: #fefbf3;
+  }
+  .pinned .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 5px;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .toolbox-cats {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 8px 12px;
+  }
+  .cat-block {
+    border-radius: 8px;
+    padding: 9px 11px;
+    margin-bottom: 4px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    display: flex; justify-content: space-between; align-items: center;
+    border-left: 4px solid rgba(0,0,0,.18);
+    transition: filter .12s;
+  }
+  .cat-block:hover { filter: brightness(1.07); }
+  .cat-block .ct {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    background: rgba(255,255,255,.22);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+  .cat-block.action { background: var(--cat-action); }
+  .cat-block.control { background: var(--cat-control); }
+  .cat-block.condition { background: var(--cat-condition); }
+  .cat-block.number { background: var(--cat-number); }
+  .cat-block.help { background: var(--cat-help); }
+  .cat-block.active { box-shadow: 0 0 0 3px rgba(245,158,11,.25); }
+  .cat-divider {
+    margin: 10px 4px;
+    border-top: 1px dashed var(--line);
+  }
+  .cat-expanded {
+    margin: 4px 0 10px 8px;
+    padding-left: 10px;
+    border-left: 2px solid var(--cat-action-soft);
+    display: flex; flex-direction: column; gap: 4px;
+  }
+
+  /* ============ Block visual mocks ============ */
+  .block {
+    background: var(--cat-action);
+    color: #fff;
+    padding: 6px 10px 6px 8px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.18);
+    display: inline-flex; align-items: center;
+    gap: 6px;
+    line-height: 1.3;
+    border-left: 4px solid rgba(0,0,0,.18);
+  }
+  .block.tiny { padding: 4px 8px 4px 6px; font-size: 10.5px; border-left-width: 3px; }
+  .block.action { background: var(--cat-action); }
+  .block.control { background: var(--cat-control); }
+  .block.condition { background: var(--cat-condition); }
+  .block.number { background: var(--cat-number); }
+  .block .slot {
+    background: rgba(255,255,255,.22);
+    color: #fff;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+  .block .num {
+    background: var(--cat-number);
+    color: #fff;
+    border-radius: 4px;
+    padding: 1px 7px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    border-left: 3px solid rgba(0,0,0,.18);
+  }
+  .block-stub {
+    background: rgba(0,0,0,.18);
+    width: 12px;
+    height: 8px;
+    border-radius: 0 0 4px 4px;
+    margin: -2px 4px 0 4px;
+    display: inline-block;
+  }
+
+  /* ============ Workspace (center) ============ */
+  .workspace {
+    background:
+      radial-gradient(700px 300px at 30% 0%, rgba(245,158,11,.05), transparent 60%),
+      #fbf7ec;
+    background-color: #fbf7ec;
+    background-image:
+      radial-gradient(circle, rgba(31,35,48,.08) 1.2px, transparent 1.2px);
+    background-size: 20px 20px;
+    background-position: 0 0;
+    display: flex; flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+  .ws-warning {
+    background: var(--accent-soft);
+    border-bottom: 1px solid #fbd9a5;
+    color: #92400e;
+    padding: 9px 16px;
+    font-size: 12.5px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ws-warning .ic {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 12px;
+    flex-shrink: 0;
+  }
+  .ws-warning strong { font-weight: 700; }
+  .ws-toolbar {
+    position: absolute;
+    top: 12px; right: 16px;
+    z-index: 3;
+    display: flex; gap: 6px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 4px;
+    box-shadow: 0 2px 8px rgba(31,35,48,.08);
+  }
+  .ws-tool-btn {
+    border: none; background: transparent;
+    width: 28px; height: 28px;
+    border-radius: 5px;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .ws-tool-btn:hover { background: var(--bg); color: var(--ink); }
+  .ws-tool-btn.danger:hover { background: var(--danger-soft); color: var(--danger); }
+  .ws-scroll {
+    flex: 1;
+    overflow: auto;
+    padding: 56px 32px 80px 32px;
+  }
+
+  /* fallbackActions zone */
+  .fallback-zone {
+    background: #fff;
+    border: 1.5px dashed var(--line-2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 16px;
+    max-width: 620px;
+  }
+  .fallback-zone .head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .fallback-zone .head .ttl {
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .fallback-zone .head .sub {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+  }
+  .fallback-zone .row {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .fallback-zone .desc {
+    font-size: 11px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  /* Statements stack */
+  .stmt-stack { display: flex; flex-direction: column; gap: 12px; max-width: 620px; }
+
+  /* Compound condition block — visualizes "if ... then ... else" */
+  .cond-card {
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid var(--line);
+    box-shadow: 0 2px 6px rgba(31,35,48,.06);
+    overflow: hidden;
+  }
+  .cond-head {
+    background: var(--cat-condition);
+    color: #fff;
+    padding: 9px 14px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    border-left: 5px solid rgba(0,0,0,.18);
+  }
+  .cond-head .pill {
+    background: rgba(255,255,255,.22);
+    color: #fff;
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .branch {
+    padding: 10px 14px 12px;
+    border-top: 1px dashed var(--line);
+  }
+  .branch:first-of-type { border-top: none; }
+  .branch .branch-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 6px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .branch .branch-label .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--cat-condition);
+  }
+  .branch.else .branch-label .dot { background: var(--ink-soft); }
+  .branch-body {
+    display: flex; flex-direction: column; gap: 6px;
+    padding-left: 16px;
+    border-left: 2px dashed var(--line-2);
+    margin-left: 2px;
+  }
+
+  /* Single statement (top-level) */
+  .stmt-block {
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 1px 3px rgba(31,35,48,.04);
+  }
+
+  /* Trash drop hint at bottom of workspace */
+  .ws-trash {
+    position: absolute;
+    bottom: 16px; right: 18px;
+    z-index: 3;
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid var(--line);
+    display: grid; place-items: center;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 18px;
+    box-shadow: 0 2px 8px rgba(31,35,48,.08);
+    cursor: pointer;
+  }
+
+  /* ============ Right panel ============ */
+  .panel {
+    background: var(--surface);
+    border-left: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+  .panel-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+  }
+  .panel-tab {
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 12px 4px 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    border-bottom: 3px solid transparent;
+    cursor: pointer;
+    border-right: 1px solid var(--line);
+  }
+  .panel-tab:last-child { border-right: none; }
+  .panel-tab.active {
+    background: #fff;
+    color: var(--ink);
+    border-bottom-color: var(--accent);
+  }
+  .panel-body { flex: 1; overflow-y: auto; padding: 14px 16px 16px; }
+
+  /* Self status */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .stat-tile {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 11px;
+  }
+  .stat-tile .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .stat-tile .v {
+    font-size: 17px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    margin-top: 3px;
+    letter-spacing: -.01em;
+  }
+  .stat-tile .v small { font-size: 12px; color: var(--ink-soft); margin-left: 3px; font-weight: 600; }
+  .dir-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: var(--p1-soft);
+    color: var(--p1-ink);
+    padding: 2px 8px;
+    border: 1px solid #bfd5fa;
+    border-radius: 5px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 3px;
+  }
+
+  .hp-bar {
+    height: 7px; background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 5px; overflow: hidden; margin-top: 6px;
+  }
+  .hp-bar > span {
+    display: block; height: 100%;
+    background: linear-gradient(90deg, var(--success), #22c55e);
+  }
+  .hp-bar.warn > span { background: linear-gradient(90deg, var(--accent), #fbbf24); }
+  .hp-bar.danger > span { background: linear-gradient(90deg, var(--danger), #f87171); }
+
+  .turn-bar {
+    margin-top: 12px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .turn-bar-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 11.5px; color: var(--ink-soft); margin-bottom: 4px;
+  }
+  .turn-bar-head strong { color: var(--ink); font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 12px; }
+  .turn-dots { display: flex; gap: 2px; flex-wrap: wrap; }
+  .turn-dot { width: 12px; height: 6px; border-radius: 2px; background: var(--bg-2); border: 1px solid var(--line); }
+  .turn-dot.done { background: var(--success); border-color: var(--success); }
+  .turn-dot.now { background: var(--accent); border-color: var(--accent); }
+
+  /* Last-turn timeline */
+  .last-list { display: flex; flex-direction: column; gap: 6px; }
+  .lt-row {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 10px;
+    font-size: 12px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .lt-row .k {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em;
+  }
+  .lt-row .v {
+    font-weight: 700; font-size: 12px;
+  }
+  .lt-row .v.hit { color: var(--success); }
+  .lt-row .v.miss { color: var(--p2); }
+  .lt-row .v.mono { font-family: "JetBrains Mono", monospace; }
+  .lt-row .v.action-list { font-family: "JetBrains Mono", monospace; font-weight: 600; font-size: 11px; }
+
+  .detected-card {
+    background: #fff7ed;
+    border: 1px solid #fbd9a5;
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-top: 12px;
+  }
+  .detected-card .head {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: #92400e;
+    margin-bottom: 6px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .det-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px;
+    align-items: center;
+    padding: 6px 0;
+    border-top: 1px dashed #fbd9a5;
+    font-size: 11.5px;
+  }
+  .det-row:first-of-type { border-top: none; }
+  .det-row .lbl { color: var(--ink-soft); font-family: "JetBrains Mono", monospace; font-size: 10.5px; }
+  .det-row .coords {
+    display: flex; gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+  .det-row .coords span {
+    background: #fff;
+    border: 1px solid #fbd9a5;
+    border-radius: 4px;
+    padding: 1px 6px;
+  }
+  .det-notice {
+    font-size: 11px;
+    color: #92400e;
+    margin-top: 8px;
+    line-height: 1.5;
+    font-style: italic;
+  }
+
+  /* Hints tab */
+  .hint-section { margin-bottom: 14px; }
+  .hint-section .head {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .tag-row { display: flex; gap: 5px; flex-wrap: wrap; }
+  .loss-tag {
+    background: var(--p2-soft); color: var(--p2-ink); border: 1px solid #fbb6b6;
+    padding: 2px 8px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+  }
+  .hint-block {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px; font-size: 12px;
+    margin-top: 8px;
+  }
+  .hint-block .lead { font-weight: 600; margin-bottom: 6px; font-size: 12px; }
+  .hint-block code {
+    display: block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 8px 10px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  .hint-block .note {
+    font-size: 11px; color: var(--ink-soft);
+    margin-top: 6px; line-height: 1.5;
+  }
+
+  /* JSON tab */
+  .json-pre {
+    background: #1a1c25;
+    color: #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    line-height: 1.55;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .json-pre .key { color: #fbbf24; }
+  .json-pre .str { color: #86efac; }
+  .json-pre .num { color: #93c5fd; }
+  .json-pre .bool { color: #f0abfc; }
+  .json-pre .com { color: #6b7280; }
+  .json-pre .punct { color: #9ca3af; }
+  .json-meta {
+    margin-top: 10px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    display: flex; gap: 12px; justify-content: space-between;
+  }
+  .json-meta strong { color: var(--ink); font-family: "JetBrains Mono", monospace; }
+
+  /* ============ Status bar ============ */
+  .statusbar {
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding: 9px 24px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 18px;
+    align-items: center;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .sb-section { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .sb-section.right { justify-content: flex-end; }
+  .sb-item { display: inline-flex; align-items: center; gap: 6px; }
+  .sb-item .k { font-family: "JetBrains Mono", monospace; font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; }
+  .sb-item .v {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 2px 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    color: var(--ink);
+    font-size: 11.5px;
+  }
+  .sb-ap-row {
+    display: inline-flex; gap: 6px; align-items: center;
+  }
+  .ap-cost {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 2px 7px;
+  }
+  .ap-cost b { color: var(--ink); }
+  .ap-cost.move b { color: var(--cat-action); }
+  .ap-cost.shoot b { color: var(--p2); }
+  .ap-cost.scan b { color: var(--cat-condition); }
+  .ap-cost.wait b { color: var(--ink-soft); }
+
+  .lock-flag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid;
+    font-weight: 700;
+  }
+  .lock-flag.unlocked { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .lock-flag.locked { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .lock-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+  /* ============ Modal mocks (showcase) ============ */
+  .modal-showcase {
+    max-width: 1440px;
+    margin: 44px auto 28px;
+    padding: 0 28px;
+  }
+  .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .modal-frame {
+    background: rgba(31,35,48,.05);
+    border: 1px dashed var(--line-2);
+    border-radius: 16px;
+    padding: 22px;
+    position: relative;
+  }
+  .modal-frame::before {
+    content: attr(data-frame-label);
+    position: absolute;
+    top: -10px; left: 18px;
+    background: var(--bg);
+    padding: 0 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    letter-spacing: .04em;
+  }
+  .modal {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(31,35,48,.18);
+    max-width: 480px;
+    margin: 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .modal-head { padding: 18px 22px 12px; border-bottom: 1px solid var(--line); }
+  .modal-head h3 { margin: 0; font-size: 16px; font-weight: 700; }
+  .modal-head .desc { font-size: 12.5px; color: var(--ink-soft); margin-top: 4px; line-height: 1.55; }
+  .modal-body { padding: 18px 22px; }
+  .modal-foot {
+    padding: 14px 22px; background: var(--bg);
+    border-top: 1px solid var(--line);
+    display: flex; gap: 10px; justify-content: flex-end;
+  }
+  .btn-ghost {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--line-2); border-radius: 8px;
+    padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .summary-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    margin-bottom: 12px;
+  }
+  .summary-grid .tile {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  .summary-grid .tile .k {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em;
+  }
+  .summary-grid .tile .v {
+    font-size: 18px; font-weight: 700; margin-top: 3px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .summary-grid .tile.ok .v { color: var(--success); }
+
+  .warn-callout {
+    background: var(--accent-soft); border: 1px solid #fbd9a5;
+    color: #92400e; border-radius: 10px; padding: 12px 14px;
+    display: flex; gap: 10px; font-size: 13px;
+  }
+  .warn-callout .ic {
+    width: 28px; height: 28px; border-radius: 8px;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .warn-callout strong { display: block; font-size: 14px; margin-bottom: 4px; font-weight: 700; color: #7c2d12; }
+  .warn-cd {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 28px; font-weight: 700;
+    text-align: center; margin: 14px 0 8px;
+    color: var(--danger);
+  }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 28px auto 32px;
+    padding: 0 28px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 16px; }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 12px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11.5px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 9.5px;
+    padding: 2px 6px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 12px; }
+  .state-top {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--bg-2); border: 1px solid var(--line);
+    border-radius: 7px; padding: 6px 9px;
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    margin-bottom: 9px;
+  }
+  .state-top .cd { font-weight: 700; font-size: 14px; }
+  .state-top .cd.warn { color: var(--accent); }
+  .state-top .cd.danger { color: var(--danger); }
+
+  .state-cta {
+    width: 100%; background: var(--accent); color: #fff;
+    border: none; padding: 7px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; margin-top: 9px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .state-cta.danger { background: var(--danger); box-shadow: 0 1px 0 #991b1b; }
+  .state-cta.busy { background: #fff; color: var(--ink-soft); border: 1px solid var(--line-2); font-weight: 600; }
+  .state-cta.locked { background: var(--bg-2); color: var(--ink-soft); }
+
+  .state-warn-banner {
+    background: var(--accent-soft); border: 1px solid #fbd9a5;
+    color: #92400e; border-radius: 6px; padding: 6px 8px;
+    font-size: 10.5px; margin-bottom: 9px; line-height: 1.45;
+  }
+  .state-warn-banner strong { display: block; font-size: 11px; }
+  .state-err-banner {
+    background: var(--p2-soft); border: 1px solid #fbb6b6;
+    color: var(--p2-ink); border-radius: 6px; padding: 6px 8px;
+    font-size: 10.5px; margin-bottom: 9px; line-height: 1.45;
+  }
+  .state-lock-overlay {
+    background: rgba(31,35,48,.03);
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    padding: 14px 8px;
+    text-align: center;
+    margin-bottom: 9px;
+  }
+  .state-lock-overlay .lock-icon {
+    width: 26px; height: 26px; margin: 0 auto 6px;
+    border-radius: 50%;
+    background: var(--success); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 14px;
+  }
+  .state-lock-overlay p { margin: 0; font-size: 10.5px; color: var(--ink-soft); }
+  .state-lock-overlay strong { color: var(--ink); font-size: 11.5px; display: block; margin-bottom: 2px; }
+  .state-mini-block-row { display: flex; gap: 4px; flex-wrap: wrap; }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <span>対戦・コーディング</span>
+    <span class="brand-tag">v0.2</span>
+  </div>
+
+  <div class="match-info">
+    <div class="mi-block">
+      <span class="lbl">// ROOM</span>
+      <span class="val">3-A クラス・5月課題</span>
+    </div>
+    <div class="mi-sep"></div>
+    <div class="mi-block">
+      <span class="lbl">// MATCH</span>
+      <span class="val mono">#M-22064</span>
+    </div>
+    <div class="mi-sep"></div>
+    <div class="mi-block">
+      <span class="lbl">// 対戦相手</span>
+      <span class="val opp-row">
+        <span class="opp-av" aria-hidden="true">HC</span>
+        HanaCoder
+        <span class="opp-note" title="プログラム情報は秘匿">非公開</span>
+      </span>
+    </div>
+  </div>
+
+  <div class="top-right">
+    <div class="countdown warn" id="countdown" aria-label="残コーディング時間">
+      <span class="lbl">// 残コーディング時間</span>
+      <span class="val">02:48</span>
+    </div>
+    <button class="cta-primary" id="lock-cta">
+      <span aria-hidden="true">✓</span>
+      コードを確定する
+    </button>
+  </div>
+</header>
+
+<!-- ============ Shell (3 panes) ============ -->
+<div class="shell" role="main">
+
+  <!-- ===== Toolbox ===== -->
+  <aside class="toolbox" aria-label="ブロックカテゴリ">
+    <div class="toolbox-search">
+      <input type="text" placeholder="ブロックを検索…" aria-label="ブロック検索">
+    </div>
+    <div class="pinned" aria-label="推奨ブロック">
+      <div class="lbl">★ 推奨 (直近の傾向から)</div>
+      <div style="display: flex; flex-direction: column; gap: 5px;">
+        <span class="block condition tiny">もし [敵が前方] なら…</span>
+        <span class="block action tiny">前進する <span class="num">1</span></span>
+        <span class="block condition tiny">索敵する [左]</span>
+      </div>
+    </div>
+    <div class="toolbox-cats">
+      <div class="cat-block action active">
+        アクション
+        <span class="ct">8</span>
+      </div>
+      <div class="cat-expanded">
+        <span class="block action tiny">前進する <span class="num">1</span></span>
+        <span class="block action tiny">回転する [右]</span>
+        <span class="block action tiny">攻撃する</span>
+        <span class="block action tiny">索敵する [前]</span>
+        <span class="block action tiny">待機する</span>
+      </div>
+      <div class="cat-block control">
+        制御
+        <span class="ct">5</span>
+      </div>
+      <div class="cat-block condition">
+        条件
+        <span class="ct">7</span>
+      </div>
+      <div class="cat-block number">
+        数値・変数
+        <span class="ct">4</span>
+      </div>
+      <div class="cat-divider"></div>
+      <div class="cat-block help">
+        ヘルプ
+        <span class="ct">?</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===== Workspace ===== -->
+  <section class="workspace" aria-label="Blockly ワークスペース">
+    <div class="ws-warning" role="alert">
+      <div class="ic" aria-hidden="true">!</div>
+      <div>
+        <strong>未対応ブロックが 1 件あります。</strong> 確定時に WAIT に置換されます。 (該当: <code style="background:#fff; padding:1px 5px; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:11.5px;">未定義: enemy_radar_v3</code>)
+      </div>
+    </div>
+
+    <div class="ws-toolbar" aria-label="ワークスペース操作">
+      <button class="ws-tool-btn" aria-label="ズームイン">＋</button>
+      <button class="ws-tool-btn" aria-label="ズームアウト">−</button>
+      <button class="ws-tool-btn" aria-label="画面にフィット">▣</button>
+    </div>
+
+    <div class="ws-scroll">
+
+      <!-- fallback actions -->
+      <div class="fallback-zone">
+        <div class="head">
+          <span class="ttl">fallbackActions <span style="color:var(--ink-soft); font-weight:500; font-size: 10.5px;">// 時間切れ時の保険行動</span></span>
+          <span class="sub">優先順 1 → 2</span>
+        </div>
+        <div class="row">
+          <span class="block action">索敵する <span class="slot">前</span></span>
+          <span style="font-family:'JetBrains Mono',monospace; color: var(--ink-soft); font-size: 12px;">→</span>
+          <span class="block action">待機する</span>
+        </div>
+        <div class="desc">
+          メインロジックで条件が一致しなかった場合、上から順に試されます。空のままだと WAIT が自動で挿入されます。
+        </div>
+      </div>
+
+      <!-- main statements stack -->
+      <div class="stmt-stack">
+
+        <!-- If/Else block -->
+        <div class="cond-card">
+          <div class="cond-head">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; opacity:.85;">IF</span>
+            <span class="pill">enemy_in_forward · age ≤ 1</span>
+          </div>
+          <div class="branch then">
+            <div class="branch-label"><span class="dot" aria-hidden="true"></span>THEN</div>
+            <div class="branch-body">
+              <span class="block action">前進する <span class="num">1</span></span>
+              <span class="block action">攻撃する</span>
+            </div>
+          </div>
+          <div class="branch else">
+            <div class="branch-label"><span class="dot" aria-hidden="true"></span>ELSE</div>
+            <div class="branch-body">
+              <span class="block action">索敵する <span class="slot">左</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- If only -->
+        <div class="cond-card">
+          <div class="cond-head">
+            <span style="font-family:'JetBrains Mono',monospace; font-size:11px; opacity:.85;">IF</span>
+            <span class="pill">self.hp ≤ 30</span>
+          </div>
+          <div class="branch then">
+            <div class="branch-label"><span class="dot" aria-hidden="true"></span>THEN</div>
+            <div class="branch-body">
+              <span class="block action">回転する <span class="slot">右</span></span>
+              <span class="block action">前進する <span class="num">2</span></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- single statement -->
+        <div class="stmt-block">
+          <span style="font-family:'JetBrains Mono', monospace; color: var(--ink-soft); font-size: 10.5px;">DEFAULT</span>
+          <span class="block action">索敵する <span class="slot">前</span></span>
+        </div>
+
+      </div>
+    </div>
+
+    <button class="ws-trash" aria-label="ゴミ箱 (ドラッグで削除)">🗑</button>
+  </section>
+
+  <!-- ===== Right panel ===== -->
+  <aside class="panel" aria-label="補助パネル">
+    <div class="panel-tabs" role="tablist" aria-label="補助パネルタブ">
+      <button class="panel-tab active" role="tab" aria-selected="true">自機ステータス</button>
+      <button class="panel-tab" role="tab">直前ターン</button>
+      <button class="panel-tab" role="tab">ヒント</button>
+      <button class="panel-tab" role="tab">JSON</button>
+    </div>
+    <div class="panel-body">
+
+      <!-- Self status -->
+      <section aria-label="自機ステータス">
+        <div class="stat-grid">
+          <div class="stat-tile">
+            <div class="k">// 座標</div>
+            <div class="v">x=4 y=6</div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// 向き</div>
+            <div class="dir-badge" aria-label="北を向いている">↑ NORTH</div>
+          </div>
+          <div class="stat-tile" style="grid-column: span 2;">
+            <div class="k">// HP</div>
+            <div class="v">84<small>/ 100</small></div>
+            <div class="hp-bar"><span style="width: 84%;"></span></div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// ターン</div>
+            <div class="v">5<small>/ 20</small></div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// AP / TURN</div>
+            <div class="v">2</div>
+          </div>
+        </div>
+        <div class="turn-bar">
+          <div class="turn-bar-head">
+            <span>// ターン進捗</span>
+            <strong>5 / 20</strong>
+          </div>
+          <div class="turn-dots" id="turn-dots"></div>
+        </div>
+      </section>
+
+      <!-- Last turn -->
+      <section aria-label="直前ターン" style="margin-top: 16px;">
+        <div style="font-family:'JetBrains Mono',monospace; font-size:10.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing:.06em; margin-bottom: 8px;">// 直前ターン (Turn 4)</div>
+        <div class="last-list">
+          <div class="lt-row">
+            <span class="k">last_actions</span>
+            <span class="v action-list">MOVE→SHOOT</span>
+          </div>
+          <div class="lt-row">
+            <span class="k">moved</span>
+            <span class="v mono">+1 FORWARD</span>
+          </div>
+          <div class="lt-row">
+            <span class="k">shoot_result</span>
+            <span class="v hit">HIT</span>
+          </div>
+          <div class="lt-row">
+            <span class="k">damaged</span>
+            <span class="v">8 ↓</span>
+          </div>
+          <div class="lt-row">
+            <span class="k">scan_detected</span>
+            <span class="v" style="color: var(--ink-soft);">false</span>
+          </div>
+        </div>
+
+        <div class="detected-card">
+          <div class="head">⌖ detected_targets (相対座標)</div>
+          <div class="det-row">
+            <span class="lbl">#1</span>
+            <div>
+              <div class="coords">
+                <span>forward: <b style="color: var(--ink);">+2</b></span>
+                <span>right: <b style="color: var(--ink);">0</b></span>
+                <span>age: <b style="color: var(--ink);">0</b></span>
+              </div>
+            </div>
+          </div>
+          <div class="det-row">
+            <span class="lbl">#2</span>
+            <div>
+              <div class="coords">
+                <span>forward: <b style="color: var(--ink);">−1</b></span>
+                <span>right: <b style="color: var(--ink);">+3</b></span>
+                <span>age: <b style="color: var(--ink);">2</b></span>
+              </div>
+            </div>
+          </div>
+          <div class="det-notice">
+            相手の絶対座標・HP・向きは取得できません。相対的な検出のみ参照可能です。
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </aside>
+</div>
+
+<!-- ============ Bottom status bar ============ -->
+<footer class="statusbar">
+  <div class="sb-section">
+    <span class="sb-item"><span class="k">ブロック</span><span class="v">12</span></span>
+    <span class="sb-item"><span class="k">入れ子深さ</span><span class="v">2</span></span>
+    <span class="sb-item"><span class="k">推定 Actions / Turn</span><span class="v">2.0</span></span>
+  </div>
+  <div class="sb-ap-row">
+    <span style="font-family:'JetBrains Mono',monospace; font-size: 10.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .04em; margin-right: 4px;">// AP コスト</span>
+    <span class="ap-cost move">MOVE <b>1</b></span>
+    <span class="ap-cost shoot">SHOOT <b>1</b></span>
+    <span class="ap-cost scan">SCAN <b>2</b></span>
+    <span class="ap-cost wait">WAIT <b>0</b></span>
+  </div>
+  <div class="sb-section right">
+    <span class="sb-item"><span class="k">バリデーション</span><span class="v" style="color: var(--success);">OK</span></span>
+    <span class="lock-flag unlocked" id="lock-flag" role="status">
+      <span class="lock-dot" aria-hidden="true"></span>
+      まだ確定していない
+    </span>
+  </div>
+</footer>
+
+<!-- ============ Modal showcase ============ -->
+<section class="modal-showcase" aria-label="モーダル">
+  <div class="gallery-head" style="margin-bottom: 18px;">
+    <h2>// modals</h2>
+    <p>確定確認 / 時間切れ警告 を並列展示</p>
+  </div>
+  <div class="modal-row">
+
+    <!-- Confirm lock -->
+    <div class="modal-frame" data-frame-label="OPEN — WS send: coding_lock">
+      <div class="modal" role="dialog" aria-label="コードを確定する">
+        <div class="modal-head">
+          <h3>コードを確定しますか?</h3>
+          <div class="desc">確定すると相手の確定を待ち、対戦が開始されます。<strong style="color: var(--ink);">変更はできません。</strong></div>
+        </div>
+        <div class="modal-body">
+          <div class="summary-grid">
+            <div class="tile">
+              <div class="k">// statements</div>
+              <div class="v">3</div>
+            </div>
+            <div class="tile ok">
+              <div class="k">// 未対応ブロック</div>
+              <div class="v">0</div>
+            </div>
+            <div class="tile">
+              <div class="k">// fallbackActions</div>
+              <div class="v">2</div>
+            </div>
+            <div class="tile">
+              <div class="k">// 推定 Actions / Turn</div>
+              <div class="v">2.0</div>
+            </div>
+          </div>
+          <div style="background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: var(--ink-soft); line-height: 1.55;">
+            送信先: <code style="font-family:'JetBrains Mono',monospace; background:#fff; padding:1px 6px; border-radius:4px;">WS coding_lock</code><br>
+            payload: <code style="font-family:'JetBrains Mono',monospace; background:#fff; padding:1px 6px; border-radius:4px;">{matchSessionId, strategy, blocklyXml}</code>
+          </div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost">キャンセル</button>
+          <button class="cta-primary" style="padding: 9px 16px; font-size: 13px;">✓ 確定する</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Time warning -->
+    <div class="modal-frame" data-frame-label="OPEN — 残り 30 秒">
+      <div class="modal" role="dialog" aria-label="時間切れ警告">
+        <div class="modal-head">
+          <h3 style="color: var(--accent);">残り時間が少なくなっています</h3>
+          <div class="desc">時間切れになると、現在の Workspace の内容が自動で確定されます。未配置の場合は WAIT 戦略が自動提出されます。</div>
+        </div>
+        <div class="modal-body">
+          <div class="warn-callout">
+            <div class="ic" aria-hidden="true">⏱</div>
+            <div>
+              <strong>残 30 秒</strong>
+              いま確定するか、ブロックを最後に整えてください。
+            </div>
+          </div>
+          <div class="warn-cd">00:30</div>
+        </div>
+        <div class="modal-foot">
+          <button class="btn-ghost">編集を続ける</button>
+          <button class="cta-primary" style="padding: 9px 16px; font-size: 13px;">いま確定する</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常編集中 / 未対応ブロックあり / 残 30 秒 / 確定済み (相手待ち) / 通信切断</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常編集中</span><span class="state-tag">editing</span></header>
+      <div class="state-body">
+        <div class="state-top">
+          <span>残時間</span>
+          <span class="cd">02:48</span>
+        </div>
+        <div class="state-mini-block-row">
+          <span class="block condition tiny">IF enemy_fwd</span>
+        </div>
+        <div style="padding-left: 10px; border-left: 2px dashed var(--line-2); margin: 6px 0; display:flex; flex-direction:column; gap:4px;">
+          <span class="block action tiny">前進 <span class="num">1</span></span>
+          <span class="block action tiny">攻撃する</span>
+        </div>
+        <button class="state-cta">✓ コードを確定する</button>
+      </div>
+    </article>
+
+    <!-- Unsupported -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">未対応ブロックあり</span><span class="state-tag">warn</span></header>
+      <div class="state-body">
+        <div class="state-warn-banner">
+          <strong>未対応ブロック 1 件</strong>
+          確定時に WAIT に置換されます。
+        </div>
+        <div class="state-mini-block-row">
+          <span class="block tiny" style="background: var(--cat-help); border-left-color: rgba(0,0,0,.18);">? enemy_radar_v3</span>
+        </div>
+        <div style="margin-top:6px;" class="state-mini-block-row">
+          <span class="block action tiny">前進 <span class="num">1</span></span>
+        </div>
+        <button class="state-cta">✓ コードを確定する</button>
+      </div>
+    </article>
+
+    <!-- 30s left -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">残 30 秒</span><span class="state-tag">danger</span></header>
+      <div class="state-body">
+        <div class="state-top">
+          <span>残時間</span>
+          <span class="cd danger">00:30</span>
+        </div>
+        <div class="state-err-banner">
+          時間切れ時は WAIT 戦略が自動提出されます。
+        </div>
+        <div class="state-mini-block-row">
+          <span class="block action tiny">索敵 <span class="slot">前</span></span>
+          <span class="block action tiny">待機</span>
+        </div>
+        <button class="state-cta danger">⏱ いま確定する</button>
+      </div>
+    </article>
+
+    <!-- Locked -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">確定済み</span><span class="state-tag">locked</span></header>
+      <div class="state-body">
+        <div class="state-lock-overlay">
+          <div class="lock-icon" aria-hidden="true">✓</div>
+          <strong>あなたの確定: 完了</strong>
+          <p>相手の確定を待っています…</p>
+        </div>
+        <div style="opacity: .45; pointer-events: none;">
+          <div class="state-mini-block-row">
+            <span class="block condition tiny">IF enemy_fwd</span>
+          </div>
+          <div style="padding-left: 10px; border-left: 2px dashed var(--line-2); margin: 6px 0; display:flex; flex-direction:column; gap:4px;">
+            <span class="block action tiny">前進 <span class="num">1</span></span>
+            <span class="block action tiny">攻撃</span>
+          </div>
+        </div>
+        <button class="state-cta busy">
+          <span class="loader-sm" aria-hidden="true" style="border-color: rgba(31,35,48,.18); border-top-color: var(--ink);"></span>
+          相手を待っています
+        </button>
+      </div>
+    </article>
+
+    <!-- Disconnected -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通信切断</span><span class="state-tag">offline</span></header>
+      <div class="state-body">
+        <div class="state-err-banner" style="background:#fef2f2; border-color:#fbb6b6;">
+          <strong style="display:block; font-size:11px;">サーバと切断されました</strong>
+          再接続中… ローカルの編集は保持されています。
+        </div>
+        <div style="opacity: .55;">
+          <div class="state-mini-block-row">
+            <span class="block condition tiny">IF enemy_fwd</span>
+          </div>
+          <div style="padding-left: 10px; border-left: 2px dashed var(--line-2); margin: 6px 0; display:flex; flex-direction:column; gap:4px;">
+            <span class="block action tiny">前進 <span class="num">1</span></span>
+            <span class="block action tiny">攻撃</span>
+          </div>
+        </div>
+        <button class="state-cta locked" disabled>
+          <span class="loader-sm" aria-hidden="true" style="border-color: rgba(31,35,48,.18); border-top-color: var(--ink-soft); width:11px; height:11px;"></span>
+          再接続中…
+        </button>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — simulates WS recv: coding_start payload.
+     ========================================================= */
+  const MATCH = {
+    matchSessionId: 'MSS-22064-a7f',
+    room: { id: 'ROOM-2026-0142', name: '3-A クラス・5月課題' },
+    matchCard: '#M-22064',
+    opponent: { displayName: 'HanaCoder', initial: 'HC' },
+    codingDeadlineAt: 1700000000168,
+    secondsLeft: 168,
+  };
+
+  const PLAYER_STATE = {
+    self: { x: 4, y: 6, direction: 'NORTH', hp: 84, max_hp: 100 },
+    turn: { current: 5, max: 20, ap: 2 },
+    last_turn: {
+      last_actions: ['MOVE', 'SHOOT'],
+      moved: '+1 FORWARD',
+      damaged: 8,
+      shoot_result: 'HIT',
+      scan_detected: false,
+      detected_targets: [
+        { forward: +2, right: 0,  age: 0 },
+        { forward: -1, right: +3, age: 2 },
+      ],
+    },
+  };
+
+  const STRATEGY = {
+    schemaVersion: 'v0.2',
+    fallbackActions: ['SCAN_FORWARD', 'WAIT'],
+    statements: [
+      {
+        if: { kind: 'enemy_in_forward', withinTurns: 1 },
+        then: [
+          { action: 'MOVE', direction: 'FORWARD', steps: 1, ap: 1 },
+          { action: 'SHOOT', ap: 1 },
+        ],
+        else: [
+          { action: 'SCAN', direction: 'LEFT', ap: 2 },
+        ],
+      },
+      {
+        if: { kind: 'self_hp_lte', value: 30 },
+        then: [
+          { action: 'TURN', direction: 'RIGHT', ap: 1 },
+          { action: 'MOVE', direction: 'FORWARD', steps: 2, ap: 1 },
+        ],
+      },
+      { default: [{ action: 'SCAN', direction: 'FORWARD', ap: 2 }] },
+    ],
+  };
+
+  /* ---- Turn dots ---- */
+  const dotsEl = document.getElementById('turn-dots');
+  for (let i = 1; i <= PLAYER_STATE.turn.max; i++) {
+    const cls = i < PLAYER_STATE.turn.current ? 'done' : i === PLAYER_STATE.turn.current ? 'now' : '';
+    dotsEl.insertAdjacentHTML('beforeend', `<span class="turn-dot ${cls}"></span>`);
+  }
+
+  /* ---- Live countdown (visual only) ---- */
+  let s = MATCH.secondsLeft;
+  const cdEl = document.querySelector('#countdown .val');
+  const cdRoot = document.getElementById('countdown');
+  const tick = () => {
+    if (s <= 0) return;
+    s -= 1;
+    const m = Math.floor(s / 60), r = s % 60;
+    cdEl.textContent = `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`;
+    cdRoot.classList.toggle('warn', s <= 60 && s > 30);
+    cdRoot.classList.toggle('danger', s <= 30);
+  };
+  setInterval(tick, 1000);
+
+  /* ---- Panel tabs ---- */
+  document.querySelectorAll('.panel-tab').forEach(t => {
+    t.addEventListener('click', () => {
+      document.querySelectorAll('.panel-tab').forEach(x => { x.classList.remove('active'); x.setAttribute('aria-selected','false'); });
+      t.classList.add('active');
+      t.setAttribute('aria-selected','true');
+    });
+  });
+
+  /* ---- Lock CTA dummy ---- */
+  document.getElementById('lock-cta').addEventListener('click', () => {
+    console.log('[dummy] WS send: coding_lock', { matchSessionId: MATCH.matchSessionId, strategy: STRATEGY });
+  });
+</script>
+</body>
+</html>

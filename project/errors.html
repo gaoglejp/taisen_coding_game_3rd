@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>エラー / メンテナンス | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330;
+    --admin-accent:#7c3aed; --admin-accent-soft:#ede9fe;
+    --room-admin-accent:#0891b2; --room-admin-accent-soft:#cffafe; --room-admin-accent-ink:#155e75;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button, a { font: inherit; }
+
+  /* ============ Topbar (general) ============ */
+  .topbar {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 14px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 15px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 13px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .brand-tag {
+    font-size: 10.5px; color: #92400e;
+    font-weight: 600; padding: 2px 8px;
+    background: var(--accent-soft); border: 1px solid #f3d27d;
+    border-radius: 999px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .topbar-meta {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  /* ============ Hero (main view) ============ */
+  .hero-stage {
+    padding: 60px 24px 32px;
+    display: flex;
+    justify-content: center;
+  }
+  .hero-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    box-shadow: 0 12px 32px rgba(31,35,48,.08), 0 2px 6px rgba(31,35,48,.04);
+    max-width: 640px;
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+  }
+  .hero-card .stripe {
+    height: 6px;
+    background: var(--ink-soft);
+  }
+  .hero-card.tone-404 .stripe { background: var(--ink-soft); }
+  .hero-card.tone-403 .stripe { background: var(--accent); }
+  .hero-card.tone-500 .stripe { background: var(--danger); }
+  .hero-card.tone-maint .stripe { background: var(--room-admin-accent); }
+
+  .hero-body {
+    padding: 40px 44px 32px;
+    text-align: center;
+  }
+  .code-mark {
+    display: inline-flex; align-items: baseline; gap: 12px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 78px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -.04em;
+    margin-bottom: 10px;
+  }
+  .code-mark .glyph {
+    display: inline-grid; place-items: center;
+    width: 78px; height: 78px;
+    border-radius: 20px;
+    font-size: 38px;
+    color: #fff;
+    border: 3px solid #fff;
+    box-shadow: 0 6px 16px rgba(31,35,48,.18), inset 0 -4px 0 rgba(0,0,0,.18);
+  }
+  .tone-404 .code-mark { color: var(--ink); }
+  .tone-404 .code-mark .glyph { background: var(--ink); }
+  .tone-403 .code-mark { color: #7c2d12; }
+  .tone-403 .code-mark .glyph { background: var(--accent); }
+  .tone-500 .code-mark { color: var(--p2-ink); }
+  .tone-500 .code-mark .glyph { background: var(--danger); }
+  .tone-maint .code-mark { color: var(--room-admin-accent-ink); font-size: 30px; }
+  .tone-maint .code-mark .glyph { background: var(--room-admin-accent); }
+
+  .hero-card h1 {
+    margin: 12px 0 8px;
+    font-size: 24px;
+    letter-spacing: -.01em;
+    line-height: 1.3;
+  }
+  .hero-card .lead {
+    font-size: 14px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+  .hero-card .lead strong { color: var(--ink); font-weight: 600; }
+
+  /* Detail box (forbidden / 500 / maintenance) */
+  .detail-box {
+    margin: 22px auto 0;
+    max-width: 480px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    text-align: left;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    line-height: 1.6;
+  }
+  .detail-box .row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 12px;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--line);
+  }
+  .detail-box .row:last-child { border-bottom: none; }
+  .detail-box .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .detail-box .v { color: var(--ink); font-weight: 500; }
+  .detail-box .v.mono { font-family: "JetBrains Mono", monospace; font-size: 12px; }
+
+  /* Role row (403) */
+  .role-row {
+    display: flex; flex-direction: column; gap: 10px;
+    max-width: 480px;
+    margin: 22px auto 0;
+  }
+  .role-line {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+    text-align: left;
+  }
+  .role-line .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    width: 90px;
+    flex-shrink: 0;
+  }
+  .role-line .val { flex: 1; }
+  .role-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: .04em;
+  }
+  .role-system { background: var(--admin-accent-soft); color: var(--admin-accent); border-color: #ddd6fe; }
+  .role-room-admin { background: var(--room-admin-accent-soft); color: var(--room-admin-accent-ink); border-color: #a5f3fc; }
+  .role-general { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .role-room-user { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+
+  /* Maintenance countdown */
+  .maint-countdown {
+    margin: 22px auto 0;
+    max-width: 480px;
+    background: linear-gradient(180deg, #f0fdfa, #ecfeff);
+    border: 1px solid #99f6e4;
+    border-radius: 14px;
+    padding: 18px 20px;
+    text-align: center;
+  }
+  .maint-countdown .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--room-admin-accent-ink);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 6px;
+  }
+  .maint-countdown .val {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--room-admin-accent-ink);
+    letter-spacing: -.01em;
+    line-height: 1;
+  }
+  .maint-countdown .scheduled {
+    font-size: 12px;
+    color: var(--room-admin-accent-ink);
+    margin-top: 6px;
+  }
+  .maint-countdown .scheduled strong { font-weight: 700; }
+  .auto-retry {
+    margin-top: 10px;
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,.6);
+    border: 1px solid #99f6e4;
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--room-admin-accent-ink);
+    font-weight: 700;
+  }
+  .auto-retry .loader-sm {
+    width: 10px; height: 10px;
+    border: 2px solid rgba(8,145,178,.18);
+    border-top-color: var(--room-admin-accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Match interrupted notice (maintenance) */
+  .interrupted-notice {
+    background: var(--accent-soft);
+    border: 1px solid #fbd9a5;
+    color: #7c2d12;
+    border-radius: 10px;
+    padding: 11px 14px;
+    margin: 16px auto 0;
+    max-width: 480px;
+    font-size: 12.5px;
+    line-height: 1.55;
+    display: flex; gap: 10px;
+    text-align: left;
+  }
+  .interrupted-notice .ic {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 12px;
+    flex-shrink: 0;
+  }
+  .interrupted-notice strong { color: #7c2d12; font-weight: 700; }
+
+  /* CTA row */
+  .cta-row {
+    display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+    margin-top: 26px;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 12px 22px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #c2740a, 0 6px 12px rgba(245,158,11,.22);
+    display: inline-flex; align-items: center; gap: 8px;
+    text-decoration: none;
+  }
+  .btn-primary:hover { background: #ea8a09; }
+  .btn-secondary {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    padding: 11px 20px;
+    font-size: 13.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    text-decoration: none;
+  }
+  .btn-secondary:hover { background: var(--bg); }
+  .btn-primary.maint {
+    background: var(--room-admin-accent);
+    box-shadow: 0 2px 0 #0e7490;
+  }
+  .btn-primary.maint:hover { background: #0e7490; }
+  .btn-primary.danger {
+    background: var(--danger);
+    box-shadow: 0 2px 0 #991b1b;
+  }
+  .btn-primary.danger:hover { background: #b91c1c; }
+
+  /* Trace / support */
+  .trace-row {
+    margin: 18px auto 0;
+    max-width: 480px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    text-align: center;
+  }
+  .trace-row code {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    padding: 2px 7px;
+    border-radius: 5px;
+    color: var(--ink);
+    margin-left: 4px;
+  }
+
+  /* ============ Toast / inline banner mocks ============ */
+  .banner-showcase {
+    max-width: 1280px;
+    margin: 12px auto 0;
+    padding: 28px 24px 8px;
+  }
+  .banner-showcase .head {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 10px;
+    border-top: 1px dashed var(--line);
+    padding-top: 22px;
+  }
+  .ws-banner {
+    background: linear-gradient(180deg, #fdfdf8, #fbf6e7);
+    border: 1px solid var(--accent);
+    border-radius: 12px;
+    padding: 14px 18px;
+    display: flex; align-items: center; gap: 16px;
+    box-shadow: 0 6px 18px rgba(245,158,11,.10);
+    max-width: 760px;
+    margin: 0 auto 14px;
+  }
+  .ws-banner.disconnected {
+    border-color: var(--danger);
+    background: linear-gradient(180deg, #fff, #fef5f5);
+    box-shadow: 0 6px 18px rgba(220,38,38,.10);
+  }
+  .ws-banner .ic {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 18px;
+    flex-shrink: 0;
+  }
+  .ws-banner.disconnected .ic { background: var(--danger); }
+  .ws-banner .body { flex: 1; font-size: 13px; line-height: 1.5; }
+  .ws-banner .body strong {
+    display: block; font-weight: 700; font-size: 14px;
+    color: var(--ink);
+    margin-bottom: 2px;
+  }
+  .ws-banner .body .meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .ws-banner .body .meta strong { display: inline; font-size: 11px; color: var(--ink); }
+  .ws-banner .actions { display: flex; gap: 8px; }
+  .ws-banner .actions .btn {
+    padding: 7px 12px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid var(--line-2);
+    background: #fff;
+    color: var(--ink);
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .ws-banner .actions .btn.primary {
+    background: var(--accent); color: #fff;
+    border-color: var(--accent);
+  }
+  .ws-banner.disconnected .actions .btn.primary {
+    background: var(--danger); color: #fff;
+    border-color: var(--danger);
+  }
+  .ws-banner .reconnect-dots {
+    display: inline-flex; gap: 4px; align-items: center;
+    margin-right: 4px;
+  }
+  .ws-banner .reconnect-dots .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--accent);
+    animation: bounce 1.2s ease-in-out infinite;
+  }
+  .ws-banner.disconnected .reconnect-dots .dot { background: var(--danger); }
+  .ws-banner .reconnect-dots .dot:nth-child(2) { animation-delay: .15s; }
+  .ws-banner .reconnect-dots .dot:nth-child(3) { animation-delay: .3s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 1; }
+    30% { transform: translateY(-3px); opacity: .5; }
+  }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 24px auto 32px;
+    padding: 0 24px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0,1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .gallery-grid.row2 {
+    grid-template-columns: repeat(3, minmax(0,1fr));
+  }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 10px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 12px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    padding: 2px 6px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state.tone-404 .state-tag { color: var(--ink); }
+  .state.tone-403 .state-tag { color: #92400e; background: var(--accent-soft); border-color: #fbd9a5; }
+  .state.tone-500 .state-tag { color: var(--p2-ink); background: var(--p2-soft); border-color: #fbb6b6; }
+  .state.tone-maint .state-tag { color: var(--room-admin-accent-ink); background: var(--room-admin-accent-soft); border-color: #a5f3fc; }
+  .state-body {
+    padding: 24px 18px 20px;
+    text-align: center;
+  }
+  .mini-code {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: -.04em;
+    line-height: 1;
+    margin-bottom: 7px;
+  }
+  .state.tone-404 .mini-code { color: var(--ink); }
+  .state.tone-403 .mini-code { color: var(--accent); }
+  .state.tone-500 .mini-code { color: var(--danger); }
+  .state.tone-maint .mini-code { color: var(--room-admin-accent); font-size: 26px; }
+  .mini-h {
+    font-size: 13px; font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--ink);
+  }
+  .mini-lead {
+    font-size: 11px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .mini-btn-row { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; }
+  .mini-btn {
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+    color: #fff;
+  }
+  .mini-btn.primary { background: var(--accent); }
+  .mini-btn.ghost { background: #fff; color: var(--ink); border: 1px solid var(--line-2); }
+  .mini-btn.maint { background: var(--room-admin-accent); }
+  .mini-btn.danger { background: var(--danger); }
+
+  .mini-role-row {
+    margin-top: 10px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 7px 9px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-align: left;
+    display: flex; gap: 6px; align-items: center;
+    flex-wrap: wrap;
+  }
+  .mini-role-row .role-pill { font-size: 8.5px; padding: 1px 5px; }
+
+  .mini-trace {
+    margin-top: 10px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--ink-soft);
+  }
+  .mini-cd {
+    background: linear-gradient(180deg, #f0fdfa, #ecfeff);
+    border: 1px solid #99f6e4;
+    border-radius: 8px;
+    padding: 8px;
+    margin: 10px 0;
+  }
+  .mini-cd .v {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--room-admin-accent-ink);
+    line-height: 1;
+  }
+  .mini-cd .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--room-admin-accent-ink);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  /* Admin variant for state gallery */
+  .state.admin .state-head {
+    background: var(--admin-bg);
+    border-color: #0f1117;
+    color: #e5e7eb;
+  }
+  .state.admin .state-name { color: #f3f4f6; }
+  .state.admin .state-tag {
+    background: #2a2e3c;
+    border-color: #3a3e4d;
+    color: #fff;
+  }
+  .state.admin .scope-mini {
+    background: #fdfaf0;
+    border-bottom: 1px solid var(--line);
+    padding: 6px 14px;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-align: left;
+    display: flex; gap: 6px; align-items: center;
+  }
+  .state.admin .scope-mini .ic {
+    width: 14px; height: 14px; border-radius: 4px;
+    background: var(--admin-accent-soft);
+    color: var(--admin-accent);
+    border: 1px solid #ddd6fe;
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 9px;
+  }
+  .state.admin .scope-mini strong { color: var(--ink); }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Topbar (general UI sample for primary view) ============ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <span>対戦・コーディング</span>
+    <span class="brand-tag">v0.2</span>
+  </div>
+  <div class="topbar-meta">
+    お困りですか? <a href="#help" style="color: var(--p1-ink); text-decoration: none; font-weight: 600; border-bottom: 1px dashed var(--p1-ink);">サポート</a>
+  </div>
+</header>
+
+<!-- ============ Primary hero view (404 as main example) ============ -->
+<section class="hero-stage" aria-label="エラー画面 (404 メインビュー)">
+  <article class="hero-card tone-404">
+    <div class="stripe" aria-hidden="true"></div>
+    <div class="hero-body">
+      <div class="code-mark">
+        <span class="glyph" aria-hidden="true">?</span>
+        404
+      </div>
+      <h1>お探しのページは見つかりませんでした</h1>
+      <p class="lead">
+        URL が変更されたか、削除された可能性があります。<br>
+        入力ミスでなければ、<strong>ダッシュボード</strong> に戻って探してみてください。
+      </p>
+
+      <div class="detail-box">
+        <div class="row">
+          <span class="k">// path</span>
+          <span class="v mono">/match/M-99999/coding</span>
+        </div>
+        <div class="row">
+          <span class="k">// reason</span>
+          <span class="v">対象のマッチが存在しません。発行されていないか、削除されました。</span>
+        </div>
+      </div>
+
+      <div class="cta-row">
+        <a href="#dashboard" class="btn-primary">⌂ ダッシュボードへ戻る</a>
+        <a href="#login" class="btn-secondary">ログイン画面へ</a>
+        <a href="#help" class="btn-secondary">サポートに連絡</a>
+      </div>
+
+      <div class="trace-row">
+        trace: <code>trc_a7f2_404_2026052214321</code>
+      </div>
+    </div>
+  </article>
+</section>
+
+<!-- ============ WS-disconnect inline banner ============ -->
+<section class="banner-showcase" aria-label="ページ内バナー (WS 切断)">
+  <div class="head">// inline banner — WebSocket disconnect</div>
+  <div class="ws-banner disconnected" role="alert">
+    <div class="ic" aria-hidden="true">⤬</div>
+    <div class="body">
+      <strong>サーバとの接続が切れました</strong>
+      <span>再接続を試みています。表示中のデータはローカルに保持されています。</span>
+      <div class="meta">
+        <span class="reconnect-dots" aria-hidden="true"><span class="dot"></span><span class="dot"></span><span class="dot"></span></span>
+        再接続中… (試行 <strong>3</strong> / 5) · 次の試行まで <strong>00:04</strong>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn primary">↻ いま再接続</button>
+      <button class="btn">詳細</button>
+    </div>
+  </div>
+
+  <div class="head" style="border-top: none; padding-top: 0; margin-top: 6px;">// inline banner — reconnected (auto)</div>
+  <div class="ws-banner" role="status">
+    <div class="ic" aria-hidden="true" style="background: var(--success);">✓</div>
+    <div class="body">
+      <strong style="color: var(--success);">サーバに再接続しました</strong>
+      <span>切断中に受信できなかったイベントを 1.2 秒で同期しました。続けて操作できます。</span>
+      <div class="meta">
+        sync: <strong>3 events</strong> · latency 142 ms
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn">閉じる</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ State gallery — all error variants + admin ============ -->
+<section class="gallery" aria-label="エラー画面バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>404 / 403 / 500 / メンテナンス / メンテナンス (進行中マッチあり) / 403 (管理 UI 版)</p>
+  </div>
+
+  <div class="gallery-grid">
+
+    <!-- 404 -->
+    <article class="state tone-404">
+      <header class="state-head"><span class="state-name">404 Not Found</span><span class="state-tag">general</span></header>
+      <div class="state-body">
+        <div class="mini-code">404</div>
+        <div class="mini-h">ページが見つかりません</div>
+        <div class="mini-lead">URL が変わったか、削除された可能性があります。</div>
+        <div class="mini-btn-row">
+          <a class="mini-btn primary">⌂ ダッシュボード</a>
+          <a class="mini-btn ghost">ログイン</a>
+        </div>
+        <div class="mini-trace">trc_a7f2_404_…</div>
+      </div>
+    </article>
+
+    <!-- 403 -->
+    <article class="state tone-403">
+      <header class="state-head"><span class="state-name">403 Forbidden</span><span class="state-tag">general</span></header>
+      <div class="state-body">
+        <div class="mini-code">403</div>
+        <div class="mini-h">このページにアクセスできません</div>
+        <div class="mini-lead">必要な権限がありません。<br>担当の管理者に依頼してください。</div>
+        <div class="mini-role-row">
+          <span>あなた:</span>
+          <span class="role-pill role-room-user">ROOM_USER</span>
+          <span>必要:</span>
+          <span class="role-pill role-room-admin">ROOM_ADMIN</span>
+        </div>
+        <div class="mini-btn-row" style="margin-top: 10px;">
+          <a class="mini-btn primary">⌂ ダッシュボード</a>
+          <a class="mini-btn ghost">管理者に連絡</a>
+        </div>
+      </div>
+    </article>
+
+    <!-- 500 -->
+    <article class="state tone-500">
+      <header class="state-head"><span class="state-name">500 Internal Server Error</span><span class="state-tag">general</span></header>
+      <div class="state-body">
+        <div class="mini-code">500</div>
+        <div class="mini-h">予期しないエラーが発生しました</div>
+        <div class="mini-lead">サーバ側の問題です。少し待ってから<br>再度お試しください。</div>
+        <div class="mini-btn-row">
+          <a class="mini-btn primary">⌂ ホームへ</a>
+          <a class="mini-btn ghost">サポートに連絡</a>
+        </div>
+        <div class="mini-trace">trc_500_a7f29k3m</div>
+      </div>
+    </article>
+
+  </div>
+
+  <div class="gallery-grid row2">
+
+    <!-- Maintenance -->
+    <article class="state tone-maint">
+      <header class="state-head"><span class="state-name">メンテナンス</span><span class="state-tag">scheduled</span></header>
+      <div class="state-body">
+        <div class="mini-code">🛠</div>
+        <div class="mini-h">現在メンテナンス中です</div>
+        <div class="mini-lead">サービス全体を一時停止しています。<br>ご不便をおかけしてすみません。</div>
+        <div class="mini-cd">
+          <div class="lbl">// 終了予定まで</div>
+          <div class="v">01:23:45</div>
+        </div>
+        <div class="mini-btn-row">
+          <a class="mini-btn maint">↻ 状態を再取得</a>
+        </div>
+      </div>
+    </article>
+
+    <!-- Maintenance with active matches -->
+    <article class="state tone-maint">
+      <header class="state-head"><span class="state-name">メンテナンス (進行中マッチあり)</span><span class="state-tag">interrupt</span></header>
+      <div class="state-body">
+        <div class="mini-code">🛠</div>
+        <div class="mini-h">対戦が中断されました</div>
+        <div class="mini-lead">進行中の対戦は安全に中断され、<br>再開時に再戦のご案内をします。</div>
+        <div style="background: var(--accent-soft); border: 1px solid #fbd9a5; color: #7c2d12; border-radius: 7px; padding: 7px 9px; margin: 10px 0; font-size: 10.5px; text-align: left;">
+          <strong style="display: block; font-size: 11px;">中断されたマッチ:</strong>
+          <span style="font-family: 'JetBrains Mono', monospace;">#M-22064</span> · 自動再戦キューに追加済み
+        </div>
+        <div class="mini-btn-row">
+          <a class="mini-btn maint">↻ 状態を再取得</a>
+        </div>
+      </div>
+    </article>
+
+    <!-- Admin variant 403 -->
+    <article class="state admin tone-403">
+      <header class="state-head"><span class="state-name">403 Forbidden (管理 UI 版)</span><span class="state-tag">admin</span></header>
+      <div class="scope-mini">
+        <span class="ic" aria-hidden="true">!</span>
+        <span><strong>システム管理者として閲覧中。</strong> 対戦操作はできません。</span>
+      </div>
+      <div class="state-body">
+        <div class="mini-code">403</div>
+        <div class="mini-h">このルームには権限がありません</div>
+        <div class="mini-lead">ROOM-2026-0288 はあなたが管理する<br>ルームではありません。</div>
+        <div class="mini-role-row">
+          <span>あなた:</span>
+          <span class="role-pill role-system">SYSTEM_ADMIN</span>
+          <span>このルーム:</span>
+          <span style="font-family:'JetBrains Mono',monospace; font-size: 9.5px;">他管理者管轄</span>
+        </div>
+        <div class="mini-btn-row" style="margin-top: 10px;">
+          <a class="mini-btn" style="background: var(--admin-accent); color: #fff;">⌂ 管理ホーム</a>
+          <a class="mini-btn ghost">監査ログを見る</a>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — health / WS state.
+     ========================================================= */
+  const HEALTH = {
+    status: 'OK',           // OK | MAINTENANCE
+    maintenanceUntil: null, // ISO timestamp when MAINTENANCE
+    websocket: 'OPEN',      // OPEN | RECONNECTING | CLOSED
+  };
+
+  /* Maintenance countdown demo (not bound to main view) */
+  console.log('[dummy GET /api/health]', HEALTH);
+</script>
+</body>
+</html>

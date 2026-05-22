@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>試合結果 | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+    --draw:#6b7280; --draw-soft:#e5e7eb;
+    --radius: 16px;
+    --radius-sm: 10px;
+    --shadow-sm: 0 1px 2px rgba(31,35,48,.04), 0 1px 1px rgba(31,35,48,.03);
+    --shadow-md: 0 8px 24px rgba(31,35,48,.08), 0 2px 6px rgba(31,35,48,.04);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  button, a { font: inherit; }
+  a { color: var(--p1-ink); }
+
+  /* ============ Header ============ */
+  .topbar {
+    background: linear-gradient(180deg, #fbf8ef, #f6f1e2);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 24px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 20px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; font-weight: 700; font-size: 14px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: var(--ink); color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace; font-weight: 700; font-size: 13px;
+    box-shadow: inset 0 -2px 0 rgba(0,0,0,.25);
+  }
+  .brand-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    background: var(--accent-soft); border: 1px solid #f3d27d;
+    color: #92400e; padding: 2px 7px; border-radius: 4px; font-weight: 600;
+  }
+  .screen-name {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px; color: var(--ink-soft);
+  }
+  .screen-name strong { color: var(--ink); font-weight: 600; }
+  .top-right { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+  .user-chip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 12px 5px 5px;
+    background: #fff; border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 12.5px; font-weight: 600;
+  }
+  .avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--p1-soft); color: var(--p1-ink);
+    display: grid; place-items: center;
+    font-size: 11px; font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .role-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; font-weight: 600;
+    padding: 3px 7px; border-radius: 4px;
+    background: var(--p1-soft); color: var(--p1-ink);
+    border: 1px solid #bfd5fa;
+  }
+
+  /* ============ Page ============ */
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 28px 24px 32px;
+  }
+
+  /* ============ Hero card ============ */
+  .hero {
+    border-radius: 18px;
+    padding: 32px 36px 30px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  .hero.win {
+    background:
+      radial-gradient(700px 280px at 0% -20%, rgba(21,128,61,.14), transparent 60%),
+      radial-gradient(500px 220px at 100% 0%, rgba(21,128,61,.08), transparent 60%),
+      linear-gradient(180deg, #f8fdf9, #ecfdf5);
+    border-color: #a7f3d0;
+  }
+  .hero.lose {
+    background:
+      radial-gradient(700px 280px at 0% -20%, rgba(220,38,38,.10), transparent 60%),
+      linear-gradient(180deg, #fdfaf6, #fef5f5);
+    border-color: #fbb6b6;
+  }
+  .hero.draw {
+    background: linear-gradient(180deg, #fdfaf6, #f3f1ea);
+    border-color: var(--line-2);
+  }
+
+  .result-badge-row {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 14px;
+  }
+  .result-badge {
+    display: inline-flex; align-items: center; gap: 12px;
+    padding: 9px 20px 9px 14px;
+    border-radius: 12px;
+    font-size: 30px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    font-family: "JetBrains Mono", monospace;
+    border: 2px solid;
+    box-shadow: 0 2px 0 currentColor;
+  }
+  .result-badge .ico {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: currentColor;
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 18px;
+    font-weight: 800;
+    font-family: "Plus Jakarta Sans", sans-serif;
+  }
+  .result-badge .ico::after { content: attr(data-glyph); color: #fff; line-height: 1; }
+  .result-badge.win  { background: #ecfdf5; color: var(--success); border-color: #6ee7b7; box-shadow: 0 2px 0 #6ee7b7; }
+  .result-badge.lose { background: #fef2f2; color: var(--danger); border-color: #fca5a5; box-shadow: 0 2px 0 #fca5a5; }
+  .result-badge.draw { background: #f3f4f6; color: var(--draw); border-color: var(--line-2); box-shadow: 0 2px 0 var(--line-2); }
+  .result-tagline {
+    font-size: 15px;
+    color: var(--ink-soft);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+  .result-tagline strong { color: var(--ink); font-weight: 700; }
+
+  .vs-row {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 16px;
+  }
+  .vs-card {
+    flex: 1;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 13px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .vs-card.you { border-color: #a7f3d0; }
+  .vs-card.opp { border-color: #fbb6b6; }
+  .hero.lose .vs-card.you { border-color: #fbb6b6; }
+  .hero.lose .vs-card.opp { border-color: #a7f3d0; }
+  .hero.draw .vs-card.you,
+  .hero.draw .vs-card.opp { border-color: var(--line-2); }
+  .vs-av {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    color: #fff;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 14px;
+    border: 2px solid;
+    flex-shrink: 0;
+  }
+  .vs-card.you .vs-av { background: var(--p1); border-color: var(--p1-ink); }
+  .vs-card.opp .vs-av { background: var(--p2); border-color: var(--p2-ink); }
+  .vs-name {
+    font-weight: 700;
+    font-size: 15px;
+    line-height: 1.2;
+  }
+  .vs-meta {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    margin-top: 2px;
+  }
+  .vs-final-hp {
+    margin-left: auto;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .vs-final-hp small { color: var(--ink-soft); font-weight: 600; font-size: 11px; margin-left: 2px; }
+  .vs-final-hp .zero { color: var(--danger); }
+  .vs-x {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-weight: 700;
+  }
+
+  .hero-meta {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    background: rgba(255,255,255,.6);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 11px 14px;
+    font-size: 12.5px;
+  }
+  .hero-meta-item {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .hero-meta-item .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .hero-meta-item .v { font-weight: 700; font-size: 13.5px; color: var(--ink); }
+  .hero-meta-item .v.mono { font-family: "JetBrains Mono", monospace; }
+
+  /* ============ CTA block ============ */
+  .cta-block {
+    background: linear-gradient(180deg, #fdfdf8, #fbf7ec);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 22px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    flex-wrap: wrap;
+    box-shadow: var(--shadow-sm);
+  }
+  .cta-block .copy { flex: 1; min-width: 240px; }
+  .cta-block .copy .lead {
+    font-size: 15px; font-weight: 700;
+    margin: 0 0 4px;
+  }
+  .cta-block .copy .sub {
+    font-size: 12.5px; color: var(--ink-soft);
+    margin: 0;
+  }
+  .cta-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .btn-primary {
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 10px;
+    padding: 12px 22px;
+    font-size: 14px; font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 0 #c2740a, 0 6px 12px rgba(245,158,11,.22);
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary:hover { background: #ea8a09; }
+  .btn-secondary {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 10px;
+    padding: 11px 18px;
+    font-size: 13px; font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    text-decoration: none;
+  }
+  .btn-secondary:hover { background: var(--bg); }
+
+  /* ============ Content grid ============ */
+  .grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 22px;
+    margin-bottom: 24px;
+  }
+
+  /* ============ Card ============ */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    box-shadow: var(--shadow-sm);
+  }
+  .card-head {
+    padding: 14px 18px 10px;
+    border-bottom: 1px dashed var(--line);
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .card-head h2 {
+    margin: 0; font-size: 13.5px; font-weight: 700;
+  }
+  .card-head .sub {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--ink-soft);
+  }
+  .card-body { padding: 16px 18px 18px; }
+
+  /* ============ HP chart ============ */
+  .chart-wrap {
+    margin-top: 4px;
+    margin-bottom: 14px;
+  }
+  .chart-legend {
+    display: flex; gap: 14px;
+    font-size: 11.5px; color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .chart-legend .swatch {
+    display: inline-block;
+    width: 12px; height: 3px;
+    border-radius: 2px;
+    margin-right: 5px;
+    vertical-align: 2px;
+  }
+  .chart-legend .swatch.you { background: var(--p1); }
+  .chart-legend .swatch.opp { background: var(--p2); }
+  .chart {
+    width: 100%;
+    height: 200px;
+    background:
+      linear-gradient(rgba(31,35,48,.04) 1px, transparent 1px) 0 0 / 100% 25%,
+      linear-gradient(90deg, rgba(31,35,48,.04) 1px, transparent 1px) 0 0 / calc(100% / 16) 100%;
+    background-color: #fdfdf8;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  /* ============ Stats grid ============ */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .stat-tile {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+  }
+  .stat-tile .k {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .stat-tile .v {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 18px; font-weight: 800;
+    margin-top: 2px;
+    letter-spacing: -.01em;
+  }
+  .stat-tile .v small { font-size: 11px; color: var(--ink-soft); font-weight: 600; margin-left: 2px; }
+  .stat-tile .delta { font-size: 10.5px; margin-top: 2px; font-family: "JetBrains Mono", monospace; }
+  .stat-tile .delta.up { color: var(--success); }
+  .stat-tile .delta.down { color: var(--p2); }
+
+  .first-row {
+    background: var(--accent-soft); border: 1px solid #fbd9a5;
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    display: flex; align-items: center; gap: 10px;
+    color: #92400e;
+  }
+  .first-row .ic {
+    width: 22px; height: 22px;
+    background: var(--accent); color: #fff;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 700;
+  }
+  .first-row strong { font-weight: 700; }
+  .first-row.none {
+    background: var(--bg); border-color: var(--line);
+    color: var(--ink-soft);
+  }
+  .first-row.none .ic { background: var(--ink-soft); }
+
+  /* ============ Highlights ============ */
+  .hl-list { display: flex; flex-direction: column; gap: 0; margin-top: 4px; }
+  .hl-item {
+    display: grid;
+    grid-template-columns: 56px 18px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 9px 4px;
+    border-bottom: 1px dashed var(--line);
+    font-size: 13px;
+  }
+  .hl-item:last-child { border-bottom: none; }
+  .hl-turn {
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 3px 8px;
+    text-align: center;
+    font-size: 12px;
+  }
+  .hl-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--line-2);
+  }
+  .hl-dot.first { background: var(--accent); }
+  .hl-dot.hit { background: var(--p2); }
+  .hl-dot.item { background: #7c3aed; }
+  .hl-dot.win { background: var(--success); }
+  .hl-dot.miss { background: var(--ink-soft); }
+  .hl-text { font-size: 13px; }
+  .hl-text strong { font-weight: 700; }
+  .hl-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--ink-soft);
+  }
+
+  /* ============ Stats change column ============ */
+  .wr-card {
+    background: linear-gradient(180deg, #fdfdf8, #faf7ed);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+    margin-bottom: 14px;
+  }
+  .wr-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px;
+  }
+  .wr-head .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .wr-head .total {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; color: var(--ink-soft);
+  }
+  .wr-big {
+    font-size: 42px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1.0;
+    margin: 6px 0 8px;
+  }
+  .wr-big small { font-size: 17px; color: var(--ink-soft); font-weight: 700; margin-left: 4px; }
+  .wr-delta {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: var(--success-soft);
+    color: var(--success);
+    border: 1px solid #a7f3d0;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .wr-delta.down {
+    background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6;
+  }
+  .wr-delta.flat {
+    background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2);
+  }
+  .wld-row {
+    display: flex; gap: 14px;
+    font-size: 13px;
+    margin-top: 10px;
+  }
+  .wld-row .w { color: var(--success); font-weight: 700; }
+  .wld-row .l { color: var(--p2); font-weight: 700; }
+  .wld-row .d { color: var(--ink-soft); font-weight: 700; }
+
+  /* Mini match cards */
+  .recent-strip {
+    display: flex; gap: 6px;
+    margin-top: 14px;
+  }
+  .mini-match {
+    flex: 1;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 6px;
+    text-align: center;
+  }
+  .mini-match.highlight {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+    background: #fffdf5;
+    position: relative;
+  }
+  .mini-match.highlight::before {
+    content: "NOW";
+    position: absolute;
+    top: -8px; left: 50%; transform: translateX(-50%);
+    background: var(--accent); color: #fff;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px; font-weight: 700;
+    padding: 2px 6px; border-radius: 4px;
+    letter-spacing: .04em;
+  }
+  .mini-result {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px; font-weight: 800;
+    padding: 5px;
+    border-radius: 5px;
+    margin-bottom: 4px;
+  }
+  .mini-result.win { background: var(--success-soft); color: var(--success); border: 1px solid #a7f3d0; }
+  .mini-result.lose { background: var(--p2-soft); color: var(--p2-ink); border: 1px solid #fbb6b6; }
+  .mini-result.draw { background: var(--bg-2); color: var(--ink-soft); border: 1px solid var(--line-2); }
+  .mini-opp { font-size: 10.5px; color: var(--ink-soft); }
+
+  /* Rank card */
+  .rank-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    display: flex; gap: 12px; align-items: center;
+    box-shadow: var(--shadow-sm);
+  }
+  .rank-ic {
+    width: 42px; height: 42px;
+    border-radius: 10px;
+    background: var(--success-soft);
+    color: var(--success);
+    border: 1px solid #a7f3d0;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 18px;
+    font-weight: 800;
+  }
+  .rank-ic.down { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .rank-ic.flat { background: var(--bg); color: var(--ink-soft); border-color: var(--line); }
+  .rank-text { flex: 1; }
+  .rank-text .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px; color: var(--ink-soft);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .rank-text .val {
+    font-size: 15px; font-weight: 700;
+  }
+  .rank-text .val .arrow { color: var(--success); font-family: "JetBrains Mono", monospace; margin-left: 4px; font-weight: 700; }
+  .rank-text .meta {
+    font-size: 11.5px; color: var(--ink-soft);
+    margin-top: 2px;
+  }
+
+  /* ============ Hints ============ */
+  .hints {
+    margin-top: 0;
+  }
+  .hints-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .hint-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .hint-card .head {
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 8px;
+  }
+  .hint-card .num {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px; font-weight: 700;
+  }
+  .hint-card .ttl {
+    font-size: 13px; font-weight: 700;
+  }
+  .hint-card .body {
+    font-size: 12.5px; color: var(--ink-soft);
+    line-height: 1.55;
+  }
+  .hint-card .block-snip {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 8px 10px;
+    margin-top: 9px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 36px auto 32px;
+    padding: 0 24px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 { margin: 0; font-size: 14px; font-family: "JetBrains Mono", monospace; }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 14px; }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 11px; background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace; font-size: 9px;
+    padding: 2px 5px; border-radius: 4px;
+    background: #fff; border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 10px; }
+  .mini-badge {
+    text-align: center;
+    padding: 14px 4px;
+    border-radius: 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: .04em;
+    margin-bottom: 7px;
+    border: 2px solid;
+  }
+  .mini-badge.win  { background: var(--success-soft); color: var(--success); border-color: #6ee7b7; }
+  .mini-badge.lose { background: var(--p2-soft); color: var(--p2-ink); border-color: #fca5a5; }
+  .mini-badge.draw { background: #f3f4f6; color: var(--draw); border-color: var(--line-2); }
+  .mini-cta {
+    background: var(--accent); color: #fff;
+    border: none; padding: 7px;
+    border-radius: 6px; font-size: 10.5px; font-weight: 700;
+    width: 100%; margin-top: 7px;
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+  }
+  .mini-cta.ghost {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--line-2);
+  }
+  .mini-meta {
+    font-family: "JetBrains Mono", monospace; font-size: 10px;
+    color: var(--ink-soft); text-align: center;
+    margin-bottom: 6px;
+  }
+  .mini-reason {
+    background: var(--bg); border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 7px;
+    font-size: 10.5px;
+    margin-bottom: 7px;
+    color: var(--ink);
+  }
+  .mini-reason strong { font-weight: 700; }
+  .state-skel {
+    background: linear-gradient(90deg, var(--bg-2) 0%, #eee9da 50%, var(--bg-2) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+    border-radius: 5px;
+    height: 10px;
+    margin-bottom: 6px;
+  }
+  .state-skel.tall { height: 38px; }
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Header ============ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <span>対戦・コーディング</span>
+    <span class="brand-tag">v0.2</span>
+  </div>
+  <div class="screen-name"><strong>試合結果</strong> · /match/M-22064/result</div>
+  <div class="top-right">
+    <div class="user-chip" aria-label="ログイン中のユーザー">
+      <div class="avatar" aria-hidden="true">TR</div>
+      <span>たろう_06</span>
+      <span class="role-badge">ROOM_USER</span>
+    </div>
+  </div>
+</header>
+
+<main class="page">
+
+  <!-- ============ Hero (WIN sample) ============ -->
+  <!-- bind: GET /api/match/:matchId/result -->
+  <section class="hero win" aria-label="試合結果">
+    <div class="result-badge-row">
+      <span class="result-badge win" aria-label="勝ち">
+        <span class="ico" data-glyph="✓" aria-hidden="true"></span>
+        WIN
+      </span>
+      <div class="result-tagline">
+        いい判断でした、<strong>たろう_06</strong> さん!<br>
+        <span style="font-size: 13px;">相手 HP を 0 にして勝利しました。次は連勝記録を伸ばしましょう。</span>
+      </div>
+    </div>
+
+    <div class="vs-row">
+      <div class="vs-card you">
+        <div class="vs-av">TR</div>
+        <div>
+          <div class="vs-name">たろう_06 <span style="font-size: 10px; color: var(--success); font-family: 'JetBrains Mono',monospace; vertical-align: 2px; margin-left: 4px;">YOU</span></div>
+          <div class="vs-meta">P1 · 残 HP 健全</div>
+        </div>
+        <div class="vs-final-hp">52<small>/100</small></div>
+      </div>
+      <div class="vs-x">vs</div>
+      <div class="vs-card opp">
+        <div class="vs-av">HC</div>
+        <div>
+          <div class="vs-name">HanaCoder</div>
+          <div class="vs-meta">P2</div>
+        </div>
+        <div class="vs-final-hp zero">0<small>/100</small></div>
+      </div>
+    </div>
+
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <span class="k">// ROOM</span>
+        <span class="v">3-A クラス・5月課題</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="k">// MATCH</span>
+        <span class="v mono">#M-22064</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="k">// 終了理由</span>
+        <span class="v">相手 HP 0 (通常終了)</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="k">// 終了ターン</span>
+        <span class="v mono">T16 / 20</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="k">// 試合時間</span>
+        <span class="v mono">04:32</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CTA block ============ -->
+  <section class="cta-block" aria-label="次のアクション">
+    <div class="copy">
+      <p class="lead">いい判断でした! コードを少し直して、もう一度挑戦しましょう。</p>
+      <p class="sub">同じ相手 (HanaCoder) と再戦できます。コードはあなたの最後の編集状態から始められます。</p>
+    </div>
+    <div class="cta-row">
+      <button class="btn-primary">
+        <span aria-hidden="true">✎</span>
+        コードを改善して再戦
+      </button>
+      <a class="btn-secondary" href="#replay">
+        <span aria-hidden="true">▶</span>
+        リプレイをもう一度見る
+      </a>
+      <a class="btn-secondary" href="#dashboard">
+        <span aria-hidden="true">⌂</span>
+        ダッシュボードへ
+      </a>
+    </div>
+  </section>
+
+  <!-- ============ Content grid ============ -->
+  <div class="grid">
+
+    <!-- Summary (left) -->
+    <section class="card" aria-label="試合サマリー">
+      <header class="card-head">
+        <h2>試合サマリー</h2>
+        <span class="sub">// match summary</span>
+      </header>
+      <div class="card-body">
+
+        <!-- HP chart -->
+        <div class="chart-wrap" aria-label="HP 推移グラフ">
+          <div class="chart-legend">
+            <span><span class="swatch you"></span>あなた (たろう_06)</span>
+            <span><span class="swatch opp"></span>HanaCoder</span>
+            <span style="margin-left: auto; font-family: 'JetBrains Mono', monospace; font-size: 10.5px;">T0 → T16</span>
+          </div>
+          <svg class="chart" viewBox="0 0 640 200" preserveAspectRatio="none" aria-label="HP 推移グラフ (折れ線)">
+            <!-- Reference lines -->
+            <line x1="0" y1="0"   x2="640" y2="0"   stroke="rgba(0,0,0,.06)"/>
+            <line x1="0" y1="50"  x2="640" y2="50"  stroke="rgba(0,0,0,.06)"/>
+            <line x1="0" y1="100" x2="640" y2="100" stroke="rgba(0,0,0,.06)"/>
+            <line x1="0" y1="150" x2="640" y2="150" stroke="rgba(0,0,0,.06)"/>
+
+            <!-- You (P1) area -->
+            <path d="M 0,0 L 40,0 L 80,0 L 120,16 L 160,16 L 200,16 L 240,32 L 280,32 L 320,48 L 360,48 L 400,64 L 440,80 L 480,80 L 520,96 L 560,96 L 600,96 L 640,96 L 640,200 L 0,200 Z"
+                  fill="rgba(37,99,235,.10)"/>
+            <!-- You line -->
+            <path d="M 0,0 L 40,0 L 80,0 L 120,16 L 160,16 L 200,16 L 240,32 L 280,32 L 320,48 L 360,48 L 400,64 L 440,80 L 480,80 L 520,96 L 560,96 L 600,96 L 640,96"
+                  fill="none" stroke="#2563eb" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+
+            <!-- Opponent area -->
+            <path d="M 0,0 L 40,0 L 80,16 L 120,16 L 160,32 L 200,48 L 240,48 L 280,64 L 320,80 L 360,96 L 400,112 L 440,128 L 480,144 L 520,160 L 560,176 L 600,192 L 640,200 L 640,200 L 0,200 Z"
+                  fill="rgba(239,68,68,.10)"/>
+            <!-- Opponent line -->
+            <path d="M 0,0 L 40,0 L 80,16 L 120,16 L 160,32 L 200,48 L 240,48 L 280,64 L 320,80 L 360,96 L 400,112 L 440,128 L 480,144 L 520,160 L 560,176 L 600,192 L 640,200"
+                  fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+
+            <!-- First-damage marker at T3 (x=120) -->
+            <line x1="120" y1="0" x2="120" y2="200" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3 3" opacity=".7"/>
+            <text x="124" y="14" font-family="JetBrains Mono, monospace" font-size="10" fill="#92400e" font-weight="700">★ T3 First</text>
+
+            <!-- End marker at T16 (x=640) -->
+            <line x1="638" y1="0" x2="638" y2="200" stroke="#15803d" stroke-width="2"/>
+          </svg>
+        </div>
+
+        <!-- Stats -->
+        <div class="stats-grid">
+          <div class="stat-tile">
+            <div class="k">// 与ダメージ</div>
+            <div class="v">100<small></small></div>
+            <div class="delta up">+24 ↑ 平均比</div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// 被ダメージ</div>
+            <div class="v">48</div>
+            <div class="delta up">−12 ↓ 平均比</div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// 命中率</div>
+            <div class="v">66<small>%</small></div>
+            <div class="delta up">+8 ↑</div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// 索敵</div>
+            <div class="v">7<small>回</small></div>
+            <div class="delta">−</div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// MOVE</div>
+            <div class="v">9</div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// SHOOT</div>
+            <div class="v">9</div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// TURN</div>
+            <div class="v">4</div>
+          </div>
+          <div class="stat-tile">
+            <div class="k">// アイテム</div>
+            <div class="v">2<small>個</small></div>
+          </div>
+        </div>
+
+        <div class="first-row">
+          <div class="ic" aria-hidden="true">★</div>
+          <div><strong>FirstDamage 取得者:</strong> あなた (T3) — 序盤の主導権を取れました。</div>
+        </div>
+
+        <!-- Turn highlights -->
+        <div style="margin-top: 18px;">
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 10.5px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px;">// ターン別ハイライト (top 5)</div>
+          <div class="hl-list">
+            <div class="hl-item">
+              <span class="hl-turn">T3</span>
+              <span class="hl-dot first" aria-hidden="true"></span>
+              <span class="hl-text"><strong>FirstDamage</strong> を獲得 (SHOOT_FORWARD HIT)</span>
+              <span class="hl-meta">−8</span>
+            </div>
+            <div class="hl-item">
+              <span class="hl-turn">T6</span>
+              <span class="hl-dot item" aria-hidden="true"></span>
+              <span class="hl-text">アイテム <strong>BARRIER</strong> を取得</span>
+              <span class="hl-meta">+1</span>
+            </div>
+            <div class="hl-item">
+              <span class="hl-turn">T11</span>
+              <span class="hl-dot hit" aria-hidden="true"></span>
+              <span class="hl-text">クリティカルなターン — 攻撃 2 連続 HIT</span>
+              <span class="hl-meta">−16</span>
+            </div>
+            <div class="hl-item">
+              <span class="hl-turn">T14</span>
+              <span class="hl-dot miss" aria-hidden="true"></span>
+              <span class="hl-text">相手が射線を外す — チャンスを生かせた</span>
+              <span class="hl-meta">miss</span>
+            </div>
+            <div class="hl-item">
+              <span class="hl-turn">T16</span>
+              <span class="hl-dot win" aria-hidden="true"></span>
+              <span class="hl-text"><strong>決着</strong> — 相手 HP 0</span>
+              <span class="hl-meta">−12</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Stats change (right) -->
+    <aside aria-label="戦績変化">
+
+      <!-- bind: GET /api/me/stats -->
+      <section class="wr-card">
+        <div class="wr-head">
+          <span class="lbl">// 通算勝率</span>
+          <span class="total">51 戦</span>
+        </div>
+        <div class="wr-big">59<small>%</small></div>
+        <span class="wr-delta">▲ +1.2 pt</span>
+        <div class="wld-row">
+          <span><span class="w">30</span> 勝</span>
+          <span><span class="l">19</span> 負</span>
+          <span><span class="d">2</span> 分</span>
+        </div>
+      </section>
+
+      <!-- Recent matches strip -->
+      <section class="card" style="margin-bottom: 14px;">
+        <header class="card-head">
+          <h2>直近 5 戦</h2>
+          <span class="sub">// last 5</span>
+        </header>
+        <div class="card-body" style="padding-top: 22px;">
+          <div class="recent-strip">
+            <div class="mini-match highlight">
+              <div class="mini-result win">W</div>
+              <div class="mini-opp">HanaCoder</div>
+            </div>
+            <div class="mini-match">
+              <div class="mini-result lose">L</div>
+              <div class="mini-opp">K-9bot</div>
+            </div>
+            <div class="mini-match">
+              <div class="mini-result win">W</div>
+              <div class="mini-opp">misora</div>
+            </div>
+            <div class="mini-match">
+              <div class="mini-result draw">D</div>
+              <div class="mini-opp">tanu_55</div>
+            </div>
+            <div class="mini-match">
+              <div class="mini-result win">W</div>
+              <div class="mini-opp">kuroneko</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Rank -->
+      <section class="rank-card">
+        <div class="rank-ic" aria-hidden="true">↑</div>
+        <div class="rank-text">
+          <div class="lbl">// ルーム内ランキング</div>
+          <div class="val">3 位 <span class="arrow">↑ +2</span></div>
+          <div class="meta">28 名中 · 前回 5 位</div>
+        </div>
+      </section>
+
+    </aside>
+  </div>
+
+  <!-- ============ Learning hints ============ -->
+  <section class="hints card" aria-label="学習ヒント">
+    <header class="card-head">
+      <h2>つぎの一歩 — 学習ヒント</h2>
+      <span class="sub">// from this match</span>
+    </header>
+    <div class="card-body">
+      <div style="font-size: 12.5px; color: var(--ink-soft); margin-bottom: 4px;">この試合の振る舞いから、3 つの小さな改善案を選びました。</div>
+      <div class="hints-grid">
+        <article class="hint-card">
+          <div class="head">
+            <span class="num">1</span>
+            <span class="ttl">序盤の索敵を 1 つ減らす</span>
+          </div>
+          <div class="body">
+            索敵 7 回のうち、T1〜T3 の 3 回は同じ方向でした。最初の 1 ターンだけ前進して、敵を見つけてから索敵に切り替えると AP を節約できます。
+          </div>
+        </article>
+        <article class="hint-card">
+          <div class="head">
+            <span class="num">2</span>
+            <span class="ttl">「敵が見えたら攻撃」を最初に置く</span>
+          </div>
+          <div class="body">
+            条件ブロックを先頭に置くと、毎ターン最初に判定されます。<code>enemy_in_forward</code> を見つけたら即座に SHOOT、が安定します。
+          </div>
+          <div class="block-snip">
+            もし「敵が前方」なら<br>
+            　→ 攻撃する<br>
+            そうでなければ<br>
+            　→ 前進する × 1
+          </div>
+        </article>
+        <article class="hint-card">
+          <div class="head">
+            <span class="num">3</span>
+            <span class="ttl">HP が減ったら距離を取ろう</span>
+          </div>
+          <div class="body">
+            HP ≤ 30 になったときに「回転 → 前進」して距離を取るブロックを追加すると、被ダメージ平均を下げられます。
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>WIN / LOSE / DRAW / 切断敗北 / 観戦者として閲覧 / 読み込み中</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- WIN -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">WIN</span><span class="state-tag">200</span></header>
+      <div class="state-body">
+        <div class="mini-badge win">✓ WIN</div>
+        <div class="mini-meta">vs HanaCoder · T16</div>
+        <div class="mini-reason"><strong>相手 HP 0</strong><br>通常終了</div>
+        <button class="mini-cta">✎ コードを改善して再戦</button>
+        <button class="mini-cta ghost">▶ リプレイ</button>
+      </div>
+    </article>
+
+    <!-- LOSE -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">LOSE</span><span class="state-tag">200</span></header>
+      <div class="state-body">
+        <div class="mini-badge lose">× LOSE</div>
+        <div class="mini-meta">vs K-9bot · T18</div>
+        <div class="mini-reason"><strong>自 HP 0</strong><br>通常終了</div>
+        <button class="mini-cta">✎ コードを改善して再戦</button>
+        <button class="mini-cta ghost">▶ リプレイ</button>
+      </div>
+    </article>
+
+    <!-- DRAW -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">DRAW</span><span class="state-tag">200</span></header>
+      <div class="state-body">
+        <div class="mini-badge draw">= DRAW</div>
+        <div class="mini-meta">vs tanu_55 · T20</div>
+        <div class="mini-reason"><strong>ターン上限</strong><br>双方残存</div>
+        <button class="mini-cta">✎ コードを改善して再戦</button>
+        <button class="mini-cta ghost">▶ リプレイ</button>
+      </div>
+    </article>
+
+    <!-- Disconnect -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">切断敗北</span><span class="state-tag">disc</span></header>
+      <div class="state-body">
+        <div class="mini-badge lose">× LOSE</div>
+        <div class="mini-meta">vs misora · T07</div>
+        <div class="mini-reason" style="background:#fff7ed; border-color:#fbd9a5;">
+          <strong style="color:#92400e;">相手が切断</strong><br>
+          <span style="color: var(--ink-soft);">あなたの不戦勝ではなく学習機会扱い</span>
+        </div>
+        <button class="mini-cta">✎ コードを改善して再戦</button>
+        <button class="mini-cta ghost">▶ リプレイ</button>
+      </div>
+    </article>
+
+    <!-- Spectator -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">観戦者として</span><span class="state-tag">spectate</span></header>
+      <div class="state-body">
+        <div class="mini-badge win">✓ WIN</div>
+        <div class="mini-meta">たろう_06 vs HanaCoder</div>
+        <div class="mini-reason">あなたは観戦者です。<br>再戦操作は無効です。</div>
+        <button class="mini-cta ghost">▶ リプレイ閲覧</button>
+        <button class="mini-cta ghost">⏵ 再戦を観戦</button>
+      </div>
+    </article>
+
+    <!-- Loading -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">読み込み中</span><span class="state-tag">skeleton</span></header>
+      <div class="state-body">
+        <div class="state-skel tall" style="width: 80%; margin: 0 auto 8px;"></div>
+        <div class="state-skel" style="width: 60%;"></div>
+        <div class="state-skel" style="width: 90%;"></div>
+        <div class="state-skel" style="width: 75%;"></div>
+        <div class="state-skel tall" style="margin-top: 10px;"></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — simulates GET /api/match/:matchId/result
+     ========================================================= */
+  const RESULT = {
+    matchId: 'M-22064',
+    you: { displayName: 'たろう_06', initial: 'TR', side: 'P1', finalHp: 52, maxHp: 100 },
+    opponent: { displayName: 'HanaCoder', initial: 'HC', side: 'P2', finalHp: 0, maxHp: 100 },
+    outcome: 'WIN',           // WIN | LOSE | DRAW
+    reason: 'OPPONENT_HP_ZERO', // OPPONENT_HP_ZERO | TIME_OVER | BARRIER | DISCONNECT | ...
+    endedAtTurn: 16, maxTurn: 20,
+    durationSeconds: 272,
+    room: { id: 'ROOM-2026-0142', name: '3-A クラス・5月課題' },
+  };
+
+  const STATS_DIFF = {
+    before: { wins: 29, losses: 19, draws: 2, winrate: 0.580 },
+    after:  { wins: 30, losses: 19, draws: 2, winrate: 0.592 },
+    delta:  { winrate: +0.012, rank: { before: 5, after: 3 } },
+  };
+
+  /* For now this screen is fully static visualization — listeners would
+     wire RESULT.outcome to choose hero variant, etc. */
+  console.log('[dummy GET /api/match/:matchId/result]', RESULT);
+  console.log('[dummy GET /api/me/stats] diff', STATS_DIFF);
+</script>
+</body>
+</html>

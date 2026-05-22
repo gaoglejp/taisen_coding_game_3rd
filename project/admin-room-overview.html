@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ルーム概要 | ルーム管理 | 対戦・コーディング</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --p1:#2563eb; --p1-soft:#dbeafe; --p1-ink:#1e3a8a;
+    --p2:#ef4444; --p2-soft:#fee2e2; --p2-ink:#7f1d1d;
+    --accent:#f59e0b; --accent-soft:#fef3c7;
+    --bg:#f6f4ee; --bg-2:#efece3; --surface:#ffffff;
+    --line:#e7e3d6; --line-2:#d8d3c2;
+    --ink:#1f2330; --ink-soft:#4b5563;
+    --admin-bg:#1f2330;
+    --admin-accent:#7c3aed; --admin-accent-soft:#ede9fe;
+    --room-admin-accent:#0891b2; --room-admin-accent-soft:#cffafe; --room-admin-accent-ink:#155e75;
+    --danger:#dc2626; --danger-soft:#fef2f2;
+    --success:#15803d; --success-soft:#ecfdf5;
+    --radius: 14px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 1px 2px rgba(31,35,48,.04), 0 1px 1px rgba(31,35,48,.03);
+    --shadow-md: 0 8px 24px rgba(31,35,48,.08), 0 2px 6px rgba(31,35,48,.04);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Plus Jakarta Sans", "Noto Sans JP", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--bg);
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 32px 32px, 32px 32px;
+    background-position: -1px -1px;
+    min-height: 100vh;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible { outline: 3px solid var(--room-admin-accent); outline-offset: 2px; }
+  button, a { font: inherit; }
+  a { color: var(--p1-ink); }
+
+  /* ============ Topbar ============ */
+  .topbar {
+    background: var(--admin-bg);
+    color: #e5e7eb;
+    padding: 12px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    border-bottom: 1px solid #0f1117;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 8px;
+    background: linear-gradient(180deg, #2a2e3c, #1a1c25);
+    color: #e5e7eb;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-weight: 700; font-size: 13px;
+    border: 1px solid #3a3e4d;
+    flex-shrink: 0;
+  }
+  .brand-text {
+    font-weight: 700; font-size: 14px;
+    color: #f3f4f6;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .brand-text .tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    padding: 2px 7px;
+    background: var(--room-admin-accent);
+    color: #fff;
+    border-radius: 4px;
+    letter-spacing: .04em;
+    font-weight: 600;
+  }
+  .breadcrumb {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: #9ca3af;
+    padding-left: 16px;
+    margin-left: 8px;
+    border-left: 1px solid #3a3e4d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .breadcrumb strong { color: #e5e7eb; font-weight: 600; }
+  .breadcrumb a { color: #9ca3af; text-decoration: none; border-bottom: 1px dotted #555a6c; }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .admin-chip {
+    display: flex; align-items: center; gap: 9px;
+    padding: 5px 12px 5px 5px;
+    background: #2a2e3c;
+    border: 1px solid #3a3e4d;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #e5e7eb;
+  }
+  .admin-avatar {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    background: var(--room-admin-accent);
+    color: #fff;
+    display: grid; place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .role-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 4px;
+    letter-spacing: .04em;
+    background: var(--room-admin-accent);
+    color: #fff;
+  }
+  .top-link {
+    color: #9ca3af;
+    background: transparent;
+    border: 1px solid #3a3e4d;
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .top-link:hover { color: #f3f4f6; background: #2a2e3c; }
+
+  /* ============ Scope banner ============ */
+  .scope-banner {
+    background: #f0fdfa;
+    border-bottom: 1px solid #99f6e4;
+    padding: 10px 28px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12.5px;
+    color: var(--room-admin-accent-ink);
+  }
+  .scope-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--room-admin-accent-soft);
+    border: 1px solid #a5f3fc;
+    color: var(--room-admin-accent);
+    display: grid; place-items: center;
+    font-weight: 700;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+  .scope-banner strong { color: var(--room-admin-accent-ink); font-weight: 700; }
+  .scope-banner .sep { color: #99f6e4; margin: 0 4px; }
+
+  /* ============ Layout ============ */
+  .shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: calc(100vh - 100px);
+  }
+
+  /* Side nav */
+  .sidenav {
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    padding: 18px 14px;
+  }
+  .nav-room-card {
+    background: linear-gradient(180deg, #f0fdfa, #ecfeff);
+    border: 1px solid #99f6e4;
+    border-radius: 10px;
+    padding: 11px 12px;
+    margin: 0 4px 14px;
+  }
+  .nav-room-card .lbl {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    color: var(--room-admin-accent);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 4px;
+  }
+  .nav-room-card .nm {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.3;
+  }
+  .nav-room-card .id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+  .nav-section-label {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    padding: 8px 10px 6px;
+  }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    margin-bottom: 2px;
+    font-weight: 500;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: var(--bg); color: var(--ink); }
+  .nav-item.active {
+    background: var(--room-admin-accent-soft);
+    color: var(--room-admin-accent-ink);
+    border-color: #a5f3fc;
+    font-weight: 600;
+  }
+  .nav-icon {
+    width: 22px; height: 22px;
+    border-radius: 6px;
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    font-weight: 700;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .nav-item.active .nav-icon {
+    background: var(--room-admin-accent);
+    border-color: var(--room-admin-accent);
+    color: #fff;
+  }
+  .nav-divider { height: 1px; background: var(--line); margin: 10px 6px; }
+  .nav-back {
+    margin: 0 4px 8px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 6px;
+    border-radius: 6px;
+  }
+  .nav-back:hover { background: var(--bg); color: var(--ink); }
+  .nav-footnote {
+    padding: 10px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    background: var(--bg);
+    margin: 16px 4px 0;
+    line-height: 1.5;
+  }
+
+  /* ============ Main ============ */
+  .main { padding: 24px 32px 32px; min-width: 0; }
+
+  .page-head {
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 24px;
+    margin-bottom: 20px;
+  }
+  .page-head h1 {
+    margin: 0;
+    font-size: 22px;
+    letter-spacing: -.01em;
+  }
+  .page-head .sub {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+
+  /* ============ Cards ============ */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+  }
+  .card-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 14px 18px 10px;
+    border-bottom: 1px dashed var(--line);
+  }
+  .card-head h2 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex; align-items: baseline; gap: 8px;
+  }
+  .card-head .sub {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .card-head .more {
+    font-size: 12px;
+    color: var(--room-admin-accent-ink);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--room-admin-accent-ink);
+    padding-bottom: 1px;
+  }
+  .card-body { padding: 16px 18px; }
+
+  /* ============ Room info card ============ */
+  .room-info {
+    background: linear-gradient(180deg, #fdfdf8, #fbf6e7);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 22px 24px 20px;
+    margin-bottom: 18px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+  .room-info .row-top {
+    display: flex; gap: 10px; align-items: center;
+    margin-bottom: 8px;
+  }
+  .room-info .room-id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+    padding: 3px 9px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    letter-spacing: .04em;
+    font-weight: 600;
+  }
+  .kind-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: .04em;
+  }
+  .kind-classroom { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .kind-tournament { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .kind-lobby { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .status-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: 4px;
+    border: 1px solid;
+    display: inline-flex; align-items: center; gap: 5px;
+    letter-spacing: .04em;
+  }
+  .status-active { background: var(--success-soft); color: var(--success); border-color: #a7f3d0; }
+  .status-archived { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .status-warn { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .status-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .room-info h1 {
+    font-size: 24px;
+    margin: 0 0 6px;
+    letter-spacing: -.01em;
+  }
+  .room-info .deadline {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+  .room-info .deadline strong { color: var(--ink); font-weight: 600; }
+
+  .rule-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .rule-tile {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 9px 12px;
+  }
+  .rule-tile .k {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .rule-tile .v {
+    font-size: 16px;
+    font-weight: 700;
+    margin-top: 2px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .room-info-actions {
+    display: flex; flex-direction: column; gap: 8px;
+    align-items: flex-end;
+    min-width: 180px;
+  }
+  .btn-primary-room {
+    background: var(--room-admin-accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 7px;
+    box-shadow: 0 1px 0 #0e7490;
+  }
+  .btn-primary-room:hover { background: #0e7490; }
+  .btn-ghost {
+    background: #fff;
+    color: var(--ink);
+    border: 1px solid var(--line-2);
+    border-radius: 8px;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .btn-ghost:hover { background: var(--bg); }
+  .btn-ghost:disabled, .btn-ghost.disabled {
+    opacity: .45; cursor: not-allowed; background: var(--bg);
+  }
+
+  /* ============ KPI tiles ============ */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .kpi {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 14px 16px 14px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi .label {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .04em;
+  }
+  .kpi .value {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    margin-top: 6px;
+    line-height: 1;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .kpi .value small {
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-left: 5px;
+    font-weight: 600;
+  }
+  .kpi .meta {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    display: flex; gap: 8px; align-items: baseline;
+  }
+  .kpi .meta .up { color: var(--success); font-weight: 700; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+  .kpi .meta .down { color: var(--p2); font-weight: 700; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+  .kpi.warn { background: linear-gradient(180deg, #fffbf0, #fef3c7); border-color: #fbd9a5; }
+  .kpi.warn .value { color: #92400e; }
+
+  /* ============ Content grid ============ */
+  .content-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+
+  /* ============ Active matches table ============ */
+  table.matches {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.matches th, table.matches td {
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  table.matches thead {
+    background: linear-gradient(180deg, #fdfaf0, #fbf6e7);
+  }
+  table.matches th {
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  table.matches tbody tr { transition: background .12s; }
+  table.matches tbody tr:hover { background: #fdfaf0; }
+  table.matches tbody tr:last-child td { border-bottom: none; }
+  .match-id {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .player {
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .pa-av {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 11px;
+    font-weight: 700;
+    font-family: "JetBrains Mono", monospace;
+    border: 1px solid;
+  }
+  .pa-av.p1 { background: var(--p1-soft); color: var(--p1-ink); border-color: #bfd5fa; }
+  .pa-av.p2 { background: var(--p2-soft); color: var(--p2-ink); border-color: #fbb6b6; }
+  .player-name { font-weight: 600; font-size: 12.5px; }
+  .vs { color: var(--ink-soft); font-family: "JetBrains Mono", monospace; font-size: 10px; padding: 0 8px; }
+
+  .match-status {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+    letter-spacing: .04em;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .ms-waiting { background: var(--bg-2); color: var(--ink-soft); border-color: var(--line-2); }
+  .ms-coding { background: var(--accent-soft); color: #92400e; border-color: #fbd9a5; }
+  .ms-battling { background: #fef2f2; color: var(--p2-ink); border-color: #fbb6b6; }
+  .ms-dot {
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor;
+  }
+  .ms-battling .ms-dot {
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  .elapsed {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
+  .watch-link {
+    display: inline-flex; align-items: center; gap: 5px;
+    background: #fff;
+    color: var(--room-admin-accent-ink);
+    border: 1px solid #a5f3fc;
+    background: var(--room-admin-accent-soft);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .watch-link:hover { background: #99f6e4; }
+  .watch-link::before {
+    content: "▸";
+    font-size: 10px;
+    opacity: .7;
+  }
+
+  /* ============ Activity ============ */
+  .timeline { padding: 4px 4px; }
+  .tl-item {
+    display: grid;
+    grid-template-columns: 14px 1fr auto;
+    gap: 12px;
+    padding: 10px 4px;
+    border-bottom: 1px dashed var(--line);
+    align-items: flex-start;
+  }
+  .tl-item:last-child { border-bottom: none; }
+  .tl-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--line-2);
+    margin-top: 5px;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 1px var(--line-2);
+  }
+  .tl-dot.join { background: var(--success); box-shadow: 0 0 0 1px var(--success); }
+  .tl-dot.start { background: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .tl-dot.end { background: var(--p1); box-shadow: 0 0 0 1px var(--p1); }
+  .tl-dot.create { background: var(--room-admin-accent); box-shadow: 0 0 0 1px var(--room-admin-accent); }
+  .tl-body { font-size: 12.5px; line-height: 1.55; }
+  .tl-body strong { font-weight: 700; }
+  .tl-body .mid {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 12px;
+    color: var(--ink);
+    background: var(--bg-2);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+  .tl-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10.5px;
+    color: var(--ink-soft);
+    white-space: nowrap;
+    text-align: right;
+  }
+  .tl-link {
+    display: block;
+    margin-top: 3px;
+    color: var(--room-admin-accent-ink);
+    text-decoration: none;
+    border-bottom: 1px dashed var(--room-admin-accent-ink);
+    padding-bottom: 1px;
+    font-size: 11px;
+  }
+
+  /* ============ Quick actions ============ */
+  .qa-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  .qa-card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex;
+    gap: 14px;
+    text-decoration: none;
+    color: var(--ink);
+    transition: border-color .15s, box-shadow .15s;
+    align-items: flex-start;
+  }
+  .qa-card:hover {
+    border-color: #a5f3fc;
+    box-shadow: var(--shadow-md);
+  }
+  .qa-ic {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    background: var(--room-admin-accent-soft);
+    border: 1px solid #a5f3fc;
+    color: var(--room-admin-accent);
+    display: grid; place-items: center;
+    font-weight: 700;
+    flex-shrink: 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+  }
+  .qa-card .ttl {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .qa-card .desc {
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+  .qa-card .api {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--ink-soft);
+    margin-top: 6px;
+    background: var(--bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+  }
+
+  /* ============ Empty state ============ */
+  .empty {
+    text-align: center;
+    padding: 28px 16px 22px;
+    color: var(--ink-soft);
+  }
+  .empty .ill {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    margin: 0 auto 10px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 20px;
+    color: var(--ink-soft);
+  }
+  .empty strong { display: block; color: var(--ink); font-size: 13.5px; margin-bottom: 4px; }
+  .empty p { margin: 0 0 12px; font-size: 12.5px; }
+
+  /* ============ State gallery ============ */
+  .gallery {
+    max-width: 1440px;
+    margin: 36px auto 32px;
+    padding: 0 32px;
+  }
+  .gallery-head {
+    border-top: 1px solid var(--line);
+    padding-top: 24px;
+    margin-bottom: 18px;
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  .gallery-head h2 {
+    margin: 0; font-size: 14px;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .gallery-head p { margin: 0; font-size: 12px; color: var(--ink-soft); }
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0,1fr));
+    gap: 16px;
+  }
+  .state {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+    font-size: 12px;
+  }
+  .state-head {
+    padding: 9px 12px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .state-name { font-weight: 700; font-size: 11.5px; }
+  .state-tag {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9.5px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+  }
+  .state-body { padding: 12px; }
+  .state.archived .state-body, .state.archived .state-head { opacity: .9; }
+  .state-h {
+    background: linear-gradient(180deg, #fdfdf8, #fbf6e7);
+    border-radius: 8px;
+    padding: 10px 11px;
+    margin-bottom: 9px;
+    border: 1px solid var(--line);
+  }
+  .state-h .ttl { font-size: 12px; font-weight: 700; }
+  .state-h .id { font-family: "JetBrains Mono", monospace; font-size: 10px; color: var(--ink-soft); margin-top: 2px; }
+  .mini-empty {
+    text-align: center;
+    padding: 20px 6px 14px;
+    color: var(--ink-soft);
+  }
+  .mini-empty .ill {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--bg-2);
+    border: 1px dashed var(--line-2);
+    margin: 0 auto 7px;
+    display: grid; place-items: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 16px;
+  }
+  .mini-empty strong { display: block; color: var(--ink); font-size: 11.5px; margin-bottom: 2px; }
+  .mini-empty p { margin: 0 0 6px; font-size: 10.5px; line-height: 1.5; }
+  .mini-cta-teal {
+    background: var(--room-admin-accent);
+    color: #fff;
+    border: none;
+    padding: 5px 11px;
+    font-size: 10.5px;
+    font-weight: 700;
+    border-radius: 5px;
+    font-family: "Plus Jakarta Sans", sans-serif;
+  }
+  .mini-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 11px;
+  }
+  .mini-row:last-child { border-bottom: none; }
+  .mini-warn {
+    background: var(--accent-soft);
+    border: 1px solid #fbd9a5;
+    color: #92400e;
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 10.5px;
+    margin-bottom: 9px;
+    line-height: 1.45;
+  }
+  .mini-warn strong { display: block; font-size: 11px; }
+  .mini-arch-banner {
+    background: var(--bg-2);
+    border: 1px solid var(--line-2);
+    color: var(--ink-soft);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 10.5px;
+    margin-bottom: 9px;
+  }
+
+</style>
+</head>
+<body>
+
+<!-- ============ Topbar ============ -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="brand-mark">&lt;/&gt;</div>
+    <div class="brand-text">
+      対戦・コーディング
+      <span class="tag">ROOM ADMIN</span>
+    </div>
+    <div class="breadcrumb">/ <a href="#rooms">rooms</a> / <strong>ROOM-2026-0142</strong> / overview</div>
+  </div>
+  <div class="topbar-right">
+    <button class="top-link" aria-label="ヘルプ">ヘルプ</button>
+    <div class="admin-chip" aria-label="ログイン中の管理者">
+      <div class="admin-avatar" aria-hidden="true">NK</div>
+      <span>nakamura.sensei</span>
+      <span class="role-pill">ROOM_ADMIN</span>
+    </div>
+    <button class="top-link">ログアウト</button>
+  </div>
+</header>
+
+<!-- ============ Scope banner ============ -->
+<div class="scope-banner" role="status">
+  <div class="scope-icon" aria-hidden="true">!</div>
+  <div>
+    <strong>あなたはルーム管理者として閲覧中です。</strong>
+    <span class="sep">/</span>
+    対戦の具体操作 (コーディング・対戦の開始・終了) はできません。観戦と運営操作 (発行・任命・成績エクスポート) のみ実行できます。
+  </div>
+</div>
+
+<!-- ============ Shell ============ -->
+<div class="shell">
+
+  <!-- Side nav -->
+  <aside class="sidenav" aria-label="ルーム内ナビ">
+    <a class="nav-back" href="#all-rooms">‹ 全ルームに戻る</a>
+    <div class="nav-room-card">
+      <div class="lbl">// scope</div>
+      <div class="nm">3-A クラス・5月課題</div>
+      <div class="id">ROOM-2026-0142</div>
+    </div>
+
+    <div class="nav-section-label">// このルーム</div>
+    <a class="nav-item active" href="#overview" aria-current="page">
+      <span class="nav-icon">O</span>
+      概要
+    </a>
+    <a class="nav-item" href="#members">
+      <span class="nav-icon">M</span>
+      メンバー
+    </a>
+    <a class="nav-item" href="#matches">
+      <span class="nav-icon">B</span>
+      マッチカード
+    </a>
+    <a class="nav-item" href="#stats">
+      <span class="nav-icon">S</span>
+      成績
+    </a>
+    <div class="nav-divider"></div>
+    <a class="nav-item" href="#settings">
+      <span class="nav-icon">⚙</span>
+      設定
+    </a>
+    <div class="nav-footnote">
+      対戦の開始・終了・コード編集は権限の都合で行えません。観戦は可能です。
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- Page head -->
+    <header class="page-head">
+      <div>
+        <h1>ルーム概要</h1>
+        <div class="sub">クラス全体の進行状況とアクティビティを俯瞰します。</div>
+      </div>
+    </header>
+
+    <!-- Room info card -->
+    <!-- bind: GET /admin/api/rooms/:id -->
+    <section class="room-info" aria-label="ルーム情報">
+      <div>
+        <div class="row-top">
+          <span class="room-id">ROOM-2026-0142</span>
+          <span class="kind-badge kind-classroom">CLASSROOM</span>
+          <span class="status-badge status-active"><span class="dot" aria-hidden="true"></span>ACTIVE</span>
+        </div>
+        <h1>3-A クラス・5月課題</h1>
+        <div class="deadline">期限: <strong>2026/05/31 (金) 23:59</strong> · 残り <strong>11 日</strong></div>
+        <div class="rule-summary">
+          <div class="rule-tile"><div class="k">// 盤面</div><div class="v">10 × 10</div></div>
+          <div class="rule-tile"><div class="k">// ターン上限</div><div class="v">20</div></div>
+          <div class="rule-tile"><div class="k">// AP / ターン</div><div class="v">2</div></div>
+          <div class="rule-tile"><div class="k">// HP</div><div class="v">100</div></div>
+        </div>
+      </div>
+      <div class="room-info-actions">
+        <a class="btn-ghost" href="#settings">⚙ 設定を開く</a>
+        <a class="btn-ghost" href="#share">‹/› 招待リンクをコピー</a>
+        <div style="font-size: 11px; color: var(--ink-soft); margin-top: 2px; font-family: 'JetBrains Mono', monospace;">作成 2026/04/12</div>
+      </div>
+    </section>
+
+    <!-- KPI tiles -->
+    <!-- bind: GET /admin/api/rooms/:id/summary -->
+    <section class="kpi-grid" aria-label="サマリー">
+      <div class="kpi">
+        <div class="label">// メンバー</div>
+        <div class="value">28<small>名</small></div>
+        <div class="meta">
+          <span><span class="up">アクティブ 24</span></span>
+          <span style="color: var(--ink-soft);">/ 期限切れ 4</span>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="label">// 今日の対戦数</div>
+        <div class="value">14</div>
+        <div class="meta"><span class="up">+6 ↑</span><span>昨日比</span></div>
+      </div>
+      <div class="kpi">
+        <div class="label">// 進行中のマッチ</div>
+        <div class="value">3</div>
+        <div class="meta"><span style="color: var(--accent); font-weight: 700; font-family: 'JetBrains Mono',monospace; font-size:11px;">CODING 2</span><span style="color: var(--p2); font-weight: 700; font-family: 'JetBrains Mono',monospace; font-size:11px;">BATTLING 1</span></div>
+      </div>
+      <div class="kpi">
+        <div class="label">// 平均勝率 (ルーム)</div>
+        <div class="value">52<small>%</small></div>
+        <div class="meta"><span style="color: var(--ink-soft); font-family: 'JetBrains Mono',monospace; font-size:11px;">σ ±18.4%</span></div>
+      </div>
+    </section>
+
+    <!-- Quick actions -->
+    <section class="qa-grid" aria-label="クイックアクション">
+      <a href="#issue-members" class="qa-card">
+        <div class="qa-ic" aria-hidden="true">+</div>
+        <div>
+          <div class="ttl">メンバーを発行する</div>
+          <div class="desc">ルームコードと発行コードを生成して配布</div>
+          <div class="api">POST /admin/api/rooms/:id/members</div>
+        </div>
+      </a>
+      <a href="#create-match" class="qa-card">
+        <div class="qa-ic" aria-hidden="true">▦</div>
+        <div>
+          <div class="ttl">マッチカードを作成</div>
+          <div class="desc">プレイヤー組合せ・課題ルール・締切を設定</div>
+          <div class="api">POST /admin/api/rooms/:id/matches</div>
+        </div>
+      </a>
+      <a href="#export" class="qa-card">
+        <div class="qa-ic" aria-hidden="true">↓</div>
+        <div>
+          <div class="ttl">成績をエクスポート (CSV)</div>
+          <div class="desc">各メンバーの戦績を採点用にまとめてダウンロード</div>
+          <div class="api">GET /admin/api/rooms/:id/stats.csv</div>
+        </div>
+      </a>
+    </section>
+
+    <!-- Content grid: matches + activity -->
+    <div class="content-grid">
+
+      <!-- Active matches -->
+      <!-- bind: GET /admin/api/rooms/:id/matches?status=active -->
+      <section class="card" aria-label="進行中マッチ">
+        <header class="card-head">
+          <h2>進行中のマッチ <span class="sub">// active</span></h2>
+          <a href="#all-matches" class="more">すべてのマッチ →</a>
+        </header>
+        <table class="matches">
+          <thead>
+            <tr>
+              <th style="width: 92px;">マッチ#</th>
+              <th>プレイヤー1</th>
+              <th style="width: 30px;"></th>
+              <th>プレイヤー2</th>
+              <th style="width: 110px;">ステータス</th>
+              <th style="width: 80px;">経過</th>
+              <th style="width: 90px; text-align:right;">観戦</th>
+            </tr>
+          </thead>
+          <tbody id="matches-tbody"></tbody>
+        </table>
+      </section>
+
+      <!-- Activity -->
+      <!-- bind: GET /admin/api/rooms/:id/activity?limit=20 -->
+      <section class="card" aria-label="最近のアクティビティ">
+        <header class="card-head">
+          <h2>最近のアクティビティ <span class="sub">// last 20</span></h2>
+          <a href="#audit" class="more">すべて →</a>
+        </header>
+        <div class="timeline" id="timeline"></div>
+      </section>
+
+    </div>
+
+  </main>
+</div>
+
+<!-- ============ State gallery ============ -->
+<section class="gallery" aria-label="状態バリエーション">
+  <div class="gallery-head">
+    <h2>// state variations</h2>
+    <p>通常 / メンバーゼロ / 進行中マッチゼロ / 期限切れ間近 (警告) / アーカイブ済み</p>
+  </div>
+  <div class="gallery-grid">
+
+    <!-- Normal -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">通常時</span><span class="state-tag">ok</span></header>
+      <div class="state-body">
+        <div class="state-h">
+          <div class="ttl">3-A クラス・5月課題</div>
+          <div class="id">ROOM-2026-0142 · 期限 5/31</div>
+        </div>
+        <div class="mini-row"><span>メンバー</span><strong>28 名</strong></div>
+        <div class="mini-row"><span>進行中マッチ</span><strong>3</strong></div>
+        <div class="mini-row"><span>今日の対戦</span><strong>14</strong></div>
+      </div>
+    </article>
+
+    <!-- Member zero -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">メンバーゼロ</span><span class="state-tag">onboarding</span></header>
+      <div class="state-body">
+        <div class="state-h">
+          <div class="ttl">3-A クラス・5月課題</div>
+          <div class="id">ROOM-2026-0142 · 期限 5/31</div>
+        </div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">∅</div>
+          <strong>まだメンバーがいません</strong>
+          <p>発行コードを生徒へ配布するところから<br>始めましょう。</p>
+          <button class="mini-cta-teal">メンバーを発行する</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- No active matches -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">進行中マッチゼロ</span><span class="state-tag">idle</span></header>
+      <div class="state-body">
+        <div class="mini-row" style="font-family: 'JetBrains Mono', monospace; font-size: 10px; color: var(--ink-soft); border-bottom:none; padding: 0 0 6px;">// 進行中のマッチ</div>
+        <div class="mini-empty">
+          <div class="ill" aria-hidden="true">▦</div>
+          <strong>現在 進行中のマッチはありません</strong>
+          <p>マッチカードを作成すると<br>ここに表示されます。</p>
+          <button class="mini-cta-teal">マッチカードを作成</button>
+        </div>
+      </div>
+    </article>
+
+    <!-- Deadline near -->
+    <article class="state">
+      <header class="state-head"><span class="state-name">期限切れ間近</span><span class="state-tag">warning</span></header>
+      <div class="state-body">
+        <div class="mini-warn">
+          <strong>期限まで残り 2 日</strong>
+          未完了のメンバーが <strong>11 名</strong> います。
+        </div>
+        <div class="state-h" style="background: linear-gradient(180deg, #fffbf0, #fef3c7); border-color: #fbd9a5;">
+          <div class="ttl">3-A クラス・5月課題</div>
+          <div class="id" style="color: #92400e;">期限 5/22 23:59</div>
+        </div>
+        <div class="mini-row"><span>完了</span><strong>17 / 28</strong></div>
+      </div>
+    </article>
+
+    <!-- Archived -->
+    <article class="state archived">
+      <header class="state-head"><span class="state-name">アーカイブ済み</span><span class="state-tag">readonly</span></header>
+      <div class="state-body">
+        <div class="mini-arch-banner">
+          <strong style="display:block; font-size: 11px;">読み取り専用</strong>
+          編集 / 発行 / 任命はできません。
+        </div>
+        <div class="state-h" style="background: var(--bg-2); border-color: var(--line-2);">
+          <div class="ttl" style="color: var(--ink-soft);">3-A クラス・5月課題</div>
+          <div class="id">ROOM-2026-0142 · ARCHIVED</div>
+        </div>
+        <div class="mini-row"><span>メンバー</span><strong>28 名</strong></div>
+        <div class="mini-row"><span>過去の対戦総数</span><strong>342</strong></div>
+        <div style="margin-top: 8px;">
+          <button class="mini-cta-teal" style="background: #fff; color: var(--ink-soft); border: 1px solid var(--line-2); opacity: .6;" disabled>発行 (停止中)</button>
+        </div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<script>
+  /* =========================================================
+     Dummy data — simulates room summary, matches, activity.
+     ========================================================= */
+  const MATCHES = [
+    { id:'#M-22064', p1:{i:'TR', n:'たろう_06', t:1}, p2:{i:'HC', n:'HanaCoder', t:2}, status:'BATTLING', elapsed:'00:02:18' },
+    { id:'#M-22062', p1:{i:'MI', n:'misora.dev', t:1}, p2:{i:'K9', n:'K-9bot',    t:2}, status:'CODING',   elapsed:'00:14:42' },
+    { id:'#M-22061', p1:{i:'TN', n:'tanu_55',    t:1}, p2:{i:'KN', n:'kuroneko',  t:2}, status:'CODING',   elapsed:'00:08:09' },
+    { id:'#M-22058', p1:{i:'YK', n:'yukikko',    t:1}, p2:{i:'MM', n:'mochi_07',  t:2}, status:'WAITING',  elapsed:'00:00:32' },
+  ];
+
+  const ACTIVITY = [
+    { kind:'end',    at:'14:32', text:'マッチ <span class="mid">#M-22055</span> が終了 — 勝者 <strong>HanaCoder</strong>', link:{label:'リプレイ', href:'#r-22055'} },
+    { kind:'start',  at:'14:30', text:'マッチ <span class="mid">#M-22064</span> が開始', link:{label:'観戦', href:'#w-22064'} },
+    { kind:'join',   at:'14:18', text:'メンバー <strong>yukikko</strong> がルームに入室' },
+    { kind:'start',  at:'14:10', text:'マッチ <span class="mid">#M-22062</span> が開始 — コーディング中', link:{label:'観戦', href:'#w-22062'} },
+    { kind:'create', at:'13:55', text:'マッチカード <span class="mid">#M-22064</span> を発行 (vs HanaCoder)' },
+    { kind:'end',    at:'13:42', text:'マッチ <span class="mid">#M-22054</span> が終了 — 勝者 <strong>misora.dev</strong>', link:{label:'リプレイ', href:'#r-22054'} },
+    { kind:'join',   at:'13:30', text:'メンバー <strong>mochi_07</strong> がルームに入室' },
+    { kind:'create', at:'13:10', text:'マッチカード <span class="mid">#M-22062</span> を発行' },
+  ];
+
+  /* ---- Render matches ---- */
+  const statusMeta = {
+    WAITING:  { cls:'ms-waiting',  label:'WAITING'  },
+    CODING:   { cls:'ms-coding',   label:'CODING'   },
+    BATTLING: { cls:'ms-battling', label:'BATTLING' },
+  };
+  const mb = document.getElementById('matches-tbody');
+  MATCHES.forEach(m => {
+    const s = statusMeta[m.status];
+    mb.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td><span class="match-id">${m.id}</span></td>
+        <td>
+          <span class="player">
+            <span class="pa-av p${m.p1.t}" aria-hidden="true">${m.p1.i}</span>
+            <span class="player-name">${m.p1.n}</span>
+          </span>
+        </td>
+        <td><span class="vs">vs</span></td>
+        <td>
+          <span class="player">
+            <span class="pa-av p${m.p2.t}" aria-hidden="true">${m.p2.i}</span>
+            <span class="player-name">${m.p2.n}</span>
+          </span>
+        </td>
+        <td><span class="match-status ${s.cls}"><span class="ms-dot" aria-hidden="true"></span>${s.label}</span></td>
+        <td class="elapsed">${m.elapsed}</td>
+        <td style="text-align: right;">
+          <a class="watch-link" href="#watch-${m.id.slice(1)}" aria-label="${m.id} を観戦">観戦</a>
+        </td>
+      </tr>
+    `);
+  });
+
+  /* ---- Render activity ---- */
+  const tl = document.getElementById('timeline');
+  ACTIVITY.forEach(a => {
+    tl.insertAdjacentHTML('beforeend', `
+      <div class="tl-item">
+        <span class="tl-dot ${a.kind}" aria-hidden="true"></span>
+        <div class="tl-body">
+          ${a.text}
+          ${a.link ? `<a class="tl-link" href="${a.link.href}">▸ ${a.link.label}</a>` : ''}
+        </div>
+        <div class="tl-meta">${a.at}</div>
+      </div>
+    `);
+  });
+</script>
+</body>
+</html>
