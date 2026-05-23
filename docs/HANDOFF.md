@@ -195,15 +195,14 @@ These are the calls the previous session made that the next session should
    opponent name from `/api/match/:id/state` (PR #8), the watch page
    pulls room / players from `/api/match/:id/public` and tank
    positions / HP / actions / cumulative damage from `turn_event` (PR #9),
-   and the rooms page hero/rules are now real (PR #11) — room name,
-   number, kind, status, expiresAt with computed days-left, and active
-   member count come from `/api/rooms/:roomNumber`. Still on mocks: the
+   the rooms page hero/rules are real (PR #11), and the rooms page's
+   matches list, top-5 standings, and "your record" are wired to
+   `/api/rooms/:n/matches` + `/standings` (PR #12). Still on mocks: the
    **strategy payload** the coding page submits (Blockly workspace
    isn't wired to a serializer); the coding page's `lastTurn` tab data;
    the watch page's obstacles / items / timeline-events / commentary /
-   state-gallery; the rooms page's matches list / standings /
-   announcements / "your record" / "your schedule"; and most admin
-   pages.
+   state-gallery; the rooms page's "your schedule" + announcements; and
+   most admin pages.
 4. **TODOs flagged in routes:**
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
      future `InviteCode` model (schema change required)

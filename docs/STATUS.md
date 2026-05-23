@@ -13,52 +13,46 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #11 — feat(rooms): wire rooms page hero to /api/rooms/:roomNumber
+- **PR**: #12 — feat(rooms): wire matches list + standings + your-record
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-23
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **`src/app/rooms/[roomNumber]/page.tsx` rewired**: drops
-  `MOCK_ROOM`. Fetches `/api/rooms/:roomNumber` on mount with proper
-  loading and error states. Header renders the real room number,
-  name, kind, status, `expiresAt` (with computed days-left), and
-  `activeMemberCount`. The rules summary (board / maxTurns / AP /
-  obstacles / coding limit / items) is rendered from a `RULE_DEFAULTS`
-  constant — `Room.rulePreset` is in the schema as `Json` but ships
-  empty (`{}`), so the page shows game-wide defaults until rule
-  presets are populated.
-- **Kept as mocks** with a top-of-file comment pointing at this status
-  doc: matches list, top-5 ranking, "your record", "your schedule",
-  announcements. None of those have backing APIs yet — covered as
-  individual follow-ups below.
-- **`docs/ROADMAP.md` created** (resolves the open question from the
-  prior status block). Defines the v0.2 "definition of done" and groups
-  the backlog into milestones A–E with status. `AGENTS.md` now lists it
-  as required reading and part of the doc convention. Marked as a draft
-  pending product confirmation — milestones are inferred from the
-  prototypes + schema, not a written spec, so several scope lines carry
-  **(TBD)** markers for the product owner.
-- **Note for the next agent**: `/api/rooms/:roomNumber/matches` and
-  `/standings` already exist (HANDOFF §1) — the rooms page's mocked
-  matches list and standings can be wired without writing new
-  endpoints. The earlier "needs an endpoint" note was wrong.
+- **Rooms page matches list** now fetches `/api/rooms/:n/matches` and
+  renders real WAITING / CODING / BATTLING matches. The ALL/LIVE/CODING/
+  OPEN filter maps onto real statuses; "YOU" badge + 入室/参加/観戦 CTA
+  are decided from session vs. player IDs (via `/api/me`). Empty state
+  added.
+- **Top-5 standings** now fetches `/api/rooms/:n/standings` (wins/losses/
+  draws/points already aggregated server-side). Renders the real top 5
+  with the current user highlighted; empty state added.
+- **"あなたの戦績" card** is derived from the current user's standings
+  entry (rank / win-rate / W-L-D), with a graceful "no record yet"
+  fallback.
+- **Hero "進行中 N マッチ"** now counts real BATTLING matches.
+- **Still mock** (commented): "あなたの予定" schedule and announcements —
+  no backing API yet (ROADMAP Milestone C).
+- ROADMAP Milestone C rows flipped to ✅ for matches / standings / your
+  record.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
-   critical-path blocker). Convert the workspace's actual blocks into
-   the `{ rules, fallbackActions }` shape the simulator consumes, and
-   submit that on lock. Once this lands, two players can run genuinely
-   different strategies against each other end-to-end — this is what
-   turns "the simulator runs" into "students actually compete."
-2. **Rooms page matches + standings** (ROADMAP Milestone C). Wire the
-   already-existing `/api/rooms/:n/matches` and `/api/rooms/:n/standings`
-   endpoints into the rooms page panels. Mechanical — no new endpoints.
-3. **`src/lib/auth.ts` unit tests** (ROADMAP Milestone E). Vitest is
-   wired — cover cookie session round-trip and `getSession` role guards
-   before touching auth again.
+1. **`src/lib/auth.ts` unit tests** (ROADMAP Milestone E). Vitest is
+   wired — cover cookie session round-trip and `getSession` role guards.
+   Unambiguous, low-risk, and protects the auth path before anyone
+   touches it. Good next confident step while the Blockly approach is
+   being decided.
+2. **Admin pages mock removal** (ROADMAP Milestone D). The
+   `/api/admin/*` routes already exist; the system + room admin pages
+   render on inline mocks. Mechanical, several pages — can be split
+   per page.
+3. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
+   critical-path blocker). Needs a product call first: real Blockly
+   integration vs. a lightweight rule-builder. Once decided, this is
+   the highest-leverage piece — it's what makes two players actually
+   compete with different strategies.
 
 ### Deferred / out of scope right now
 
@@ -79,10 +73,10 @@ When you push, do these three things in `docs/STATUS.md`:
   product decision: whether obstacles/items/AP, live commentary, 2FA,
   and email confirmation are in v0.2 or post-v0.2. Resolve those before
   building the affected items.
-- The rooms page's schedule and announcements still need backing data.
-  `/api/rooms/:n/matches` and `/standings` **already exist** (use them);
-  announcements would need a new endpoint over the existing
-  `Announcement` model.
+- The rooms page's "あなたの予定" schedule and announcements still need
+  backing data. Announcements would need a new endpoint over the
+  existing `Announcement` model; the schedule needs a defined source
+  (upcoming matches? coding deadlines?) — **TBD**.
 - The simulator tests intentionally don't exercise an HP_ZERO win —
   no in-bounds starting alignments hit with the current six action
   types. Add coverage once AP / obstacles / items land.
@@ -94,6 +88,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #11** (merged) — feat(rooms): wire rooms page hero to
+  `/api/rooms/:roomNumber` + add `docs/ROADMAP.md` (v0.2 definition of
+  done + milestones A–E).
 - **PR #10** (merged) — chore(test): Vitest + 9 simulator unit tests +
   wired into CI. HANDOFF section 4 item 5 closed.
 - **PR #9** (merged) — feat(watch): wire watch page to
