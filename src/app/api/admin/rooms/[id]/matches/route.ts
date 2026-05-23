@@ -22,6 +22,12 @@ export async function GET(req: NextRequest, { params }: Params) {
     if (!isRoomAdmin) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
   }
 
+  const room = await prisma.room.findUnique({
+    where: { id },
+    select: { id: true, name: true, roomNumber: true },
+  });
+  if (!room) return NextResponse.json({ error: "ルームが見つかりません" }, { status: 404 });
+
   const { searchParams } = req.nextUrl;
   const status = searchParams.get("status") as MatchStatus | null;
   const q = searchParams.get("q") ?? "";
@@ -48,7 +54,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     orderBy: { matchNumber: "desc" },
   });
 
-  return NextResponse.json({ matches });
+  return NextResponse.json({ room, matches });
 }
 
 // POST /api/admin/rooms/:id/matches
