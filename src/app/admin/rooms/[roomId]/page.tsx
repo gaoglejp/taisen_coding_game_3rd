@@ -1,43 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useEffect, useState, use } from "react";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
-const MOCK_ROOM = {
-  id: "r2",
-  roomNumber: "R-2402",
-  name: "春季トーナメント2024",
-  kind: "TOURNAMENT",
-  status: "ACTIVE",
-  expiresAt: "2024-05-31",
-  description: "春季トーナメントの公式ルーム",
-  rules: {
-    boardWidth: 10,
-    boardHeight: 10,
-    maxTurns: 200,
-    ap: 3,
-    scanRange: 2,
-    obstacleCount: 8,
-    codingTimeLimitSec: 180,
-  },
+interface RoomData {
+  id: string;
+  roomNumber: string;
+  name: string;
+  description: string | null;
+  kind: string;
+  status: string;
+  expiresAt: string | null;
+  rulePreset: Record<string, unknown> | null;
+  admins: { id: string; username: string; displayName: string | null }[];
+  _count: { memberships: number; matches: number };
+}
+
+interface ActiveMatch {
+  id: string;
+  matchNumber: number;
+  status: string;
+  player1: { id: string; username: string; displayName: string | null } | null;
+  player2: { id: string; username: string; displayName: string | null } | null;
+  startedAt: string | null;
+}
+
+// Game-wide rule defaults — Room.rulePreset is JSON and usually ships empty,
+// so the overview shows these unless the preset overrides a field.
+const RULE_DEFAULTS = {
+  boardWidth: 10,
+  boardHeight: 10,
+  maxTurns: 20,
+  ap: 2,
+  scanRange: 3,
+  obstacleCount: 5,
+  codingTimeLimitSec: 300,
 };
 
-const MOCK_KPIS = {
-  memberCount: 16,
-  todayMatches: 8,
-  activeMatches: 2,
-  avgWinRate: 52.4,
-};
-
-const MOCK_ACTIVE_MATCHES = [
-  { id: "m1", matchNumber: 42, p1: "tanaka_k", p2: "suzuki_h", status: "BATTLING", elapsedMin: 12 },
-  { id: "m2", matchNumber: 43, p1: "ito_m", p2: "watanabe_r", status: "CODING", elapsedMin: 3 },
-];
-
+// Activity timeline has no API yet (RoomActivity model exists but isn't
+// exposed) — kept as a mock with this note. See docs/ROADMAP.md Milestone D.
 const MOCK_ACTIVITIES = [
   { id: "a1", type: "MATCH_START", message: "マッチ #42 が開始されました", time: "14:22", relatedId: "m1" },
   { id: "a2", type: "MEMBER_JOIN", message: "watanabe_r がルームに参加しました", time: "13:50", relatedId: null },
@@ -59,9 +64,73 @@ const KIND_CONFIG: Record<string, { label: string; bg: string; color: string }> 
   PUBLIC_LOBBY: { label: "PUBLIC LOBBY", bg: "rgba(245,158,11,0.12)", color: "#b45309" },
 };
 
-export default function RoomOverviewPage() {
-  const params = useParams();
-  const roomId = params.roomId as string;
+function fmtDate(iso: string | null): string {
+  if (!iso) return "無期限";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
+}
+
+function elapsedMin(iso: string | null): string {
+  if (!iso) return "—";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(ms) || ms < 0) return "—";
+  return `${Math.floor(ms / 60000)}分`;
+}
+
+function nameOf(p: { username: string; displayName: string | null } | null): string {
+  return p?.displayName ?? p?.username ?? "募集中";
+}
+
+export default function RoomOverviewPage({ params }: { params: Promise<{ roomId: string }> }) {
+  const { roomId } = use(params);
+  const [room, setRoom] = useState<RoomData | null>(null);
+  const [activeMatches, setActiveMatches] = useState<ActiveMatch[]>([]);
+  const [avgWinRate, setAvgWinRate] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch(`/api/admin/rooms/${roomId}`);
+        if (cancelled) return;
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error ?? "ルーム情報を取得できませんでした");
+          return;
+        }
+        const { room: r } = await res.json();
+        setRoom(r);
+        // Active matches + standings come from the player endpoints (admins
+        // are privileged on them), keyed by roomNumber rather than id.
+        const [matchesRes, standingsRes] = await Promise.allSettled([
+          fetch(`/api/rooms/${r.roomNumber}/matches`),
+          fetch(`/api/rooms/${r.roomNumber}/standings`),
+        ]);
+        if (cancelled) return;
+        if (matchesRes.status === "fulfilled" && matchesRes.value.ok) {
+          const d = await matchesRes.value.json();
+          setActiveMatches(d.matches ?? []);
+        }
+        if (standingsRes.status === "fulfilled" && standingsRes.value.ok) {
+          const d = await standingsRes.value.json();
+          const list: { winRate: number }[] = d.standings ?? [];
+          if (list.length > 0) {
+            const avg = list.reduce((a, s) => a + s.winRate, 0) / list.length;
+            setAvgWinRate(Math.round(avg * 1000) / 10); // 0–1 fraction → percent, 1 decimal
+          } else {
+            setAvgWinRate(0);
+          }
+        }
+      } catch {
+        if (!cancelled) setError("ルーム情報を取得できませんでした");
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId]);
 
   const ROOM_NAV = [
     { label: "概要", href: `/admin/rooms/${roomId}`, icon: "📊" },
@@ -71,26 +140,42 @@ export default function RoomOverviewPage() {
     { label: "設定", href: `/admin/rooms/${roomId}/settings`, icon: "⚙" },
   ];
 
-  const kind = KIND_CONFIG[MOCK_ROOM.kind];
+  if (error) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--ink-soft)" }}>
+        {error}
+        <div style={{ marginTop: 16 }}>
+          <Link href="/admin/system/rooms" style={{ color: "var(--room-admin-accent)" }}>ルーム一覧へ</Link>
+        </div>
+      </div>
+    );
+  }
+  if (!room) {
+    return <div style={{ padding: 40, textAlign: "center", color: "var(--ink-soft)" }}>読み込み中…</div>;
+  }
+
+  const kind = KIND_CONFIG[room.kind] ?? { label: room.kind, bg: "#f3f4f6", color: "#4b5563" };
+  const rules = { ...RULE_DEFAULTS, ...(room.rulePreset ?? {}) } as typeof RULE_DEFAULTS;
+  const liveMatchCount = activeMatches.filter((m) => m.status === "BATTLING").length;
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
       <TopbarAdmin username="suzuki_h" displayName="鈴木 花子" role="ROOM_ADMIN" />
       <ScopeBanner variant="room" />
       <div style={{ display: "flex" }}>
-        <AdminSidenav items={ROOM_NAV} scope="room" roomName={MOCK_ROOM.name} roomNumber={MOCK_ROOM.roomNumber} />
+        <AdminSidenav items={ROOM_NAV} scope="room" roomName={room.name} roomNumber={room.roomNumber} />
         <main style={{ flex: 1, padding: "32px" }}>
           {/* Room info card */}
           <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: "24px", marginBottom: "24px", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: "16px" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
-                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--room-admin-accent)", fontFamily: "JetBrains Mono, monospace" }}>{MOCK_ROOM.roomNumber}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "var(--room-admin-accent)", fontFamily: "JetBrains Mono, monospace" }}>{room.roomNumber}</span>
                   <span style={{ background: kind.bg, color: kind.color, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 999, fontFamily: "JetBrains Mono, monospace" }}>{kind.label}</span>
-                  <StatusBadge status={MOCK_ROOM.status} />
+                  <StatusBadge status={room.status} />
                 </div>
-                <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", margin: 0 }}>{MOCK_ROOM.name}</h1>
-                <p style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 4 }}>{MOCK_ROOM.description}</p>
+                <h1 style={{ fontSize: 22, fontWeight: 800, color: "var(--ink)", margin: 0 }}>{room.name}</h1>
+                <p style={{ fontSize: 13, color: "var(--ink-soft)", marginTop: 4 }}>{room.description ?? "—"}</p>
               </div>
               <Link
                 href={`/admin/rooms/${roomId}/settings`}
@@ -102,13 +187,13 @@ export default function RoomOverviewPage() {
             {/* Rule tiles */}
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               {[
-                { label: "盤面", value: `${MOCK_ROOM.rules.boardWidth}×${MOCK_ROOM.rules.boardHeight}` },
-                { label: "最大ターン", value: `${MOCK_ROOM.rules.maxTurns}T` },
-                { label: "AP", value: `${MOCK_ROOM.rules.ap}/turn` },
-                { label: "スキャン範囲", value: `${MOCK_ROOM.rules.scanRange}マス` },
-                { label: "障害物", value: `${MOCK_ROOM.rules.obstacleCount}個` },
-                { label: "コーディング制限", value: `${MOCK_ROOM.rules.codingTimeLimitSec}秒` },
-                { label: "有効期限", value: MOCK_ROOM.expiresAt },
+                { label: "盤面", value: `${rules.boardWidth}×${rules.boardHeight}` },
+                { label: "最大ターン", value: `${rules.maxTurns}T` },
+                { label: "AP", value: `${rules.ap}/turn` },
+                { label: "スキャン範囲", value: `${rules.scanRange}マス` },
+                { label: "障害物", value: `${rules.obstacleCount}個` },
+                { label: "コーディング制限", value: `${rules.codingTimeLimitSec}秒` },
+                { label: "有効期限", value: fmtDate(room.expiresAt) },
               ].map((tile) => (
                 <div key={tile.label} style={{ background: "rgba(8,145,178,0.04)", border: "1px solid rgba(8,145,178,0.12)", borderRadius: 8, padding: "8px 14px", textAlign: "center" }}>
                   <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 600, marginBottom: 2 }}>{tile.label}</div>
@@ -121,10 +206,10 @@ export default function RoomOverviewPage() {
           {/* KPI tiles */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
             {[
-              { label: "メンバー総数", value: MOCK_KPIS.memberCount, unit: "名", color: "var(--room-admin-accent)" },
-              { label: "今日の対戦数", value: MOCK_KPIS.todayMatches, unit: "試合", color: "#7c3aed" },
-              { label: "進行中マッチ", value: MOCK_KPIS.activeMatches, unit: "件", color: "#d97706" },
-              { label: "平均勝率", value: `${MOCK_KPIS.avgWinRate}%`, unit: "", color: "#15803d" },
+              { label: "メンバー総数", value: room._count.memberships, unit: "名", color: "var(--room-admin-accent)" },
+              { label: "総対戦数", value: room._count.matches, unit: "試合", color: "#7c3aed" },
+              { label: "進行中マッチ", value: liveMatchCount, unit: "件", color: "#d97706" },
+              { label: "平均勝率", value: avgWinRate == null ? "—" : `${avgWinRate}%`, unit: "", color: "#15803d" },
             ].map((kpi) => (
               <div key={kpi.label} style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
                 <div style={{ fontSize: 12, color: "var(--ink-soft)", fontWeight: 600, marginBottom: 8 }}>{kpi.label}</div>
@@ -174,9 +259,9 @@ export default function RoomOverviewPage() {
             <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
               <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: "var(--ink)" }}>進行中マッチ</h2>
-                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{MOCK_ACTIVE_MATCHES.length}件</span>
+                <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{activeMatches.length}件</span>
               </div>
-              {MOCK_ACTIVE_MATCHES.length === 0 ? (
+              {activeMatches.length === 0 ? (
                 <div style={{ padding: "32px", textAlign: "center", color: "var(--ink-soft)", fontSize: 14 }}>進行中のマッチはありません</div>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -188,18 +273,18 @@ export default function RoomOverviewPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {MOCK_ACTIVE_MATCHES.map((match, i) => (
-                      <tr key={match.id} style={{ borderBottom: i < MOCK_ACTIVE_MATCHES.length - 1 ? "1px solid var(--line)" : "none" }}>
+                    {activeMatches.map((match, i) => (
+                      <tr key={match.id} style={{ borderBottom: i < activeMatches.length - 1 ? "1px solid var(--line)" : "none" }}>
                         <td style={{ padding: "12px 16px", fontFamily: "JetBrains Mono, monospace", fontSize: 13, fontWeight: 700, color: "var(--room-admin-accent)" }}>#{match.matchNumber}</td>
-                        <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--ink)" }}>{match.p1}</td>
-                        <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--ink)" }}>{match.p2}</td>
+                        <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--ink)" }}>{nameOf(match.player1)}</td>
+                        <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--ink)" }}>{nameOf(match.player2)}</td>
                         <td style={{ padding: "12px 16px" }}>
                           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
                             <span style={{ width: 8, height: 8, borderRadius: "50%", background: match.status === "BATTLING" ? "#d97706" : "#1d4ed8", display: "inline-block", animation: "pulse 1.5s infinite" }} />
                             <StatusBadge status={match.status} />
                           </div>
                         </td>
-                        <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{match.elapsedMin}分</td>
+                        <td style={{ padding: "12px 16px", fontSize: 13, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{elapsedMin(match.startedAt)}</td>
                         <td style={{ padding: "12px 16px" }}>
                           <Link href={`/watch/${match.id}`} style={{ background: "rgba(8,145,178,0.1)", color: "var(--room-admin-accent)", border: "1px solid rgba(8,145,178,0.2)", borderRadius: 6, padding: "4px 10px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
                             👁 観戦する

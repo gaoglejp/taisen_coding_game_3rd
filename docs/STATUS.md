@@ -13,12 +13,29 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #16 — feat(admin): wire system audit page to /api/admin/audit
+- **PR**: #16 — feat(admin): wire system audit page + room overview page
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-23
 - **Status**: open, awaiting CI
 
-### What changed
+### What changed — room overview (`/admin/rooms/:id`)
+
+- Drops `MOCK_ROOM` / `MOCK_KPIS` / `MOCK_ACTIVE_MATCHES`. Fetches
+  `/api/admin/rooms/:id` for the room card (number / name / kind /
+  status / description / expiresAt / rulePreset-with-defaults) and the
+  member-count + total-match KPIs. Then fetches the player endpoints
+  (admins are privileged) by `room.roomNumber`:
+  `/api/rooms/:n/matches` → active-matches table + "進行中" count, and
+  `/api/rooms/:n/standings` → room average win rate KPI.
+- KPI relabel: "今日の対戦数" → "総対戦数" (the API gives a total match
+  count, not a date-filtered one — honest relabel rather than a fake
+  number).
+- Loading / error states added. Match elapsed time computed from
+  `startedAt`.
+- **Still mock**: the activity timeline (RoomActivity model exists but
+  has no API). Commented inline.
+
+### What changed — system audit (`/admin/system/audit`)
 
 - **`src/app/admin/system/audit/page.tsx` rewired**: drops `MOCK_LOGS`.
   Fetches `/api/admin/audit` (cursor-based). Server-side params: `from`
@@ -50,10 +67,11 @@ and a `targetType` param. Noted for a future API tweak.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Admin room-scoped pages** (ROADMAP Milestone D). Overview / members
-   / matches / standings / settings under `/admin/rooms/:id`, wired to
-   `/api/admin/rooms/:id/*`. Larger — split per page. Start with the
-   overview page.
+1. **Admin room members / matches / standings / settings pages**
+   (ROADMAP Milestone D). The overview page is done; wire the remaining
+   four room-scoped pages to `/api/admin/rooms/:id/{members,matches,
+   standings}` and `PATCH /api/admin/rooms/:id` (settings). Split per
+   page.
 2. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
    critical-path blocker). Needs a product call first: real Blockly
    integration vs. a lightweight rule-builder. Highest-leverage piece
