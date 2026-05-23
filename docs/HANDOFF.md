@@ -196,7 +196,6 @@ These are the calls the previous session made that the next session should
    the watch/result pages: swap each `const MOCK_*` to a `useEffect`+`fetch`
    against the route that already exists.
 4. **TODOs flagged in routes:**
-   - `src/app/api/me/stats/route.ts:13` — replace placeholder aggregation
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
