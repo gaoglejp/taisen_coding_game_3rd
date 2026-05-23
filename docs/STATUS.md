@@ -13,45 +13,39 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #19 — feat(admin): wire room settings page to /api/admin/rooms/:id
+- **PR**: #20 — feat(admin): wire room member write actions (issue / reissue / disable)
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-23
 - **Status**: open, awaiting CI
 
-### Product decision captured
-
-Room **detail/settings** stays **SYSTEM_ADMIN-only** for now (`GET`/`PATCH`/
-`archive`/`restore`/`DELETE /api/admin/rooms/:id` keep their `isSystemAdmin`
-guard — no API change). May open to ROOM_ADMIN later, not in v0.2. This is the
-answer to the prior PR's open question. Recorded in ROADMAP §2 Milestone D.
-
 ### What changed
 
-- **`src/app/admin/rooms/[roomId]/settings/page.tsx` rewired**: drops the
-  `DEFAULT_SETTINGS` seed as live state. Loads via `GET
-  /api/admin/rooms/:id` (loading + 403 + error states; a non-system-admin
-  sees "システム管理者のみ利用できます"). Save issues `PATCH` with the
-  basic fields (name/description/kind/expiresAt), visibility
-  (watchingPublic/rankingPublic via PUBLIC↔MEMBERS_ONLY↔DISABLED mapping,
-  replayShareEnabled), and the rule/coding/items bundled into
-  `rulePreset`. Archive/restore/delete call their real endpoints
-  (delete prompts for the room number, then redirects to the rooms list).
-- **rulePreset round-trips but is simulator-inert**: board size, AP,
-  items, coding limits save into `Room.rulePreset` and reload correctly,
-  but the simulator still uses fixed defaults (post-v0.2 "simulator
-  depth"). The visibility + basic-info + lifecycle parts take effect
-  immediately.
-- `DEFAULT_SETTINGS` is retained only as the fallback for empty
-  `rulePreset` fields (and "reset rules" button).
+- **`src/app/admin/rooms/[roomId]/members/page.tsx` write actions wired**
+  — first PR that performs real admin mutations:
+  - **発行 (issue)**: parses the CSV textarea (`username,display_name`
+    per line) and `POST`s `{ members, expiresAt }` to
+    `/api/admin/rooms/:id/members`. The returned issue codes populate the
+    one-time result modal (real codes, not mock), then the list reloads.
+  - **再発行 (reissue)**: `POST
+    /api/admin/rooms/:id/members/:mid/reissue`; shows the new code in the
+    result modal and reloads.
+  - **無効化 (disable)**: `PATCH /api/admin/rooms/:id/members/:mid` with
+    `{ status: "DISABLED" }` (gated behind the username re-type confirm),
+    then reloads.
+  - Removed `MOCK_ISSUED_CODES`. Added `busy` (button spinners) and a
+    per-modal `actionError`. The `reload()` fetch was extracted to a
+    `useCallback` so mutations can refresh the table.
+- All three endpoints already allowed `ROOM_ADMIN` (own room), so this
+  works for both ROOM_ADMIN and SYSTEM_ADMIN with no API change.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Admin write actions** (ROADMAP Milestone D). Wire the modals that
-   are still UI-only to existing endpoints: member issue/reissue/disable
-   (`POST`/`PATCH /api/admin/rooms/:id/members[/:mid]`), room
-   create/delete/archive, and account invite/disable/reset on the users
-   page. **Match-cancel needs a new endpoint** (`MATCH_CANCEL` audit
-   action exists, route doesn't) — build it as part of this.
+1. **Remaining admin write actions** (ROADMAP Milestone D). Members are
+   done; wire the rooms-page create-room modal (`POST /api/admin/rooms`)
+   and the users-page invite/disable/reset modals
+   (`POST /api/admin/users/invite`, `PATCH /api/admin/users/:id`,
+   `POST .../force-password-reset`). **Match-cancel still needs a new
+   endpoint** (`MATCH_CANCEL` audit action exists, route doesn't).
 2. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
    critical-path blocker). Needs a product call first: real Blockly
    integration vs. a lightweight rule-builder. Highest-leverage piece
@@ -95,6 +89,10 @@ answer to the prior PR's open question. Recorded in ROADMAP §2 Milestone D.
 
 ## History
 
+- **PR #19** (merged) — feat(admin): wire room settings page to
+  `/api/admin/rooms/:id` (GET/PATCH + archive/restore/delete),
+  SYSTEM_ADMIN-only per product decision. rulePreset round-trips but is
+  simulator-inert.
 - **PR #18** (merged) — feat(admin): wire room matches page (LIST) to
   `/api/admin/rooms/:id/matches`. Bracket views + create/cancel modals
   still mock; matches endpoint extended to return `room`.

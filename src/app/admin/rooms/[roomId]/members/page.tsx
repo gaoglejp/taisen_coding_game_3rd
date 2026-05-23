@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
@@ -71,57 +71,146 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
   const [roomNumber, setRoomNumber] = useState("");
   const [members, setMembers] = useState<MemberRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // Issued codes are only visible once, right after issue/reissue.
+  const [issuedCodes, setIssuedCodes] = useState<{ username: string; code: string }[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      try {
-        const res = await fetch(`/api/admin/rooms/${roomId}/members`);
-        if (cancelled) return;
-        if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          setError(data?.error ?? "メンバー一覧を取得できませんでした");
-          return;
-        }
-        const data = await res.json();
-        setRoomName(data.room?.name ?? "");
-        setRoomNumber(data.room?.roomNumber ?? "");
-        // W/L/D come from the standings endpoint (keyed by userId).
-        const wld = new Map<string, { w: number; l: number; d: number }>();
-        if (data.room?.roomNumber) {
-          const sRes = await fetch(`/api/rooms/${data.room.roomNumber}/standings`);
-          if (!cancelled && sRes.ok) {
-            const sData = await sRes.json();
-            for (const s of sData.standings ?? []) {
-              wld.set(s.userId, { w: s.wins, l: s.losses, d: s.draws });
-            }
+  const reload = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/rooms/${roomId}/members`);
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setError(data?.error ?? "メンバー一覧を取得できませんでした");
+        return;
+      }
+      const data = await res.json();
+      setRoomName(data.room?.name ?? "");
+      setRoomNumber(data.room?.roomNumber ?? "");
+      const wld = new Map<string, { w: number; l: number; d: number }>();
+      if (data.room?.roomNumber) {
+        const sRes = await fetch(`/api/rooms/${data.room.roomNumber}/standings`);
+        if (sRes.ok) {
+          const sData = await sRes.json();
+          for (const s of sData.standings ?? []) {
+            wld.set(s.userId, { w: s.wins, l: s.losses, d: s.draws });
           }
         }
-        if (cancelled) return;
-        const rows: MemberRow[] = (data.members as ApiMembership[]).map((m) => {
-          const rec = wld.get(m.user.id) ?? { w: 0, l: 0, d: 0 };
-          return {
-            id: m.id,
-            userId: m.user.id,
-            username: m.user.username,
-            displayName: m.user.displayName ?? m.user.username,
-            status: m.status,
-            expiresAt: m.expiresAt,
-            lastLoginAt: m.user.lastLoginAt,
-            ...rec,
-          };
-        });
-        setMembers(rows);
-        setError(null);
-      } catch {
-        if (!cancelled) setError("メンバー一覧を取得できませんでした");
       }
+      const rows: MemberRow[] = (data.members as ApiMembership[]).map((m) => {
+        const rec = wld.get(m.user.id) ?? { w: 0, l: 0, d: 0 };
+        return {
+          id: m.id,
+          userId: m.user.id,
+          username: m.user.username,
+          displayName: m.user.displayName ?? m.user.username,
+          status: m.status,
+          expiresAt: m.expiresAt,
+          lastLoginAt: m.user.lastLoginAt,
+          ...rec,
+        };
+      });
+      setMembers(rows);
+      setError(null);
+    } catch {
+      setError("メンバー一覧を取得できませんでした");
     }
-    load();
-    return () => {
-      cancelled = true;
-    };
   }, [roomId]);
+
+  useEffect(() => {
+    void (async () => {
+      await reload();
+    })();
+  }, [reload]);
+
+  // CSV "username,display_name" per line → bulk issue. Returns the issued
+  // codes so the result modal can show them once.
+  const handleIssue = async () => {
+    const rows = issueCsv
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => {
+        const [username, displayName] = line.split(",").map((c) => c.trim());
+        return { username: username || undefined, displayName: displayName || username || "" };
+      })
+      .filter((r) => r.displayName);
+    if (rows.length === 0) {
+      setActionError("少なくとも1行(username,display_name)を入力してください");
+      return;
+    }
+    setBusy(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/rooms/${roomId}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ members: rows, expiresAt: issueExpiry || undefined }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error ?? "発行に失敗しました");
+        return;
+      }
+      const data = await res.json();
+      setIssuedCodes((data.members ?? []).map((m: { username: string; issueCode: string }) => ({ username: m.username, code: m.issueCode })));
+      setShowIssueModal(false);
+      setShowResultModal(true);
+      setIssueCsv("");
+      setIssueExpiry("");
+      await reload();
+    } catch {
+      setActionError("発行に失敗しました");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleReissue = async (membershipId: string, username: string) => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/rooms/${roomId}/members/${membershipId}/reissue`, { method: "POST" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error ?? "再発行に失敗しました");
+        return;
+      }
+      const data = await res.json();
+      setIssuedCodes([{ username, code: data.issueCode }]);
+      setShowReissueModal(null);
+      setShowResultModal(true);
+      await reload();
+    } catch {
+      setActionError("再発行に失敗しました");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDisable = async (membershipId: string) => {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const res = await fetch(`/api/admin/rooms/${roomId}/members/${membershipId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "DISABLED" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setActionError(data?.error ?? "無効化に失敗しました");
+        return;
+      }
+      setShowDisableModal(null);
+      setDisableConfirm("");
+      await reload();
+    } catch {
+      setActionError("無効化に失敗しました");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const STATUS_FILTERS = ["ALL", "ACTIVE", "DISABLED", "EXPIRED"];
 
@@ -137,13 +226,6 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
 
   const disableTarget = members.find((m) => m.id === showDisableModal);
   const reissueTarget = members.find((m) => m.id === showReissueModal);
-
-  // Issued-code preview is still mock — populated by the (UI-only) issue flow.
-  const MOCK_ISSUED_CODES = [
-    { username: "player_01", code: "ABC-123-DEF" },
-    { username: "player_02", code: "XYZ-456-GHI" },
-    { username: "player_03", code: "QRS-789-TUV" },
-  ];
 
   if (error) {
     return (
@@ -176,7 +258,7 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
             <div style={{ marginLeft: "auto", display: "flex", gap: "8px" }}>
               <button style={secondaryBtnStyle}>↑ CSV取込</button>
               <button style={secondaryBtnStyle}>↓ CSV出力</button>
-              <button onClick={() => setShowIssueModal(true)} style={tealBtnStyle}>+ メンバーを発行</button>
+              <button onClick={() => { setActionError(null); setShowIssueModal(true); }} style={tealBtnStyle}>+ メンバーを発行</button>
             </div>
           </div>
 
@@ -221,9 +303,9 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
                     </td>
                     <td style={{ padding: "0 16px" }}>
                       <div style={{ display: "flex", gap: "5px" }}>
-                        <button onClick={() => setShowReissueModal(member.id)} style={actionBtnStyle("#0891b2", "rgba(8,145,178,0.08)")}>再発行</button>
+                        <button onClick={() => { setActionError(null); setShowReissueModal(member.id); }} style={actionBtnStyle("#0891b2", "rgba(8,145,178,0.08)")}>再発行</button>
                         <button style={actionBtnStyle("#4b5563", "rgba(75,85,99,0.08)")}>期限</button>
-                        <button onClick={() => { setShowDisableModal(member.id); setDisableConfirm(""); }} style={actionBtnStyle("#dc2626", "rgba(220,38,38,0.08)")}>無効化</button>
+                        <button onClick={() => { setActionError(null); setShowDisableModal(member.id); setDisableConfirm(""); }} style={actionBtnStyle("#dc2626", "rgba(220,38,38,0.08)")}>無効化</button>
                       </div>
                     </td>
                   </tr>
@@ -276,9 +358,10 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
                 <input type="date" value={issueExpiry} onChange={(e) => setIssueExpiry(e.target.value)} style={{ ...inputStyle, width: "auto" }} />
               </div>
             </div>
-            <div style={{ display: "flex", gap: "10px", marginTop: "24px", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: "24px", justifyContent: "flex-end", alignItems: "center" }}>
+              {actionError && <span style={{ color: "#dc2626", fontSize: 12, marginRight: "auto" }}>{actionError}</span>}
               <button onClick={() => setShowIssueModal(false)} style={cancelBtnStyle}>キャンセル</button>
-              <button onClick={() => { setShowIssueModal(false); setShowResultModal(true); }} style={{ ...submitBtnStyle, background: "var(--room-admin-accent)" }}>発行する</button>
+              <button onClick={handleIssue} disabled={busy} style={{ ...submitBtnStyle, background: "var(--room-admin-accent)", opacity: busy ? 0.5 : 1 }}>{busy ? "発行中…" : "発行する"}</button>
             </div>
           </div>
         </ModalOverlay>
@@ -295,7 +378,7 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
                 <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 2 }}>発行コードはこの画面を閉じると二度と表示されません。必ず今すぐコピーまたは保存してください。</div>
               </div>
             </div>
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 16px" }}>発行結果 ({MOCK_ISSUED_CODES.length}件)</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 16px" }}>発行結果 ({issuedCodes.length}件)</h2>
             <div style={{ display: "flex", gap: "8px", marginBottom: "12px" }}>
               <button onClick={() => setMaskCodes(!maskCodes)} style={{ ...secondaryBtnStyle, fontSize: 12 }}>
                 {maskCodes ? "👁 コードを表示" : "🙈 コードを隠す"}
@@ -314,8 +397,8 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
                   </tr>
                 </thead>
                 <tbody>
-                  {MOCK_ISSUED_CODES.map((row, i) => (
-                    <tr key={row.username} style={{ borderBottom: i < MOCK_ISSUED_CODES.length - 1 ? "1px solid var(--line)" : "none" }}>
+                  {issuedCodes.map((row, i) => (
+                    <tr key={row.username} style={{ borderBottom: i < issuedCodes.length - 1 ? "1px solid var(--line)" : "none" }}>
                       <td style={{ padding: "12px 16px", fontSize: 13, fontFamily: "JetBrains Mono, monospace", fontWeight: 700, color: "var(--ink)" }}>@{row.username}</td>
                       <td style={{ padding: "12px 16px", fontFamily: "JetBrains Mono, monospace", fontSize: 14, letterSpacing: "0.1em", color: maskCodes ? "transparent" : "var(--ink)", background: maskCodes ? "#f3f4f6" : "transparent", borderRadius: maskCodes ? 4 : 0, userSelect: maskCodes ? "none" : "text" }}>
                         {row.code}
@@ -353,9 +436,10 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
                 ••• ••• •••
               </div>
             </div>
-            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", alignItems: "center" }}>
+              {actionError && <span style={{ color: "#dc2626", fontSize: 12, marginRight: "auto" }}>{actionError}</span>}
               <button onClick={() => setShowReissueModal(null)} style={cancelBtnStyle}>キャンセル</button>
-              <button style={{ ...submitBtnStyle, background: "var(--room-admin-accent)" }}>再発行する</button>
+              <button onClick={() => handleReissue(reissueTarget.id, reissueTarget.username)} disabled={busy} style={{ ...submitBtnStyle, background: "var(--room-admin-accent)", opacity: busy ? 0.5 : 1 }}>{busy ? "再発行中…" : "再発行する"}</button>
             </div>
           </div>
         </ModalOverlay>
@@ -373,9 +457,10 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
               確認のため <strong style={{ fontFamily: "JetBrains Mono, monospace" }}>@{disableTarget.username}</strong> を入力してください。
             </p>
             <input value={disableConfirm} onChange={(e) => setDisableConfirm(e.target.value)} placeholder={disableTarget.username} style={{ ...inputStyle, fontFamily: "JetBrains Mono, monospace" }} />
-            <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
+            <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end", alignItems: "center" }}>
+              {actionError && <span style={{ color: "#dc2626", fontSize: 12, marginRight: "auto" }}>{actionError}</span>}
               <button onClick={() => setShowDisableModal(null)} style={cancelBtnStyle}>キャンセル</button>
-              <button disabled={disableConfirm !== disableTarget.username} style={{ ...submitBtnStyle, background: "#dc2626", opacity: disableConfirm !== disableTarget.username ? 0.4 : 1 }}>無効化する</button>
+              <button onClick={() => handleDisable(disableTarget.id)} disabled={busy || disableConfirm !== disableTarget.username} style={{ ...submitBtnStyle, background: "#dc2626", opacity: busy || disableConfirm !== disableTarget.username ? 0.4 : 1 }}>{busy ? "処理中…" : "無効化する"}</button>
             </div>
           </div>
         </ModalOverlay>
