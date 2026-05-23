@@ -13,73 +13,44 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #16 — feat(admin): wire system audit page + room overview page
+- **PR**: #17 — feat(admin): wire room members page to /api/admin/rooms/:id/members
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-23
 - **Status**: open, awaiting CI
 
-### What changed — room overview (`/admin/rooms/:id`)
+### What changed
 
-- Drops `MOCK_ROOM` / `MOCK_KPIS` / `MOCK_ACTIVE_MATCHES`. Fetches
-  `/api/admin/rooms/:id` for the room card (number / name / kind /
-  status / description / expiresAt / rulePreset-with-defaults) and the
-  member-count + total-match KPIs. Then fetches the player endpoints
-  (admins are privileged) by `room.roomNumber`:
-  `/api/rooms/:n/matches` → active-matches table + "進行中" count, and
-  `/api/rooms/:n/standings` → room average win rate KPI.
-- KPI relabel: "今日の対戦数" → "総対戦数" (the API gives a total match
-  count, not a date-filtered one — honest relabel rather than a fake
-  number).
-- Loading / error states added. Match elapsed time computed from
-  `startedAt`.
-- **Still mock**: the activity timeline (RoomActivity model exists but
-  has no API). Commented inline.
-
-### What changed — system audit (`/admin/system/audit`)
-
-- **`src/app/admin/system/audit/page.tsx` rewired**: drops `MOCK_LOGS`.
-  Fetches `/api/admin/audit` (cursor-based). Server-side params: `from`
-  (derived from the 1h/24h/7日/30日 period), `actor` (actor search),
-  `q` (keyword), `limit=50`. Field renames handled
-  (`ipAddress`/`userAgent`/`metadata`). Null actor → "システム"; null
-  target/summary/ip → "—". Loading / empty / error rows added.
-- **Cursor pagination** via a cursor stack: `cursorStack[i]` is the
-  cursor for page `i` (page 0 = `null`). "次" pushes `nextCursor` and
-  advances; "前" steps back through the stack. The API is forward-only,
-  so the stack is what makes "前" work.
-- **Action category + target-type filters are client-side** refinements
-  over the loaded page (the API filters by exact `AuditAction` /
-  `targetId`, not by category / type). Documented inline; the footer
-  notes "(絞り込み後)" when these are active. Added the two enum values
-  the prototype's `ACTION_CONFIG` was missing (`USER_DISABLE_2FA`,
-  `MEMBER_DISABLE`).
-- **Still UI-only**: the CSV / JSON export buttons.
-- ROADMAP Milestone D "System audit page" row → ✅.
-
-### Known limitation
-
-Because category/target-type are filtered client-side over a 50-row
-page, a page can render fewer than 50 rows when those filters are
-active, and "次" advances the *underlying* cursor (not the filtered
-view). This is acceptable for an admin log browser; a fully server-side
-solution would need the API to accept a category→action-set expansion
-and a `targetType` param. Noted for a future API tweak.
+- **`src/app/admin/rooms/[roomId]/members/page.tsx` rewired**: drops
+  `MOCK_MEMBERS`. Fetches `/api/admin/rooms/:id/members` for the member
+  rows (username / displayName / membership status / expiresAt /
+  lastLoginAt), then `/api/rooms/:roomNumber/standings` for each
+  member's W/L/D (mapped by userId; members with no finished matches
+  show 0/0/0). Sidenav room name/number + the header count come from
+  the same response. Date columns formatted from ISO. Empty / error
+  states added.
+- **Small API extension**: `GET /api/admin/rooms/:id/members` now also
+  returns `room: { id, name, roomNumber }`. The page needs the room
+  name/number for the sidenav, and a ROOM_ADMIN can't call the
+  system-admin-only room detail endpoint — so the members endpoint
+  (which ROOM_ADMIN *can* call) carries it.
+- **Still UI-only**: the issue / reissue / disable / extend-expiry
+  modals (POST/PATCH/DELETE with confirmation) and CSV import/export.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Admin room members / matches / standings / settings pages**
-   (ROADMAP Milestone D). The overview page is done; wire the remaining
-   four room-scoped pages to `/api/admin/rooms/:id/{members,matches,
-   standings}` and `PATCH /api/admin/rooms/:id` (settings). Split per
-   page.
+1. **Admin room matches + standings pages** (ROADMAP Milestone D). The
+   overview + members pages are done; wire `/admin/rooms/:id/matches`
+   and `/admin/rooms/:id/standings` to `/api/admin/rooms/:id/{matches,
+   standings}`. Then the settings page (`PATCH /api/admin/rooms/:id`).
 2. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
    critical-path blocker). Needs a product call first: real Blockly
    integration vs. a lightweight rule-builder. Highest-leverage piece
    for actual gameplay once decided.
 3. **Admin write actions** (ROADMAP Milestone D "Account actions" +
-   room create/delete/archive). Wire the modals that are currently
-   UI-only across the admin users / rooms pages to their POST/PATCH/
-   DELETE endpoints, with the confirmation flows already drawn.
+   room create/delete/archive + member issue/reissue/disable). Wire the
+   modals that are currently UI-only across the admin pages to their
+   POST/PATCH/DELETE endpoints, with the confirmation flows already
+   drawn.
 
 ### Deferred / out of scope right now
 
@@ -115,6 +86,9 @@ and a `targetType` param. Noted for a future API tweak.
 
 ## History
 
+- **PR #16** (merged) — feat(admin): wire system audit page (cursor
+  pagination; category/type filtered client-side) + room overview page
+  (`/api/admin/rooms/:id` + matches/standings; activity still mock).
 - **PR #15** (merged) — feat(admin): wire system rooms page to
   `/api/admin/rooms` (server-side filter + pagination + global status
   count pills). ROADMAP Milestone D rooms-page row done.

@@ -1,26 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, use } from "react";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
-const MOCK_MEMBERS = [
-  { id: "m1", username: "tanaka_k", displayName: "田中 健二", status: "ACTIVE", expiresAt: "2024-05-31", lastLoginAt: "2024-03-15 11:05", w: 8, l: 3, d: 1 },
-  { id: "m2", username: "suzuki_h", displayName: "鈴木 花子", status: "ACTIVE", expiresAt: "2024-05-31", lastLoginAt: "2024-03-14 18:22", w: 6, l: 5, d: 0 },
-  { id: "m3", username: "ito_m", displayName: "伊藤 みか", status: "ACTIVE", expiresAt: "2024-05-31", lastLoginAt: "2024-03-13 20:14", w: 4, l: 4, d: 2 },
-  { id: "m4", username: "watanabe_r", displayName: "渡辺 涼", status: "ACTIVE", expiresAt: "2024-05-31", lastLoginAt: "2024-03-15 08:55", w: 5, l: 6, d: 0 },
-  { id: "m5", username: "nakamura_s", displayName: "中村 俊介", status: "DISABLED", expiresAt: "2024-05-31", lastLoginAt: "2024-02-28 15:30", w: 2, l: 3, d: 1 },
-  { id: "m6", username: "kobayashi_y", displayName: "小林 陽一", status: "ACTIVE", expiresAt: "2024-04-30", lastLoginAt: "2024-03-15 10:42", w: 7, l: 2, d: 1 },
-  { id: "m7", username: "kato_n", displayName: "加藤 奈々", status: "EXPIRED", expiresAt: "2024-03-01", lastLoginAt: "2024-03-01 09:00", w: 1, l: 2, d: 0 },
-  { id: "m8", username: "yoshida_t", displayName: "吉田 達也", status: "ACTIVE", expiresAt: "2024-05-31", lastLoginAt: "2024-03-14 16:30", w: 3, l: 4, d: 2 },
-];
+interface MemberRow {
+  id: string;
+  userId: string;
+  username: string;
+  displayName: string;
+  status: string;
+  expiresAt: string | null;
+  lastLoginAt: string | null;
+  w: number;
+  l: number;
+  d: number;
+}
 
-export default function RoomMembersPage() {
-  const params = useParams();
-  const roomId = params.roomId as string;
+interface ApiMembership {
+  id: string;
+  status: string;
+  expiresAt: string | null;
+  user: {
+    id: string;
+    username: string;
+    displayName: string | null;
+    lastLoginAt: string | null;
+  };
+}
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "無期限";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
+}
+
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 16)}`;
+}
+
+export default function RoomMembersPage({ params }: { params: Promise<{ roomId: string }> }) {
+  const { roomId } = use(params);
 
   const ROOM_NAV = [
     { label: "概要", href: `/admin/rooms/${roomId}`, icon: "📊" },
@@ -42,9 +67,65 @@ export default function RoomMembersPage() {
   const [issueExpiry, setIssueExpiry] = useState("");
   const [page, setPage] = useState(1);
 
+  const [roomName, setRoomName] = useState("");
+  const [roomNumber, setRoomNumber] = useState("");
+  const [members, setMembers] = useState<MemberRow[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const res = await fetch(`/api/admin/rooms/${roomId}/members`);
+        if (cancelled) return;
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error ?? "メンバー一覧を取得できませんでした");
+          return;
+        }
+        const data = await res.json();
+        setRoomName(data.room?.name ?? "");
+        setRoomNumber(data.room?.roomNumber ?? "");
+        // W/L/D come from the standings endpoint (keyed by userId).
+        const wld = new Map<string, { w: number; l: number; d: number }>();
+        if (data.room?.roomNumber) {
+          const sRes = await fetch(`/api/rooms/${data.room.roomNumber}/standings`);
+          if (!cancelled && sRes.ok) {
+            const sData = await sRes.json();
+            for (const s of sData.standings ?? []) {
+              wld.set(s.userId, { w: s.wins, l: s.losses, d: s.draws });
+            }
+          }
+        }
+        if (cancelled) return;
+        const rows: MemberRow[] = (data.members as ApiMembership[]).map((m) => {
+          const rec = wld.get(m.user.id) ?? { w: 0, l: 0, d: 0 };
+          return {
+            id: m.id,
+            userId: m.user.id,
+            username: m.user.username,
+            displayName: m.user.displayName ?? m.user.username,
+            status: m.status,
+            expiresAt: m.expiresAt,
+            lastLoginAt: m.user.lastLoginAt,
+            ...rec,
+          };
+        });
+        setMembers(rows);
+        setError(null);
+      } catch {
+        if (!cancelled) setError("メンバー一覧を取得できませんでした");
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId]);
+
   const STATUS_FILTERS = ["ALL", "ACTIVE", "DISABLED", "EXPIRED"];
 
-  const filtered = MOCK_MEMBERS.filter((m) => {
+  const filtered = members.filter((m) => {
     if (statusFilter !== "ALL" && m.status !== statusFilter) return false;
     if (search && !m.username.includes(search) && !m.displayName.includes(search)) return false;
     return true;
@@ -54,25 +135,32 @@ export default function RoomMembersPage() {
   const totalPages = Math.ceil(filtered.length / perPage);
   const pageItems = filtered.slice((page - 1) * perPage, page * perPage);
 
-  const disableTarget = MOCK_MEMBERS.find((m) => m.id === showDisableModal);
-  const reissueTarget = MOCK_MEMBERS.find((m) => m.id === showReissueModal);
+  const disableTarget = members.find((m) => m.id === showDisableModal);
+  const reissueTarget = members.find((m) => m.id === showReissueModal);
 
+  // Issued-code preview is still mock — populated by the (UI-only) issue flow.
   const MOCK_ISSUED_CODES = [
     { username: "player_01", code: "ABC-123-DEF" },
     { username: "player_02", code: "XYZ-456-GHI" },
     { username: "player_03", code: "QRS-789-TUV" },
   ];
 
+  if (error) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--ink-soft)" }}>{error}</div>
+    );
+  }
+
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
       <TopbarAdmin username="suzuki_h" displayName="鈴木 花子" role="ROOM_ADMIN" />
       <ScopeBanner variant="room" />
       <div style={{ display: "flex" }}>
-        <AdminSidenav items={ROOM_NAV} scope="room" roomName="春季トーナメント2024" roomNumber="R-2402" />
+        <AdminSidenav items={ROOM_NAV} scope="room" roomName={roomName} roomNumber={roomNumber} />
         <main style={{ flex: 1, padding: "32px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--ink)", margin: 0 }}>メンバー</h1>
-            <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>{MOCK_MEMBERS.length} 名</span>
+            <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>{members.length} 名</span>
           </div>
 
           {/* Toolbar */}
@@ -103,6 +191,13 @@ export default function RoomMembersPage() {
                 </tr>
               </thead>
               <tbody>
+                {pageItems.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: "32px 16px", textAlign: "center", fontSize: 13, color: "var(--ink-soft)" }}>
+                      メンバーがいません
+                    </td>
+                  </tr>
+                )}
                 {pageItems.map((member, i) => (
                   <tr key={member.id} style={{ borderBottom: i < pageItems.length - 1 ? "1px solid var(--line)" : "none", height: 56 }}>
                     <td style={{ padding: "0 16px" }}>
@@ -115,8 +210,8 @@ export default function RoomMembersPage() {
                     </td>
                     <td style={{ padding: "0 16px", fontSize: 13, color: "var(--ink)" }}>{member.displayName}</td>
                     <td style={{ padding: "0 16px" }}><StatusBadge status={member.status} /></td>
-                    <td style={{ padding: "0 16px", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{member.expiresAt}</td>
-                    <td style={{ padding: "0 16px", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{member.lastLoginAt}</td>
+                    <td style={{ padding: "0 16px", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{fmtDate(member.expiresAt)}</td>
+                    <td style={{ padding: "0 16px", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{fmtDateTime(member.lastLoginAt)}</td>
                     <td style={{ padding: "0 16px" }}>
                       <div style={{ display: "flex", gap: "6px", fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}>
                         <span style={{ color: "#15803d", fontWeight: 700 }}>{member.w}W</span>
