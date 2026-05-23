@@ -190,10 +190,13 @@ These are the calls the previous session made that the next session should
    conditions, target detection beyond "forward") are intentional follow-ups —
    the event shape won't change, just the data inside.
 3. **Replace remaining mock data with API calls.** The battle page's HP/
-   position/direction/turn-log are now live, but its surroundings (compass
-   grid), `detected_targets` panel, and score widgets still render from
-   inline mocks. Same pattern applies to dashboard, rooms, admin pages, and
-   the watch/result pages: swap each `const MOCK_*` to a `useEffect`+`fetch`
+   position/direction/turn-log are now live, and the result page is fully
+   wired (PR #7) — hero verdict, HP cards, stats grid, HP timeline, first-
+   damage banner, turn highlights, win-rate card, and recent matches all
+   read from `/api/match/:id/result` + `/api/me/{stats,matches}`. Still on
+   mocks: the coding page's room/match meta and strategy payload; the
+   watch page; the dashboard's room cards; and the admin pages. Same
+   pattern applies — swap each `const MOCK_*` to a `useEffect`+`fetch`
    against the route that already exists.
 4. **TODOs flagged in routes:**
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
