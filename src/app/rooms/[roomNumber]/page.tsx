@@ -5,9 +5,8 @@ import Link from "next/link";
 import { TopbarPaper } from "@/components/layout/TopbarPaper";
 
 // <!-- bind: GET /api/rooms/:roomNumber -->
-// <!-- bind: GET /api/rooms/:roomNumber/matches?status=open|live -- TODO -->
-// <!-- bind: GET /api/me/upcoming-matches?roomNumber=:n -- TODO -->
-// <!-- bind: GET /api/rooms/:roomNumber/standings?limit=5 -- TODO -->
+// <!-- bind: GET /api/rooms/:roomNumber/matches -->
+// <!-- bind: GET /api/rooms/:roomNumber/standings -->
 
 interface RoomData {
   id: string;
@@ -19,6 +18,32 @@ interface RoomData {
   expiresAt: string | null;
   activeMemberCount: number;
   totalMatches: number;
+}
+
+interface ApiPlayer {
+  id: string;
+  username: string;
+  displayName: string | null;
+}
+
+interface ApiMatch {
+  id: string;
+  matchNumber: number;
+  status: string;
+  player1: ApiPlayer | null;
+  player2: ApiPlayer | null;
+}
+
+interface ApiStanding {
+  rank: number;
+  userId: string;
+  username: string;
+  displayName: string | null;
+  wins: number;
+  losses: number;
+  draws: number;
+  played: number;
+  winRate: number;
 }
 
 const KIND_CONFIG = {
@@ -39,25 +64,9 @@ const RULE_DEFAULTS = {
   codingLimit: "5分",
 };
 
-// Matches list, "あなたの戦績", "あなたの予定", standings, and announcements
-// don't have backing APIs yet — left as mocks with this comment so the next
-// pass knows where to wire them. See docs/STATUS.md → Next 1–3 PRs.
-const MOCK_MATCHES = [
-  { id: "m1", no: 12, p1: "たろう", p2: "はなこ", status: "BATTLING", isMyMatch: true },
-  { id: "m2", no: 11, p1: "けんじ", p2: "みか", status: "CODING", isMyMatch: false },
-  { id: "m3", no: 13, p1: "じゅん", p2: null, status: "WAITING", isMyMatch: false },
-  { id: "m4", no: 14, p1: "さやか", p2: "りょう", status: "WAITING", isMyMatch: false },
-  { id: "m5", no: 15, p1: null, p2: null, status: "OPEN", isMyMatch: false },
-];
-
-const MOCK_RANKING = [
-  { rank: 1, name: "たろう", winRate: "78%", w: 14, l: 4, d: 0, isMe: false },
-  { rank: 2, name: "みか", winRate: "72%", w: 13, l: 5, d: 0, isMe: false },
-  { rank: 3, name: "じゅん", winRate: "61%", w: 11, l: 7, d: 1, isMe: true },
-  { rank: 4, name: "はなこ", winRate: "50%", w: 9, l: 9, d: 0, isMe: false },
-  { rank: 5, name: "けんじ", winRate: "44%", w: 8, l: 10, d: 1, isMe: false },
-];
-
+// "あなたの予定" (schedule) and announcements don't have backing APIs yet —
+// left as mocks with this comment so the next pass knows where to wire them.
+// See docs/ROADMAP.md → Milestone C.
 const ANNOUNCEMENTS = [
   { id: 1, title: "📌 来週は総当たり戦を実施します", body: "5/29（水）〜5/31（金）に全員参加の総当たり戦を行います。コードを準備しておいてください。", time: "2日前", author: "田中先生", pinned: true },
   { id: 2, title: "SCAN の仕様変更について", body: "v0.2.1 より SCAN のコストが1→2 APに変更されました。戦略を見直してください。", time: "5日前", author: "田中先生", pinned: false },
@@ -82,36 +91,59 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
   const { roomNumber } = use(params);
   const [matchFilter, setMatchFilter] = useState("ALL");
   const [room, setRoom] = useState<RoomData | null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [matches, setMatches] = useState<ApiMatch[]>([]);
+  const [standings, setStandings] = useState<ApiStanding[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/rooms/${roomNumber}`)
-      .then(async (r) => {
-        if (cancelled) return;
-        if (r.ok) {
-          const data = await r.json();
-          setRoom(data.room);
-        } else {
-          const data = await r.json().catch(() => null);
-          setError(data?.error ?? "ルーム情報を取得できませんでした");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setError("ルーム情報を取得できませんでした");
-      });
+    // The room fetch governs the error state; matches/standings/me are
+    // best-effort enrichments and fail silently (their panels just stay empty).
+    Promise.allSettled([
+      fetch(`/api/rooms/${roomNumber}`),
+      fetch("/api/me"),
+      fetch(`/api/rooms/${roomNumber}/matches`),
+      fetch(`/api/rooms/${roomNumber}/standings`),
+    ]).then(async ([roomRes, meRes, matchesRes, standingsRes]) => {
+      if (cancelled) return;
+      if (roomRes.status === "fulfilled" && roomRes.value.ok) {
+        const data = await roomRes.value.json();
+        setRoom(data.room);
+      } else {
+        const data =
+          roomRes.status === "fulfilled" ? await roomRes.value.json().catch(() => null) : null;
+        setError(data?.error ?? "ルーム情報を取得できませんでした");
+        return;
+      }
+      if (meRes.status === "fulfilled" && meRes.value.ok) {
+        const data = await meRes.value.json();
+        setMeId(data.user?.id ?? null);
+      }
+      if (matchesRes.status === "fulfilled" && matchesRes.value.ok) {
+        const data = await matchesRes.value.json();
+        setMatches(data.matches ?? []);
+      }
+      if (standingsRes.status === "fulfilled" && standingsRes.value.ok) {
+        const data = await standingsRes.value.json();
+        setStandings(data.standings ?? []);
+      }
+    });
     return () => {
       cancelled = true;
     };
   }, [roomNumber]);
 
-  const filteredMatches = MOCK_MATCHES.filter((m) => {
+  const nameOf = (p: ApiPlayer | null) => p?.displayName ?? p?.username ?? null;
+  const filteredMatches = matches.filter((m) => {
     if (matchFilter === "ALL") return true;
     if (matchFilter === "LIVE") return m.status === "BATTLING";
     if (matchFilter === "CODING") return m.status === "CODING";
-    if (matchFilter === "OPEN") return m.status === "OPEN" || m.status === "WAITING";
+    if (matchFilter === "OPEN") return m.status === "WAITING";
     return true;
   });
+  const liveMatchCount = matches.filter((m) => m.status === "BATTLING").length;
+  const myStanding = meId ? standings.find((s) => s.userId === meId) ?? null : null;
 
   if (error) {
     return (
@@ -130,7 +162,6 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
 
   const kc = KIND_CONFIG[room.kind];
   const daysLeft = daysUntil(room.expiresAt);
-  const liveMatchCount = MOCK_MATCHES.filter((m) => m.status === "BATTLING").length;
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -203,50 +234,69 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
                 ))}
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
-              {filteredMatches.map((m) => (
-                <div key={m.id} style={{ background: "var(--surface)", borderRadius: "var(--radius-sm)", border: `1.5px solid ${m.isMyMatch ? "var(--accent)" : "var(--line)"}`, padding: 14, position: "relative" }}>
-                  {m.isMyMatch && <span style={{ position: "absolute", top: 8, right: 8, background: "var(--accent)", color: "#fff", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 999 }}>YOU</span>}
-                  <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6, fontFamily: "JetBrains Mono, monospace" }}>マッチ #{m.no}</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: "var(--p1)" }}>{m.p1 ?? "---"}</span>
-                    <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>vs</span>
-                    {m.p2 ? (
-                      <span style={{ fontWeight: 700, fontSize: 13, color: "var(--p2)" }}>{m.p2}</span>
-                    ) : (
-                      <span style={{ fontWeight: 600, fontSize: 12, color: "var(--ink-soft)", background: "var(--bg-2)", padding: "2px 8px", borderRadius: 4, border: "1px dashed var(--line-2)" }}>募集中</span>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: m.status === "BATTLING" ? "var(--p2-soft)" : m.status === "CODING" ? "var(--p1-soft)" : "var(--bg-2)", color: m.status === "BATTLING" ? "var(--p2-ink)" : m.status === "CODING" ? "var(--p1-ink)" : "var(--ink-soft)" }}>{m.status}</span>
-                    {m.isMyMatch ? (
-                      <Link href={`/match/${m.id}/coding`} style={{ background: "var(--accent)", color: "#fff", padding: "5px 12px", borderRadius: 6, textDecoration: "none", fontSize: 12, fontWeight: 700 }}>▸ 入室する</Link>
-                    ) : m.p2 === null ? (
-                      <button style={{ background: "var(--accent)", color: "#fff", padding: "5px 12px", borderRadius: 6, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>＋ 参加する</button>
-                    ) : (
-                      <Link href={`/watch/${m.id}`} style={{ background: "rgba(8,145,178,0.1)", color: "var(--room-admin-accent)", padding: "5px 12px", borderRadius: 6, textDecoration: "none", fontSize: 12, fontWeight: 700, border: "1px solid var(--room-admin-accent)" }}>▸ 観戦する</Link>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            {filteredMatches.length === 0 ? (
+              <div style={{ background: "var(--surface)", border: "1px dashed var(--line-2)", borderRadius: "var(--radius-sm)", padding: "28px 16px", textAlign: "center", color: "var(--ink-soft)", fontSize: 13 }}>
+                該当するマッチはありません
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+                {filteredMatches.map((m) => {
+                  const p1 = nameOf(m.player1);
+                  const p2 = nameOf(m.player2);
+                  const isMyMatch = !!meId && (m.player1?.id === meId || m.player2?.id === meId);
+                  const isOpen = m.player2 === null;
+                  return (
+                    <div key={m.id} style={{ background: "var(--surface)", borderRadius: "var(--radius-sm)", border: `1.5px solid ${isMyMatch ? "var(--accent)" : "var(--line)"}`, padding: 14, position: "relative" }}>
+                      {isMyMatch && <span style={{ position: "absolute", top: 8, right: 8, background: "var(--accent)", color: "#fff", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 999 }}>YOU</span>}
+                      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginBottom: 6, fontFamily: "JetBrains Mono, monospace" }}>マッチ #{m.matchNumber}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                        <span style={{ fontWeight: 700, fontSize: 13, color: "var(--p1)" }}>{p1 ?? "---"}</span>
+                        <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>vs</span>
+                        {p2 ? (
+                          <span style={{ fontWeight: 700, fontSize: 13, color: "var(--p2)" }}>{p2}</span>
+                        ) : (
+                          <span style={{ fontWeight: 600, fontSize: 12, color: "var(--ink-soft)", background: "var(--bg-2)", padding: "2px 8px", borderRadius: 4, border: "1px dashed var(--line-2)" }}>募集中</span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: m.status === "BATTLING" ? "var(--p2-soft)" : m.status === "CODING" ? "var(--p1-soft)" : "var(--bg-2)", color: m.status === "BATTLING" ? "var(--p2-ink)" : m.status === "CODING" ? "var(--p1-ink)" : "var(--ink-soft)" }}>{m.status}</span>
+                        {isMyMatch ? (
+                          <Link href={`/match/${m.id}/coding`} style={{ background: "var(--accent)", color: "#fff", padding: "5px 12px", borderRadius: 6, textDecoration: "none", fontSize: 12, fontWeight: 700 }}>▸ 入室する</Link>
+                        ) : isOpen ? (
+                          <button style={{ background: "var(--accent)", color: "#fff", padding: "5px 12px", borderRadius: 6, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>＋ 参加する</button>
+                        ) : (
+                          <Link href={`/watch/${m.id}`} style={{ background: "rgba(8,145,178,0.1)", color: "var(--room-admin-accent)", padding: "5px 12px", borderRadius: 6, textDecoration: "none", fontSize: 12, fontWeight: 700, border: "1px solid var(--room-admin-accent)" }}>▸ 観戦する</Link>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Right: Schedule + Ranking */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div className="card" style={{ padding: 18 }}>
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>あなたの戦績</div>
-              <div style={{ textAlign: "center", padding: "10px 0" }}>
-                <div style={{ fontSize: 32, fontWeight: 800 }}>3位</div>
-                <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>勝率 61%</div>
-                <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8, fontSize: 12 }}>
-                  <span style={{ color: "var(--success)" }}>11W</span>
-                  <span style={{ color: "var(--danger)" }}>7L</span>
-                  <span style={{ color: "var(--ink-soft)" }}>1D</span>
+              {myStanding ? (
+                <div style={{ textAlign: "center", padding: "10px 0" }}>
+                  <div style={{ fontSize: 32, fontWeight: 800 }}>{myStanding.rank}位</div>
+                  <div style={{ fontSize: 13, color: "var(--ink-soft)" }}>勝率 {Math.round(myStanding.winRate * 100)}%</div>
+                  <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8, fontSize: 12 }}>
+                    <span style={{ color: "var(--success)" }}>{myStanding.wins}W</span>
+                    <span style={{ color: "var(--danger)" }}>{myStanding.losses}L</span>
+                    <span style={{ color: "var(--ink-soft)" }}>{myStanding.draws}D</span>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div style={{ textAlign: "center", padding: "16px 0", fontSize: 12, color: "var(--ink-soft)" }}>
+                  このルームでの対戦記録はまだありません
+                </div>
+              )}
             </div>
 
+            {/* "あなたの予定" is still mock — no schedule API yet (ROADMAP C). */}
             <div className="card" style={{ padding: 18 }}>
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>あなたの予定</div>
               {[
@@ -263,13 +313,23 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
 
             <div className="card" style={{ padding: 18 }}>
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Top 5 ランキング</div>
-              {MOCK_RANKING.map((r) => (
-                <div key={r.rank} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--line)", background: r.isMe ? "var(--accent-soft)" : "transparent", borderRadius: r.isMe ? 6 : 0, paddingLeft: r.isMe ? 6 : 0 }}>
-                  <span style={{ width: 20, fontSize: 12, fontWeight: 700, color: r.rank === 1 ? "#d97706" : "var(--ink-soft)" }}>{r.rank === 1 ? "👑" : r.rank}</span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: r.isMe ? 700 : 400 }}>{r.name}{r.isMe && " (あなた)"}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700 }}>{r.winRate}</span>
+              {standings.length === 0 ? (
+                <div style={{ padding: "12px 0", fontSize: 12, color: "var(--ink-soft)" }}>
+                  まだランキングはありません
                 </div>
-              ))}
+              ) : (
+                standings.slice(0, 5).map((r) => {
+                  const isMe = r.userId === meId;
+                  const name = r.displayName ?? r.username;
+                  return (
+                    <div key={r.userId} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: "1px solid var(--line)", background: isMe ? "var(--accent-soft)" : "transparent", borderRadius: isMe ? 6 : 0, paddingLeft: isMe ? 6 : 0 }}>
+                      <span style={{ width: 20, fontSize: 12, fontWeight: 700, color: r.rank === 1 ? "#d97706" : "var(--ink-soft)" }}>{r.rank === 1 ? "👑" : r.rank}</span>
+                      <span style={{ flex: 1, fontSize: 13, fontWeight: isMe ? 700 : 400 }}>{name}{isMe && " (あなた)"}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700 }}>{Math.round(r.winRate * 100)}%</span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

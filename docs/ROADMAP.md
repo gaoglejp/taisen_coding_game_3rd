@@ -85,13 +85,13 @@ scaffolding is gone.
 | Item | Status | Notes |
 | :--- | :----- | :---- |
 | Room hero (name / kind / members / expiry) | ✅ | PR #11 |
-| Matches list in room | ⬜ | `/api/rooms/:n/matches` **already exists** — wire it |
-| Standings (top 5) | ⬜ | `/api/rooms/:n/standings` **already exists** — wire it |
-| "Your record" / "Your schedule" | ⬜ | Partly derivable from `/api/me/*`; schedule needs a source **(TBD)** |
+| Matches list in room | ✅ | PR #12 — wired to `/api/rooms/:n/matches` |
+| Standings (top 5) | ✅ | PR #12 — wired to `/api/rooms/:n/standings` |
+| "Your record" | ✅ | PR #12 — derived from standings (my entry) |
+| "Your schedule" | ⬜ | Still mock; needs a schedule source **(TBD)** |
 | Announcements | ⬜ | `Announcement` model exists; no API yet |
 
-**C is done when** the room page renders matches + standings from the existing
-endpoints and announcements have an API.
+**C is done when** the schedule has a source and announcements have an API.
 
 ### Milestone D — Admin operations
 
@@ -124,12 +124,15 @@ scope is **TBD**.
 ## 3. Current snapshot (2026-05-23)
 
 - **Merged**: PR #4 (CI), #5 (simulator), #6 (stats aggregation), #7 (result
-  page + shared docs), #8 (coding header), #9 (watch page), #10 (Vitest).
-- **Open**: PR #11 (rooms hero).
+  page + shared docs), #8 (coding header), #9 (watch page), #10 (Vitest),
+  #11 (rooms hero + this roadmap).
+- **Open**: PR #12 (rooms matches + standings).
 - **Critical path to v0.2**: the **Blockly → strategy serializer (Milestone
   A)** is the single highest-leverage piece — it's the last thing standing
-  between "the simulator runs" and "students actually compete." Recommend it
-  next once this roadmap is reviewed.
+  between "the simulator runs" and "students actually compete." It needs a
+  product call on the editor approach (real Blockly integration vs. a
+  lightweight rule-builder) before building — flagged in STATUS open
+  questions.
 
 ---
 
