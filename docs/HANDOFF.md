@@ -208,10 +208,11 @@ These are the calls the previous session made that the next session should
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **No automated tests.** The verification above was manual. Adding Vitest
-   would unlock unit tests for `src/lib/match-simulator.ts` (pure functions,
-   easy first target) and `src/lib/auth.ts`; Playwright would cover the 17
-   pages end-to-end.
+5. **Test coverage is thin.** Vitest is wired up (PR #10) and the
+   simulator has 9 unit tests in `src/lib/match-simulator.test.ts` — that
+   was the easy first target. Still missing: tests for `src/lib/auth.ts`
+   (cookie session round-trip, role checks) and Playwright coverage of
+   the 17 pages end-to-end.
 6. ~~CI is not set up.~~ **Done.** `.github/workflows/ci.yml` runs lint,
    `tsc --noEmit`, and `next build` on every PR (PR #4).
 

@@ -9,6 +9,8 @@
     "postinstall": "prisma generate",
     "start": "NODE_ENV=production tsx server.ts",
     "lint": "eslint",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts"
@@ -39,6 +41,7 @@
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
     "tsx": "^4.22.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.4"
   }
 }
