@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
@@ -15,6 +15,26 @@ const SYSTEM_NAV = [
   { label: "設定", href: "/admin/system/settings", icon: "⚙" },
 ];
 
+interface AuditActor {
+  id: string;
+  username: string;
+  displayName: string | null;
+  role: UserRole;
+}
+
+interface AuditLogRow {
+  id: string;
+  action: string;
+  actor: AuditActor | null;
+  targetType: string | null;
+  targetId: string | null;
+  summary: string | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  metadata: unknown;
+  createdAt: string;
+}
+
 const ACTION_CONFIG: Record<string, { label: string; bg: string; color: string; category: string }> = {
   ROOM_CREATE: { label: "ROOM_CREATE", bg: "#dcfce7", color: "#15803d", category: "CREATE" },
   ROOM_UPDATE: { label: "ROOM_UPDATE", bg: "#dbeafe", color: "#1d4ed8", category: "UPDATE" },
@@ -26,8 +46,10 @@ const ACTION_CONFIG: Record<string, { label: string; bg: string; color: string; 
   USER_ENABLE: { label: "USER_ENABLE", bg: "#dcfce7", color: "#15803d", category: "UPDATE" },
   USER_PROMOTE: { label: "USER_PROMOTE", bg: "#ede9fe", color: "#7c3aed", category: "PERMISSION" },
   USER_FORCE_PASSWORD_RESET: { label: "USER_FORCE_PWD_RESET", bg: "#fef3c7", color: "#92400e", category: "UPDATE" },
+  USER_DISABLE_2FA: { label: "USER_DISABLE_2FA", bg: "#fef3c7", color: "#92400e", category: "UPDATE" },
   MEMBER_ISSUE: { label: "MEMBER_ISSUE", bg: "#dcfce7", color: "#15803d", category: "CREATE" },
   MEMBER_REISSUE: { label: "MEMBER_REISSUE", bg: "#dbeafe", color: "#1d4ed8", category: "UPDATE" },
+  MEMBER_DISABLE: { label: "MEMBER_DISABLE", bg: "#fee2e2", color: "#dc2626", category: "DELETE" },
   MATCH_CREATE: { label: "MATCH_CREATE", bg: "#dcfce7", color: "#15803d", category: "CREATE" },
   MATCH_CANCEL: { label: "MATCH_CANCEL", bg: "#fee2e2", color: "#dc2626", category: "DELETE" },
   LOGIN_SUCCESS: { label: "LOGIN_SUCCESS", bg: "#fef3c7", color: "#92400e", category: "AUTH" },
@@ -36,20 +58,13 @@ const ACTION_CONFIG: Record<string, { label: string; bg: string; color: string; 
   PERMISSION_GRANT: { label: "PERMISSION_GRANT", bg: "#ede9fe", color: "#7c3aed", category: "PERMISSION" },
 };
 
-const MOCK_LOGS = [
-  { id: "log-001", action: "ROOM_CREATE", actor: { username: "yamada_t", displayName: "山田 太郎", role: "SYSTEM_ADMIN" as UserRole }, targetType: "ROOM", targetId: "R-2403", summary: "パブリックロビー β を作成", ip: "203.0.113.1", ua: "Mozilla/5.0 (Mac)", createdAt: "2024-03-15 11:05:22", meta: { roomName: "パブリックロビー β", kind: "PUBLIC_LOBBY" } },
-  { id: "log-002", action: "USER_INVITE", actor: { username: "yamada_t", displayName: "山田 太郎", role: "SYSTEM_ADMIN" as UserRole }, targetType: "USER", targetId: "u7", summary: "kobayashi_y を GENERAL_USER として招待", ip: "203.0.113.1", ua: "Mozilla/5.0 (Mac)", createdAt: "2024-03-14 16:42:11", meta: { email: "kobayashi@example.com", role: "GENERAL_USER" } },
-  { id: "log-003", action: "LOGIN_FAILURE", actor: { username: "kato_n", displayName: "加藤 奈々", role: "ROOM_USER" as UserRole }, targetType: "USER", targetId: "u8", summary: "パスワード認証失敗 (3回目)", ip: "198.51.100.5", ua: "Chrome/120 (Win)", createdAt: "2024-03-14 15:30:00", meta: { attempts: 3, locked: false } },
-  { id: "log-004", action: "LOGIN_FAILURE", actor: { username: "kato_n", displayName: "加藤 奈々", role: "ROOM_USER" as UserRole }, targetType: "USER", targetId: "u8", summary: "パスワード認証失敗 (4回目)", ip: "198.51.100.5", ua: "Chrome/120 (Win)", createdAt: "2024-03-14 15:31:02", meta: { attempts: 4, locked: false } },
-  { id: "log-005", action: "USER_DISABLE", actor: { username: "yamada_t", displayName: "山田 太郎", role: "SYSTEM_ADMIN" as UserRole }, targetType: "USER", targetId: "u6", summary: "nakamura_s を無効化", ip: "203.0.113.1", ua: "Mozilla/5.0 (Mac)", createdAt: "2024-03-14 14:20:45", meta: { reason: "アカウント侵害の疑い", previousStatus: "ACTIVE" } },
-  { id: "log-006", action: "MATCH_CANCEL", actor: { username: "suzuki_h", displayName: "鈴木 花子", role: "ROOM_ADMIN" as UserRole }, targetType: "MATCH", targetId: "M-042", summary: "マッチ #42 をキャンセル (NO_SHOW)", ip: "203.0.113.10", ua: "Firefox/121 (Mac)", createdAt: "2024-03-14 10:15:33", meta: { matchId: "M-042", reason: "NO_SHOW", roomId: "R-2402" } },
-  { id: "log-007", action: "PERMISSION_GRANT", actor: { username: "yamada_t", displayName: "山田 太郎", role: "SYSTEM_ADMIN" as UserRole }, targetType: "USER", targetId: "u3", summary: "tanaka_k を ROOM_ADMIN に昇格", ip: "203.0.113.1", ua: "Mozilla/5.0 (Mac)", createdAt: "2024-03-13 09:00:00", meta: { from: "GENERAL_USER", to: "ROOM_ADMIN", roomId: "R-2403" } },
-  { id: "log-008", action: "MEMBER_ISSUE", actor: { username: "tanaka_k", displayName: "田中 健二", role: "ROOM_ADMIN" as UserRole }, targetType: "ROOM", targetId: "R-2403", summary: "20件のメンバーコードを発行", ip: "203.0.113.20", ua: "Chrome/120 (Mac)", createdAt: "2024-03-12 13:30:00", meta: { count: 20, expiresAt: "2024-04-12" } },
-  { id: "log-009", action: "LOGIN_SUCCESS", actor: { username: "suzuki_h", displayName: "鈴木 花子", role: "ROOM_ADMIN" as UserRole }, targetType: "USER", targetId: "u2", summary: "ログイン成功", ip: "203.0.113.10", ua: "Firefox/121 (Mac)", createdAt: "2024-03-15 18:22:10", meta: { mfa: false } },
-  { id: "log-010", action: "ROOM_ARCHIVE", actor: { username: "yamada_t", displayName: "山田 太郎", role: "SYSTEM_ADMIN" as UserRole }, targetType: "ROOM", targetId: "R-2312", summary: "冬季特訓クラス をアーカイブ", ip: "203.0.113.1", ua: "Mozilla/5.0 (Mac)", createdAt: "2024-03-11 17:00:00", meta: { roomName: "冬季特訓クラス" } },
-];
-
 const PERIOD_OPTIONS = ["1h", "24h", "7日", "30日"];
+const PERIOD_MS: Record<string, number> = {
+  "1h": 3600_000,
+  "24h": 86_400_000,
+  "7日": 7 * 86_400_000,
+  "30日": 30 * 86_400_000,
+};
 const ACTION_CATEGORIES = ["すべて", "CREATE", "UPDATE", "DELETE", "AUTH", "FAIL", "PERMISSION"];
 const TARGET_TYPES = ["すべて", "ROOM", "USER", "MATCH"];
 
@@ -62,29 +77,103 @@ const CATEGORY_STYLE: Record<string, { bg: string; color: string }> = {
   PERMISSION: { bg: "#ede9fe", color: "#7c3aed" },
 };
 
+const LIMIT = 50;
+
+function fmtDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 19)}`;
+}
+
 export default function SystemAuditPage() {
   const [period, setPeriod] = useState("24h");
   const [actionFilter, setActionFilter] = useState("すべて");
   const [targetFilter, setTargetFilter] = useState("すべて");
   const [actorSearch, setActorSearch] = useState("");
   const [keyword, setKeyword] = useState("");
-  const [selectedLog, setSelectedLog] = useState<typeof MOCK_LOGS[0] | null>(null);
-  const [page, setPage] = useState(1);
+  const [selectedLog, setSelectedLog] = useState<AuditLogRow | null>(null);
 
-  const loginFailures = MOCK_LOGS.filter((l) => l.action === "LOGIN_FAILURE").length;
+  const [logs, setLogs] = useState<AuditLogRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  // Cursor stack for prev/next. cursorStack[i] is the cursor used to fetch
+  // page i (cursorStack[0] = null = first page). The audit API is forward-only
+  // cursor based, so we remember each page's cursor to step back.
+  const [cursorStack, setCursorStack] = useState<(string | null)[]>([null]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasNextPage, setHasNextPage] = useState(false);
 
-  const filtered = MOCK_LOGS.filter((log) => {
+  const load = useCallback(
+    async (cursor: string | null, signal?: AbortSignal) => {
+      setLoading(true);
+      const params = new URLSearchParams();
+      params.set("limit", String(LIMIT));
+      const ms = PERIOD_MS[period];
+      if (ms) params.set("from", new Date(Date.now() - ms).toISOString());
+      if (actorSearch) params.set("actor", actorSearch);
+      if (keyword) params.set("q", keyword);
+      if (cursor) params.set("cursor", cursor);
+      try {
+        const res = await fetch(`/api/admin/audit?${params.toString()}`, { signal });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error ?? "監査ログを取得できませんでした");
+          setLogs([]);
+          return;
+        }
+        const data = await res.json();
+        setLogs(data.logs ?? []);
+        setHasNextPage(data.pagination?.hasNextPage ?? false);
+        setNextCursor(data.pagination?.nextCursor ?? null);
+        setError(null);
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") setError("監査ログを取得できませんでした");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [period, actorSearch, keyword]
+  );
+
+  // Server-driven filters (period / actor / keyword) reset to the first page;
+  // debounced so the two text inputs don't fire per keystroke.
+  useEffect(() => {
+    const controller = new AbortController();
+    const t = setTimeout(() => {
+      setCursorStack([null]);
+      setPageIndex(0);
+      load(null, controller.signal);
+    }, 250);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [load]);
+
+  const goNext = () => {
+    if (!hasNextPage || !nextCursor) return;
+    setCursorStack((prev) => [...prev.slice(0, pageIndex + 1), nextCursor]);
+    setPageIndex((i) => i + 1);
+    load(nextCursor);
+  };
+  const goPrev = () => {
+    if (pageIndex === 0) return;
+    const prevIdx = pageIndex - 1;
+    setPageIndex(prevIdx);
+    load(cursorStack[prevIdx]);
+  };
+
+  // action category + target-type are refined client-side over the loaded
+  // page (the API filters by exact action / targetId, not category / type).
+  const pageItems = logs.filter((log) => {
     const cfg = ACTION_CONFIG[log.action];
     if (actionFilter !== "すべて" && cfg?.category !== actionFilter) return false;
     if (targetFilter !== "すべて" && log.targetType !== targetFilter) return false;
-    if (actorSearch && !log.actor.username.includes(actorSearch)) return false;
-    if (keyword && !log.summary.includes(keyword) && !log.id.includes(keyword)) return false;
     return true;
   });
 
-  const perPage = 10;
-  const totalPages = Math.ceil(filtered.length / perPage);
-  const pageItems = filtered.slice((page - 1) * perPage, page * perPage);
+  const loginFailures = pageItems.filter((l) => l.action === "LOGIN_FAILURE").length;
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
@@ -169,9 +258,17 @@ export default function SystemAuditPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pageItems.map((log, i) => {
+                  {(loading || error || pageItems.length === 0) && (
+                    <tr>
+                      <td colSpan={8} style={{ padding: "32px 12px", textAlign: "center", fontSize: 13, color: error ? "#dc2626" : "var(--ink-soft)", fontFamily: "sans-serif" }}>
+                        {error ? error : loading ? "読み込み中…" : "該当するログはありません"}
+                      </td>
+                    </tr>
+                  )}
+                  {!loading && !error && pageItems.map((log, i) => {
                     const cfg = ACTION_CONFIG[log.action];
                     const isSelected = selectedLog?.id === log.id;
+                    const actorName = log.actor?.displayName ?? log.actor?.username ?? "—";
                     return (
                       <tr
                         key={log.id}
@@ -183,17 +280,21 @@ export default function SystemAuditPage() {
                           transition: "background 0.1s",
                         }}
                       >
-                        <td style={{ padding: "10px 12px", fontSize: 11, color: "var(--ink-soft)", whiteSpace: "nowrap" }}>{log.createdAt}</td>
+                        <td style={{ padding: "10px 12px", fontSize: 11, color: "var(--ink-soft)", whiteSpace: "nowrap" }}>{fmtDateTime(log.createdAt)}</td>
                         <td style={{ padding: "10px 12px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                            <div style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--admin-accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
-                              {log.actor.displayName[0]}
+                          {log.actor ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "var(--admin-accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+                                {actorName[0]}
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink)" }}>@{log.actor.username}</div>
+                                <RoleBadge role={log.actor.role} size="sm" />
+                              </div>
                             </div>
-                            <div>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink)" }}>@{log.actor.username}</div>
-                              <RoleBadge role={log.actor.role} size="sm" />
-                            </div>
-                          </div>
+                          ) : (
+                            <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>システム</span>
+                          )}
                         </td>
                         <td style={{ padding: "10px 12px" }}>
                           {cfg && (
@@ -203,12 +304,14 @@ export default function SystemAuditPage() {
                           )}
                         </td>
                         <td style={{ padding: "10px 12px", fontSize: 11, color: "var(--ink)" }}>
-                          <span style={{ fontSize: 10, background: "#f3f4f6", color: "#6b7280", borderRadius: 4, padding: "1px 5px", marginRight: 4 }}>{log.targetType}</span>
-                          {log.targetId}
+                          {log.targetType && (
+                            <span style={{ fontSize: 10, background: "#f3f4f6", color: "#6b7280", borderRadius: 4, padding: "1px 5px", marginRight: 4 }}>{log.targetType}</span>
+                          )}
+                          {log.targetId ?? "—"}
                         </td>
-                        <td style={{ padding: "10px 12px", fontSize: 12, color: "var(--ink)", fontFamily: "sans-serif", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.summary}</td>
-                        <td style={{ padding: "10px 12px", fontSize: 10, color: "var(--ink-soft)" }}>{log.ip}</td>
-                        <td style={{ padding: "10px 12px", fontSize: 10, color: "var(--ink-soft)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.ua}</td>
+                        <td style={{ padding: "10px 12px", fontSize: 12, color: "var(--ink)", fontFamily: "sans-serif", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.summary ?? "—"}</td>
+                        <td style={{ padding: "10px 12px", fontSize: 10, color: "var(--ink-soft)" }}>{log.ipAddress ?? "—"}</td>
+                        <td style={{ padding: "10px 12px", fontSize: 10, color: "var(--ink-soft)", maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{log.userAgent ?? "—"}</td>
                         <td style={{ padding: "10px 12px" }}>
                           <button style={{ background: isSelected ? "var(--admin-accent)" : "#f3f4f6", color: isSelected ? "#fff" : "var(--ink)", border: "none", borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}>
                             {isSelected ? "閉じる" : "詳細"}
@@ -228,41 +331,43 @@ export default function SystemAuditPage() {
                   <span style={{ fontSize: 11, fontWeight: 700, color: "var(--admin-accent)", fontFamily: "JetBrains Mono, monospace" }}>{selectedLog.id}</span>
                   <button onClick={() => setSelectedLog(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--ink-soft)" }}>✕</button>
                 </div>
-                <div style={{ fontSize: 11, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace", marginBottom: "12px" }}>{selectedLog.createdAt}</div>
+                <div style={{ fontSize: 11, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace", marginBottom: "12px" }}>{fmtDateTime(selectedLog.createdAt)}</div>
                 {ACTION_CONFIG[selectedLog.action] && (
                   <span style={{ ...(() => { const c = ACTION_CONFIG[selectedLog.action]; return { background: c.bg, color: c.color }; })(), fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 999, fontFamily: "JetBrains Mono, monospace", display: "inline-block", marginBottom: "16px" }}>
                     {selectedLog.action}
                   </span>
                 )}
                 <table style={{ width: "100%", marginBottom: "16px", borderCollapse: "collapse" }}>
-                  {[
-                    ["アクター", `@${selectedLog.actor.username}`],
-                    ["対象種別", selectedLog.targetType],
-                    ["対象ID", selectedLog.targetId],
-                    ["IP", selectedLog.ip],
-                  ].map(([k, v]) => (
-                    <tr key={k} style={{ borderBottom: "1px solid var(--line)" }}>
-                      <td style={{ padding: "6px 0", fontSize: 11, color: "var(--ink-soft)", width: "40%", fontFamily: "JetBrains Mono, monospace" }}>{k}</td>
-                      <td style={{ padding: "6px 0", fontSize: 11, color: "var(--ink)", fontFamily: "JetBrains Mono, monospace" }}>{v}</td>
-                    </tr>
-                  ))}
+                  <tbody>
+                    {[
+                      ["アクター", selectedLog.actor ? `@${selectedLog.actor.username}` : "システム"],
+                      ["対象種別", selectedLog.targetType ?? "—"],
+                      ["対象ID", selectedLog.targetId ?? "—"],
+                      ["IP", selectedLog.ipAddress ?? "—"],
+                    ].map(([k, v]) => (
+                      <tr key={k} style={{ borderBottom: "1px solid var(--line)" }}>
+                        <td style={{ padding: "6px 0", fontSize: 11, color: "var(--ink-soft)", width: "40%", fontFamily: "JetBrains Mono, monospace" }}>{k}</td>
+                        <td style={{ padding: "6px 0", fontSize: 11, color: "var(--ink)", fontFamily: "JetBrains Mono, monospace" }}>{v}</td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", marginBottom: "6px", letterSpacing: "0.05em" }}>METADATA</div>
                 <pre style={{ background: "#1e1e2e", color: "#cdd6f4", borderRadius: 8, padding: "12px", fontSize: 11, overflowX: "auto", lineHeight: 1.6, margin: 0 }}>
-                  {JSON.stringify(selectedLog.meta, null, 2)}
+                  {JSON.stringify(selectedLog.metadata ?? {}, null, 2)}
                 </pre>
               </div>
             )}
           </div>
 
-          {/* Pagination */}
+          {/* Pagination (cursor-based) */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px" }}>
             <span style={{ fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
-              cursor: {(page - 1) * perPage} — {filtered.length === 0 ? "0件" : `${(page - 1) * perPage + 1}–${Math.min(page * perPage, filtered.length)} / ${filtered.length}件`}
+              ページ {pageIndex + 1} · {pageItems.length} 件表示{actionFilter !== "すべて" || targetFilter !== "すべて" ? " (絞り込み後)" : ""}
             </span>
             <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} style={{ ...pageBtnStyle, opacity: page === 1 ? 0.4 : 1 }}>← 前</button>
-              <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} style={{ ...pageBtnStyle, opacity: page >= totalPages ? 0.4 : 1 }}>次 →</button>
+              <button onClick={goPrev} disabled={pageIndex === 0 || loading} style={{ ...pageBtnStyle, opacity: pageIndex === 0 || loading ? 0.4 : 1 }}>← 前</button>
+              <button onClick={goNext} disabled={!hasNextPage || loading} style={{ ...pageBtnStyle, opacity: !hasNextPage || loading ? 0.4 : 1 }}>次 →</button>
             </div>
           </div>
         </main>

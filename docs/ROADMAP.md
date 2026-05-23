@@ -100,8 +100,9 @@ scaffolding is gone.
 | Admin API routes (users / rooms / members / audit) | ✅ | Implemented (HANDOFF §1) |
 | System users page | ✅ | PR #14 — `/api/admin/users` (server filter + pagination) |
 | System rooms page | ✅ | PR #15 — `/api/admin/rooms` (server filter + pagination + status counts) |
-| System audit page | ⬜ | Cursor pagination + category/target-type filters need care — own PR |
-| Room overview / members / matches / standings pages | ⬜ | Render on mocks; wire to `/api/admin/rooms/:id/*` |
+| System audit page | ✅ | PR #16 — `/api/admin/audit` (cursor pagination; category/type filtered client-side) |
+| Room overview page | ✅ | PR #16 — `/api/admin/rooms/:id` + matches/standings (today-matches & activity still mock) |
+| Room members / matches / standings pages | ⬜ | Render on mocks; wire to `/api/admin/rooms/:id/*` |
 | Room settings page | ⬜ | Wire to `PATCH /api/admin/rooms/:id` |
 | Invite-code validation on signup | ⬜ | HANDOFF §4.4 — needs `InviteCode` model (schema change) |
 | Account actions (invite / disable / reset) | ⬜ | Modals exist on the users page but POST/PATCH not wired |

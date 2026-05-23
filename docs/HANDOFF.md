@@ -203,9 +203,10 @@ These are the calls the previous session made that the next session should
    the watch page's obstacles / items / timeline-events / commentary /
    state-gallery; the rooms page's "your schedule" + announcements; the
    admin account-action modals (invite / disable / reset); and the
-   remaining admin pages. The system **users** (PR #14) and **rooms**
-   (PR #15) admin pages are wired to `/api/admin/{users,rooms}`
-   (server-side filter + pagination).
+   remaining admin **room-scoped** pages (members / matches / standings /
+   settings) and the admin write-action modals. The system **users**
+   (PR #14), **rooms** (PR #15), **audit** (PR #16) pages and the room
+   **overview** page (PR #16) are wired to `/api/admin/*`.
 4. **TODOs flagged in routes:**
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
      future `InviteCode` model (schema change required)
