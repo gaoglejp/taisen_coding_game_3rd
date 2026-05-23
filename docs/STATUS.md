@@ -13,53 +13,53 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #18 — feat(admin): wire room matches page (LIST) to /api/admin/rooms/:id/matches
+- **PR**: #19 — feat(admin): wire room settings page to /api/admin/rooms/:id
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-23
 - **Status**: open, awaiting CI
 
+### Product decision captured
+
+Room **detail/settings** stays **SYSTEM_ADMIN-only** for now (`GET`/`PATCH`/
+`archive`/`restore`/`DELETE /api/admin/rooms/:id` keep their `isSystemAdmin`
+guard — no API change). May open to ROOM_ADMIN later, not in v0.2. This is the
+answer to the prior PR's open question. Recorded in ROADMAP §2 Milestone D.
+
 ### What changed
 
-- **`src/app/admin/rooms/[roomId]/matches/page.tsx` LIST view rewired**:
-  drops `MOCK_MATCHES` / `STATUS_COUNTS`. Fetches
-  `/api/admin/rooms/:id/matches` and maps each match to a view model
-  carrying both the real `id` (React key, `/watch/:id` link, cancel
-  target) and a `#<matchNumber>` display label. Round / players /
-  coding-deadline / status / winner (P1·P2 from winnerId) / end-reason
-  (mapped to JP) all render from real data. Status-filter counts and the
-  header pills (合計 / LIVE / FINISHED / CANCELED) are computed from the
-  fetched list. Sidenav room name/number from the same response. Empty /
-  error row added; the decorative fixed pagination was replaced with a
-  real count.
-- **Small API extension**: `GET /api/admin/rooms/:id/matches` now also
-  returns `room: { id, name, roomNumber }` (same reasoning as the
-  members endpoint — ROOM_ADMIN can't hit the system-admin room detail).
-- **Still mock / UI-only**: the TOURNAMENT and ROUND_ROBIN bracket
-  views (separate visualization components with their own sample data),
-  the create-match modal (MANUAL/RANDOM/ROUND_ROBIN/TOURNAMENT), and the
-  cancel-match modal — all POST/PATCH actions for a later write PR.
-- **Standings page deferred**: it needs per-player avg-damage /
-  avg-turns / recent-form / end-reason-breakdown that the standings API
-  doesn't expose. Wiring it would leave too many "—" columns — better
-  to add an enriched aggregation endpoint first. Tracked in ROADMAP.
+- **`src/app/admin/rooms/[roomId]/settings/page.tsx` rewired**: drops the
+  `DEFAULT_SETTINGS` seed as live state. Loads via `GET
+  /api/admin/rooms/:id` (loading + 403 + error states; a non-system-admin
+  sees "システム管理者のみ利用できます"). Save issues `PATCH` with the
+  basic fields (name/description/kind/expiresAt), visibility
+  (watchingPublic/rankingPublic via PUBLIC↔MEMBERS_ONLY↔DISABLED mapping,
+  replayShareEnabled), and the rule/coding/items bundled into
+  `rulePreset`. Archive/restore/delete call their real endpoints
+  (delete prompts for the room number, then redirects to the rooms list).
+- **rulePreset round-trips but is simulator-inert**: board size, AP,
+  items, coding limits save into `Room.rulePreset` and reload correctly,
+  but the simulator still uses fixed defaults (post-v0.2 "simulator
+  depth"). The visibility + basic-info + lifecycle parts take effect
+  immediately.
+- `DEFAULT_SETTINGS` is retained only as the fallback for empty
+  `rulePreset` fields (and "reset rules" button).
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Admin room settings page** (`/admin/rooms/:id/settings`,
-   ROADMAP Milestone D). Wire the form to `GET`/`PATCH
-   /api/admin/rooms/:id` (name, description, kind, expiresAt,
-   watchingPublic, rankingPublic, replayShareEnabled). Note the GET is
-   `isSystemAdmin`-gated — confirm the settings page is a system-admin
-   surface, or extend the guard, before relying on it.
+1. **Admin write actions** (ROADMAP Milestone D). Wire the modals that
+   are still UI-only to existing endpoints: member issue/reissue/disable
+   (`POST`/`PATCH /api/admin/rooms/:id/members[/:mid]`), room
+   create/delete/archive, and account invite/disable/reset on the users
+   page. **Match-cancel needs a new endpoint** (`MATCH_CANCEL` audit
+   action exists, route doesn't) — build it as part of this.
 2. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
    critical-path blocker). Needs a product call first: real Blockly
    integration vs. a lightweight rule-builder. Highest-leverage piece
    for actual gameplay once decided.
-3. **Admin write actions** (ROADMAP Milestone D). Wire the create /
-   cancel / issue / reissue / disable / archive modals that are
-   currently UI-only across the admin pages to their POST/PATCH/DELETE
-   endpoints, with the confirmation flows already drawn. Also unblocks
-   an enriched standings endpoint for the room standings page.
+3. **Enriched standings endpoint + room standings page** (ROADMAP
+   Milestone D). Add per-player avg-damage / avg-turns / recent-form
+   (from `replayData`) to `/api/admin/rooms/:id/standings`, then wire the
+   standings page that was deferred in PR #18.
 
 ### Deferred / out of scope right now
 
@@ -95,6 +95,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #18** (merged) — feat(admin): wire room matches page (LIST) to
+  `/api/admin/rooms/:id/matches`. Bracket views + create/cancel modals
+  still mock; matches endpoint extended to return `room`.
 - **PR #17** (merged) — feat(admin): wire room members page to
   `/api/admin/rooms/:id/members` (+ standings for W/L/D). Members
   endpoint extended to return `room`.

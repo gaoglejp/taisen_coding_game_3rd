@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useState, useEffect, use } from "react";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
@@ -93,9 +92,76 @@ const TEAL = "var(--room-admin-accent)";
 const TEAL_INK = "var(--room-admin-accent-ink)";
 const TEAL_SOFT = "var(--room-admin-accent-soft)";
 
-export default function RoomSettingsPage() {
-  const params = useParams();
-  const roomId = (params?.roomId as string) ?? DEFAULT_SETTINGS.id;
+// Schema stores watchingPublic/rankingPublic as free strings; the meaningful
+// values used by the access checks are PUBLIC / MEMBERS_ONLY / DISABLED. The
+// settings UI models them as PUBLIC / MEMBERS / PRIVATE.
+function toVisibility(v: string | null | undefined): Visibility {
+  if (v === "PUBLIC") return "PUBLIC";
+  if (v === "DISABLED") return "PRIVATE";
+  return "MEMBERS";
+}
+function fromVisibility(v: Visibility): string {
+  if (v === "PUBLIC") return "PUBLIC";
+  if (v === "PRIVATE") return "DISABLED";
+  return "MEMBERS_ONLY";
+}
+function toDeadlineInput(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 16)}`;
+}
+
+interface ApiRoom {
+  id: string;
+  roomNumber: string;
+  name: string;
+  description: string | null;
+  kind: Kind;
+  status: "ACTIVE" | "ARCHIVED" | "DELETED";
+  expiresAt: string | null;
+  rulePreset: Record<string, unknown> | null;
+  watchingPublic: string;
+  rankingPublic: string;
+  replayShareEnabled: boolean;
+}
+
+// Build the form model from the API room. Rule/coding/items live in the
+// freeform rulePreset blob (still simulator-inert), so they fall back to the
+// defaults when the preset is empty.
+function settingsFromApi(room: ApiRoom): RoomSettings {
+  const preset = (room.rulePreset ?? {}) as Partial<RoomSettings["rule"]> & {
+    items?: RoomSettings["rule"]["items"];
+    coding?: RoomSettings["coding"];
+  };
+  return {
+    id: room.roomNumber,
+    name: room.name,
+    description: room.description ?? "",
+    kind: room.kind,
+    deadline: toDeadlineInput(room.expiresAt),
+    rule: {
+      width: preset.width ?? DEFAULT_SETTINGS.rule.width,
+      height: preset.height ?? DEFAULT_SETTINGS.rule.height,
+      maxTurn: preset.maxTurn ?? DEFAULT_SETTINGS.rule.maxTurn,
+      apPerTurn: preset.apPerTurn ?? DEFAULT_SETTINGS.rule.apPerTurn,
+      scanRange: preset.scanRange ?? DEFAULT_SETTINGS.rule.scanRange,
+      obstacles: preset.obstacles ?? DEFAULT_SETTINGS.rule.obstacles,
+      seed: preset.seed ?? "",
+      items: preset.items ?? DEFAULT_SETTINGS.rule.items,
+    },
+    coding: preset.coding ?? DEFAULT_SETTINGS.coding,
+    visibility: {
+      spectate: toVisibility(room.watchingPublic),
+      standings: toVisibility(room.rankingPublic),
+      replayShare: room.replayShareEnabled,
+    },
+    status: room.status === "ARCHIVED" ? "ARCHIVED" : "ACTIVE",
+  };
+}
+
+export default function RoomSettingsPage({ params }: { params: Promise<{ roomId: string }> }) {
+  const { roomId } = use(params);
 
   const ROOM_NAV = [
     { label: "概要", href: `/admin/rooms/${roomId}`, icon: "📊" },
@@ -105,22 +171,43 @@ export default function RoomSettingsPage() {
     { label: "設定", href: `/admin/rooms/${roomId}/settings`, icon: "⚙" },
   ];
 
-  // form state
-  const [s, setS] = useState<RoomSettings>(DEFAULT_SETTINGS);
-  // dirty tracking (mocked: simulate 3 unsaved changes for demo of dirty state)
-  const [dirty, setDirty] = useState({
-    basic: 1,
-    rule: 1,
-    coding: 0,
-    visibility: 1,
-  });
+  // form state — populated from the API on mount. Starts as null so we can
+  // show a loading state and never flash mock defaults at the user.
+  const [s, setS] = useState<RoomSettings | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState({ basic: 0, rule: 0, coding: 0, visibility: 0 });
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string[] | null>(null);
   const [fieldErrors] = useState<Record<string, string>>({});
-  const [archived, setArchived] = useState(false);
 
-  const totalDirty =
-    dirty.basic + dirty.rule + dirty.coding + dirty.visibility;
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/admin/rooms/${roomId}`)
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setLoadError(
+            res.status === 403
+              ? "このページはシステム管理者のみ利用できます。"
+              : data?.error ?? "ルーム設定を取得できませんでした"
+          );
+          return;
+        }
+        const data = await res.json();
+        setS(settingsFromApi(data.room as ApiRoom));
+        setLoadError(null);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("ルーム設定を取得できませんでした");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId]);
+
+  const archived = s?.status === "ARCHIVED";
+  const totalDirty = dirty.basic + dirty.rule + dirty.coding + dirty.visibility;
   const isDirty = totalDirty > 0;
   const readOnly = archived;
 
@@ -129,38 +216,83 @@ export default function RoomSettingsPage() {
   };
 
   const handleSave = async () => {
+    if (!s) return;
     setSaving(true);
     setSaveError(null);
-    // bind: PATCH /admin/api/rooms/:id
-    await new Promise((r) => setTimeout(r, 800));
-    setSaving(false);
-    setDirty({ basic: 0, rule: 0, coding: 0, visibility: 0 });
+    try {
+      const res = await fetch(`/api/admin/rooms/${roomId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: s.name,
+          description: s.description,
+          kind: s.kind,
+          expiresAt: s.deadline ? new Date(s.deadline.replace(" ", "T")).toISOString() : null,
+          watchingPublic: fromVisibility(s.visibility.spectate),
+          rankingPublic: fromVisibility(s.visibility.standings),
+          replayShareEnabled: s.visibility.replayShare,
+          // Rule/coding/items persist in rulePreset; the simulator doesn't read
+          // them yet (post-v0.2), but they round-trip through this form.
+          rulePreset: { ...s.rule, coding: s.coding },
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setSaveError([data?.error ?? "保存に失敗しました"]);
+        return;
+      }
+      const data = await res.json();
+      setS(settingsFromApi(data.room as ApiRoom));
+      setDirty({ basic: 0, rule: 0, coding: 0, visibility: 0 });
+    } catch {
+      setSaveError(["保存に失敗しました"]);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDiscard = () => {
-    setS(DEFAULT_SETTINGS);
     setDirty({ basic: 0, rule: 0, coding: 0, visibility: 0 });
+    // Re-fetch to drop unsaved edits.
+    fetch(`/api/admin/rooms/${roomId}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => data?.room && setS(settingsFromApi(data.room as ApiRoom)))
+      .catch(() => {});
   };
 
   const handleResetRules = () => {
-    setS((cur) => ({ ...cur, rule: DEFAULT_SETTINGS.rule }));
+    setS((cur) => (cur ? { ...cur, rule: DEFAULT_SETTINGS.rule } : cur));
     markDirty("rule");
   };
 
   const handleArchive = async () => {
-    // bind: POST /admin/api/rooms/:id/archive
-    setArchived(true);
+    const res = await fetch(`/api/admin/rooms/${roomId}/archive`, { method: "POST" });
+    if (res.ok) setS((cur) => (cur ? { ...cur, status: "ARCHIVED" } : cur));
   };
 
   const handleRestore = async () => {
-    // bind: POST /admin/api/rooms/:id/restore
-    setArchived(false);
+    const res = await fetch(`/api/admin/rooms/${roomId}/restore`, { method: "POST" });
+    if (res.ok) setS((cur) => (cur ? { ...cur, status: "ACTIVE" } : cur));
   };
 
-  const handleDelete = () => {
-    // bind: DELETE /admin/api/rooms/:id  (requires room number re-entry confirmation)
-    alert("削除確認モーダル: ルーム番号の再入力が必要です。");
+  const handleDelete = async () => {
+    if (!s) return;
+    const entered = window.prompt(`削除するにはルーム番号「${s.id}」を入力してください。`);
+    if (entered !== s.id) return;
+    const res = await fetch(`/api/admin/rooms/${roomId}`, { method: "DELETE" });
+    if (res.ok) {
+      window.location.href = "/admin/system/rooms";
+    }
   };
+
+  if (loadError) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--ink-soft)" }}>{loadError}</div>
+    );
+  }
+  if (!s) {
+    return <div style={{ padding: 40, textAlign: "center", color: "var(--ink-soft)" }}>読み込み中…</div>;
+  }
 
   const dirtyParts: string[] = [];
   if (dirty.basic) dirtyParts.push(`基本情報(${dirty.basic})`);
