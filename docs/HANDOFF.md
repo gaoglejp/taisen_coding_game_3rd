@@ -203,11 +203,13 @@ These are the calls the previous session made that the next session should
    the watch page's obstacles / items / timeline-events / commentary /
    state-gallery; the rooms page's "your schedule" + announcements; the
    admin account-action modals (invite / disable / reset); and the
-   remaining admin **room-scoped** pages (standings / settings), the
-   matches-page bracket views, and the admin write-action modals. The
-   system **users** (PR #14), **rooms** (PR #15), **audit** (PR #16)
-   pages and the room **overview** (PR #16) + **members** (PR #17) +
-   **matches LIST** (PR #18) pages are wired to `/api/admin/*`.
+   remaining admin **room standings** page, the matches-page bracket
+   views, and the admin write-action modals. The system **users**
+   (PR #14), **rooms** (PR #15), **audit** (PR #16) pages and the room
+   **overview** (PR #16) + **members** (PR #17) + **matches LIST**
+   (PR #18) + **settings** (PR #19) pages are wired to `/api/admin/*`.
+   Note: room detail/settings is **SYSTEM_ADMIN-only** by product
+   decision (2026-05-23) — see ROADMAP §2 Milestone D.
 4. **TODOs flagged in routes:**
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
      future `InviteCode` model (schema change required)

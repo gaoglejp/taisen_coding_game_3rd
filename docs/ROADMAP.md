@@ -105,9 +105,15 @@ scaffolding is gone.
 | Room members page | ✅ | PR #17 — `/api/admin/rooms/:id/members` + standings for W/L/D |
 | Room matches page (LIST) | ✅ | PR #18 — `/api/admin/rooms/:id/matches`; bracket views still mock |
 | Room standings page | ⬜ | Needs damage/turns/recent aggregation the standings API doesn't expose — enriched endpoint first |
-| Room settings page | ⬜ | Wire to `PATCH /api/admin/rooms/:id` |
+| Room settings page | ✅ | PR #19 — GET/PATCH /api/admin/rooms/:id + archive/restore/delete (SYSTEM_ADMIN-only, per product decision) |
 | Invite-code validation on signup | ⬜ | HANDOFF §4.4 — needs `InviteCode` model (schema change) |
-| Account actions (invite / disable / reset) | ⬜ | Modals exist on the users page but POST/PATCH not wired |
+| Account / room write actions (invite / disable / reset / cancel-match) | ⬜ | Modals exist but POST/PATCH/DELETE not all wired; match-cancel endpoint missing |
+
+**Decision (2026-05-23):** Room **detail/settings** (`GET`/`PATCH`/`archive`/
+`restore`/`DELETE /api/admin/rooms/:id`) stays **SYSTEM_ADMIN-only** for now.
+May open to ROOM_ADMIN later, but not in v0.2. Member-composition and
+match-card management *are* already ROOM_ADMIN-capable (their endpoints use
+the `isAdmin` + own-room guard).
 
 **D is done when** an admin can manage a room without seeing any mock data.
 
