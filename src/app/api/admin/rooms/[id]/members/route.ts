@@ -54,6 +54,12 @@ export async function GET(req: NextRequest, { params }: Params) {
   const status = searchParams.get("status");
   const q = searchParams.get("q") ?? "";
 
+  const room = await prisma.room.findUnique({
+    where: { id },
+    select: { id: true, name: true, roomNumber: true },
+  });
+  if (!room) return NextResponse.json({ error: "ルームが見つかりません" }, { status: 404 });
+
   const memberships = await prisma.roomMembership.findMany({
     where: {
       roomId: id,
@@ -86,7 +92,7 @@ export async function GET(req: NextRequest, { params }: Params) {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json({ members: memberships });
+  return NextResponse.json({ room, members: memberships });
 }
 
 // POST /api/admin/rooms/:id/members
