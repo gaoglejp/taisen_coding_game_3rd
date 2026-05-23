@@ -1,82 +1,75 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState, use } from "react";
 
-const MOCK_RESULT = {
-  matchId: "match-001",
-  roomName: "教室A-5限",
-  matchNo: 7,
-  p1Name: "はなこ",
-  p2Name: "たろう",
-  winner: "p1",
-  endReason: "HP0",
-  totalTurns: 16,
-  timeSec: 48,
-  p1Hp: 42,
-  p2Hp: 0,
-  p1DamageDealt: 100,
-  p2DamageDealt: 58,
-  p1HitRate: 75,
-  p2HitRate: 50,
-  p1Scans: 4,
-  p2Scans: 2,
-  p1Moves: 8,
-  p2Moves: 6,
-  p1Shoots: 4,
-  p2Shoots: 4,
-  p1Items: 1,
-  p2Items: 0,
-  firstDamageTurn: 3,
-  winRate: 59,
-  winRateDelta: 1.2,
-  wins: 7,
-  losses: 4,
-  draws: 1,
-  roomRank: 3,
-  roomRankDelta: 2,
-};
+interface ApiPlayer {
+  id: string;
+  username: string;
+  displayName: string | null;
+}
 
-// HP timeline data per turn (P1, P2)
-const HP_TIMELINE = [
-  [100, 100],
-  [100, 100],
-  [100, 100],
-  [85, 100], // T3 FirstDamage
-  [85, 80],
-  [70, 80],
-  [70, 65],
-  [70, 50],
-  [55, 50],
-  [55, 35],
-  [42, 35],
-  [42, 20],
-  [42, 20],
-  [42, 10],
-  [42, 5],
-  [42, 0], // T16 end
-];
+interface ApiResult {
+  matchId: string;
+  matchNumber: number;
+  endReason: string | null;
+  winner: ApiPlayer | null;
+  winnerSide: "p1" | "p2" | null;
+  isDraw: boolean;
+  player1: ApiPlayer | null;
+  player2: ApiPlayer | null;
+  room: { id: string; name: string; roomNumber: string } | null;
+  durationMs: number | null;
+  startedAt: string | null;
+  endedAt: string | null;
+  stats: {
+    totalTurns: number;
+    p1: {
+      finalHp: number;
+      damageDealt: number;
+      damageTaken: number;
+      shoots: number;
+      hits: number;
+      hitRate: number;
+      scans: number;
+      moves: number;
+    };
+    p2: {
+      finalHp: number;
+      damageDealt: number;
+      damageTaken: number;
+      shoots: number;
+      hits: number;
+      hitRate: number;
+      scans: number;
+      moves: number;
+    };
+    firstDamageTurn: number | null;
+    firstDamageBy: "p1" | "p2" | null;
+    hpTimeline: Array<[number, number]>;
+  };
+}
 
-const RECENT_MATCHES = [
-  { no: 3, result: "WIN", opponent: "ゆいか", delta: "+1.1" },
-  { no: 4, result: "LOSS", opponent: "たろう", delta: "-0.8" },
-  { no: 5, result: "WIN", opponent: "けんじ", delta: "+0.9" },
-  { no: 6, result: "WIN", opponent: "さくら", delta: "+1.0" },
-  { no: 7, result: "WIN", opponent: MOCK_RESULT.p2Name, delta: "+1.2", isCurrent: true },
-];
+interface RecentMatch {
+  id: string;
+  matchNumber: number;
+  result: "WIN" | "LOSE" | "DRAW";
+  opponent: { id: string; username: string; displayName: string | null } | null;
+}
 
-const TURN_HIGHLIGHTS = [
-  { turn: 3, color: "#f59e0b", event: "First Damage! はなこ → たろう -15HP" },
-  { turn: 7, color: "#16a34a", event: "アイテム取得: BARRIER" },
-  { turn: 10, color: "var(--p2)", event: "たろう SHOOT HIT: -13HP" },
-  { turn: 13, color: "var(--p1)", event: "はなこ 連続ヒット × 2" },
-  { turn: 16, color: "var(--ink)", event: "たろう HP0 — 対戦終了" },
-];
+interface MeStats {
+  wins: number;
+  losses: number;
+  draws: number;
+  total: number;
+  winRate: number;
+}
 
 const LEARNING_HINTS = [
   {
     icon: "🎯",
     title: "索敵→射撃コンボが有効",
-    body: "T3でSCAN後にSHOOT_FORWARDを繋げたことで初ダメージを与えられました。このコンボを継続しましょう。",
+    body: "SCAN で敵を検知してから SHOOT_FORWARD を繋げると命中率が大きく上がります。直前ターンの scan_detected を条件に使いましょう。",
     code: `IF scan_detected
   SHOOT_FORWARD
 ELSE
@@ -84,40 +77,45 @@ ELSE
   },
   {
     icon: "⚡",
-    title: "AP効率を改善できます",
-    body: "T5-T7でWAITが2回入っており、APを無駄にしていました。fallbackActionsにMOVE_FORWARDを設定しましょう。",
+    title: "fallbackActions を設定しよう",
+    body: "どのルールにも当てはまらないときの保険です。WAIT のままだと AP を無駄にしてしまうので MOVE_FORWARD を入れておくと安全です。",
     code: `fallbackActions:
   MOVE_FORWARD`,
   },
   {
     icon: "🛡",
-    title: "BARRIERアイテムを活用",
-    body: "T7で取得したBARRIERを使わずに終わりました。次回はアイテム取得後すぐに使用するロジックを追加しましょう。",
-    code: `IF has_item_barrier
-  USE_ITEM`,
+    title: "ダメージを受けたら反撃",
+    body: "damaged を条件に使うと、被弾直後にだけ撃ち返す省 AP な反撃ロジックが組めます。",
+    code: `IF damaged
+  SHOOT_FORWARD`,
   },
 ];
 
-function HpTimelineSVG() {
+function HpTimelineSVG({
+  timeline,
+  firstDamageTurn,
+}: {
+  timeline: Array<[number, number]>;
+  firstDamageTurn: number | null;
+}) {
   const W = 420;
   const H = 120;
   const PAD = { t: 10, r: 10, b: 20, l: 30 };
-  const turns = HP_TIMELINE.length;
+  if (timeline.length < 2) return null;
+  const turns = timeline.length;
   const chartW = W - PAD.l - PAD.r;
   const chartH = H - PAD.t - PAD.b;
 
-  const p1Points = HP_TIMELINE.map((d, i) => ({
-    x: PAD.l + (i / (turns - 1)) * chartW,
-    y: PAD.t + (1 - d[0] / 100) * chartH,
-  }));
-  const p2Points = HP_TIMELINE.map((d, i) => ({
-    x: PAD.l + (i / (turns - 1)) * chartW,
-    y: PAD.t + (1 - d[1] / 100) * chartH,
-  }));
+  const points = (side: 0 | 1) =>
+    timeline.map((d, i) => ({
+      x: PAD.l + (i / (turns - 1)) * chartW,
+      y: PAD.t + (1 - d[side] / 100) * chartH,
+    }));
+  const p1Pts = points(0);
+  const p2Pts = points(1);
 
   const toPath = (pts: { x: number; y: number }[]) =>
     pts.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
-
   const toArea = (pts: { x: number; y: number }[]) => {
     const base = PAD.t + chartH;
     return (
@@ -126,47 +124,29 @@ function HpTimelineSVG() {
     );
   };
 
-  const firstDamageX = PAD.l + ((MOCK_RESULT.firstDamageTurn - 1) / (turns - 1)) * chartW;
-  const endX = PAD.l + ((turns - 1) / (turns - 1)) * chartW;
+  // firstDamageTurn maps to index `firstDamageTurn` in the timeline because
+  // index 0 is the pre-game snapshot.
+  const firstDamageX =
+    firstDamageTurn != null
+      ? PAD.l + (firstDamageTurn / (turns - 1)) * chartW
+      : null;
+  const endX = PAD.l + chartW;
 
   return (
     <svg width={W} height={H} style={{ display: "block", overflow: "visible" }}>
-      {/* Area fills */}
-      <path d={toArea(p1Points)} fill="rgba(37,99,235,.1)" />
-      <path d={toArea(p2Points)} fill="rgba(239,68,68,.1)" />
-      {/* Lines */}
-      <path d={toPath(p1Points)} fill="none" stroke="#2563eb" strokeWidth={2} />
-      <path d={toPath(p2Points)} fill="none" stroke="#ef4444" strokeWidth={2} />
-      {/* FirstDamage marker */}
-      <line
-        x1={firstDamageX}
-        y1={PAD.t}
-        x2={firstDamageX}
-        y2={PAD.t + chartH}
-        stroke="#f59e0b"
-        strokeWidth={1.5}
-        strokeDasharray="4,3"
-      />
-      <text
-        x={firstDamageX + 3}
-        y={PAD.t + 10}
-        fontSize={9}
-        fill="#92400e"
-        fontFamily="JetBrains Mono, monospace"
-      >
-        T{MOCK_RESULT.firstDamageTurn}
-      </text>
-      {/* End marker */}
-      <line
-        x1={endX}
-        y1={PAD.t}
-        x2={endX}
-        y2={PAD.t + chartH}
-        stroke="#374151"
-        strokeWidth={1.5}
-        strokeDasharray="4,3"
-      />
-      {/* Axis labels */}
+      <path d={toArea(p1Pts)} fill="rgba(37,99,235,.1)" />
+      <path d={toArea(p2Pts)} fill="rgba(239,68,68,.1)" />
+      <path d={toPath(p1Pts)} fill="none" stroke="#2563eb" strokeWidth={2} />
+      <path d={toPath(p2Pts)} fill="none" stroke="#ef4444" strokeWidth={2} />
+      {firstDamageX != null && (
+        <>
+          <line x1={firstDamageX} y1={PAD.t} x2={firstDamageX} y2={PAD.t + chartH} stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4,3" />
+          <text x={firstDamageX + 3} y={PAD.t + 10} fontSize={9} fill="#92400e" fontFamily="JetBrains Mono, monospace">
+            T{firstDamageTurn}
+          </text>
+        </>
+      )}
+      <line x1={endX} y1={PAD.t} x2={endX} y2={PAD.t + chartH} stroke="#374151" strokeWidth={1.5} strokeDasharray="4,3" />
       {[0, 50, 100].map((val) => (
         <text
           key={val}
@@ -184,19 +164,134 @@ function HpTimelineSVG() {
   );
 }
 
-export default function ResultPage({ params }: { params: { matchId: string } }) {
-  const isWin = MOCK_RESULT.winner === "p1";
+export default function ResultPage({ params }: { params: Promise<{ matchId: string }> }) {
+  const { matchId } = use(params);
+  const [data, setData] = useState<ApiResult | null>(null);
+  const [meId, setMeId] = useState<string | null>(null);
+  const [meStats, setMeStats] = useState<MeStats | null>(null);
+  const [recent, setRecent] = useState<RecentMatch[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const [meRes, resultRes, statsRes, matchesRes] = await Promise.allSettled([
+          fetch("/api/me"),
+          fetch(`/api/match/${matchId}/result`),
+          fetch("/api/me/stats"),
+          fetch("/api/me/matches?limit=5"),
+        ]);
+        if (cancelled) return;
+        if (meRes.status === "fulfilled" && meRes.value.ok) {
+          const j = await meRes.value.json();
+          setMeId(j.user?.id ?? null);
+        }
+        if (resultRes.status === "fulfilled" && resultRes.value.ok) {
+          setData(await resultRes.value.json());
+        } else if (resultRes.status === "fulfilled") {
+          const j = await resultRes.value.json().catch(() => null);
+          setError(j?.error ?? "結果を取得できませんでした");
+        }
+        if (statsRes.status === "fulfilled" && statsRes.value.ok) {
+          const j = await statsRes.value.json();
+          setMeStats(j.stats);
+        }
+        if (matchesRes.status === "fulfilled" && matchesRes.value.ok) {
+          const j = await matchesRes.value.json();
+          setRecent(j.matches ?? []);
+        }
+      } catch {
+        if (!cancelled) setError("結果を取得できませんでした");
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId]);
+
+  if (error) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--ink-soft)" }}>
+        {error}
+        <div style={{ marginTop: 16 }}>
+          <Link href="/dashboard" style={{ color: "var(--accent)" }}>ダッシュボードへ</Link>
+        </div>
+      </div>
+    );
+  }
+  if (!data) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--ink-soft)" }}>読み込み中…</div>
+    );
+  }
+
+  // Viewer perspective: if the logged-in user is one of the players, "me" =
+  // that side. Otherwise default to P1 perspective for spectators/admins.
+  const mySide: "p1" | "p2" = meId && data.player2?.id === meId ? "p2" : "p1";
+  const opSide: "p1" | "p2" = mySide === "p1" ? "p2" : "p1";
+  const me = mySide === "p1" ? data.player1 : data.player2;
+  const op = mySide === "p1" ? data.player2 : data.player1;
+  const myStats = data.stats[mySide];
+  const opStats = data.stats[opSide];
+  const isWin = data.winnerSide === mySide;
+  const isDraw = data.isDraw;
+  const verdict = isDraw ? "DRAW" : isWin ? "WIN" : "LOSE";
+  const verdictColor = isDraw ? "#6b7280" : isWin ? "#16a34a" : "var(--p2)";
+  const verdictSoftBg = isDraw
+    ? "linear-gradient(135deg, #f9fafb, #f3f4f6)"
+    : isWin
+      ? "linear-gradient(135deg, #f0fdf4, #dcfce7)"
+      : "linear-gradient(135deg, #fef2f2, #fee2e2)";
+
+  const meName = me?.displayName ?? me?.username ?? "あなた";
+  const opName = op?.displayName ?? op?.username ?? "相手";
+  const p1Name = data.player1?.displayName ?? data.player1?.username ?? "P1";
+  const p2Name = data.player2?.displayName ?? data.player2?.username ?? "P2";
 
   const stats = [
-    { label: "与ダメ", p1: MOCK_RESULT.p1DamageDealt, p2: MOCK_RESULT.p2DamageDealt, unit: "" },
-    { label: "被ダメ", p1: MOCK_RESULT.p2DamageDealt, p2: MOCK_RESULT.p1DamageDealt, unit: "" },
-    { label: "命中率", p1: MOCK_RESULT.p1HitRate, p2: MOCK_RESULT.p2HitRate, unit: "%" },
-    { label: "索敵回数", p1: MOCK_RESULT.p1Scans, p2: MOCK_RESULT.p2Scans, unit: "回" },
-    { label: "MOVE", p1: MOCK_RESULT.p1Moves, p2: MOCK_RESULT.p2Moves, unit: "回" },
-    { label: "SHOOT", p1: MOCK_RESULT.p1Shoots, p2: MOCK_RESULT.p2Shoots, unit: "回" },
-    { label: "TURN", p1: MOCK_RESULT.totalTurns, p2: MOCK_RESULT.totalTurns, unit: "" },
-    { label: "アイテム", p1: MOCK_RESULT.p1Items, p2: MOCK_RESULT.p2Items, unit: "個" },
+    { label: "与ダメ", me: myStats.damageDealt, op: opStats.damageDealt, unit: "" },
+    { label: "被ダメ", me: myStats.damageTaken, op: opStats.damageTaken, unit: "" },
+    { label: "命中率", me: myStats.hitRate, op: opStats.hitRate, unit: "%" },
+    { label: "索敵回数", me: myStats.scans, op: opStats.scans, unit: "回" },
+    { label: "MOVE", me: myStats.moves, op: opStats.moves, unit: "回" },
+    { label: "SHOOT", me: myStats.shoots, op: opStats.shoots, unit: "回" },
+    { label: "TURN", me: data.stats.totalTurns, op: data.stats.totalTurns, unit: "" },
+    { label: "HIT", me: myStats.hits, op: opStats.hits, unit: "" },
   ];
+
+  const highlights: Array<{ turn: number; color: string; event: string }> = [];
+  if (data.stats.firstDamageTurn != null && data.stats.firstDamageBy != null) {
+    const attacker = data.stats.firstDamageBy === "p1" ? p1Name : p2Name;
+    const target = data.stats.firstDamageBy === "p1" ? p2Name : p1Name;
+    highlights.push({
+      turn: data.stats.firstDamageTurn,
+      color: "#f59e0b",
+      event: `First Damage! ${attacker} → ${target}`,
+    });
+  }
+  if (data.endReason === "HP_ZERO" && data.winner) {
+    highlights.push({
+      turn: data.stats.totalTurns,
+      color: "var(--ink)",
+      event: `${data.winner.displayName ?? data.winner.username} の勝利 — 対戦終了`,
+    });
+  } else if (data.endReason === "TIMEOUT") {
+    highlights.push({
+      turn: data.stats.totalTurns,
+      color: "var(--ink)",
+      event: `${data.stats.totalTurns}ターンで時間切れ`,
+    });
+  }
+
+  const timeSec = data.durationMs != null ? Math.round(data.durationMs / 1000) : null;
+  const endReasonLabel =
+    data.endReason === "HP_ZERO"
+      ? "HP0"
+      : data.endReason === "TIMEOUT"
+        ? "ターン上限"
+        : data.endReason ?? "—";
 
   return (
     <div
@@ -240,9 +335,9 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
           <span style={{ fontWeight: 700, fontSize: 14 }}>対戦・コーディング</span>
         </div>
         <span style={{ color: "var(--line)", fontSize: 18 }}>|</span>
-        <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>{MOCK_RESULT.roomName}</span>
+        <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>{data.room?.name ?? "—"}</span>
         <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>·</span>
-        <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>対戦 #{MOCK_RESULT.matchNo}</span>
+        <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>対戦 #{data.matchNumber}</span>
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
           <span
             style={{
@@ -254,7 +349,7 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
               borderRadius: 999,
             }}
           >
-            P1 {MOCK_RESULT.p1Name}
+            P1 {p1Name}
           </span>
           <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>vs</span>
           <span
@@ -267,7 +362,7 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
               borderRadius: 999,
             }}
           >
-            P2 {MOCK_RESULT.p2Name}
+            P2 {p2Name}
           </span>
         </div>
       </header>
@@ -276,10 +371,8 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
         {/* Hero section */}
         <div
           style={{
-            background: isWin
-              ? "linear-gradient(135deg, #f0fdf4, #dcfce7)"
-              : "linear-gradient(135deg, #fef2f2, #fee2e2)",
-            border: `2px solid ${isWin ? "#16a34a" : "var(--p2)"}`,
+            background: verdictSoftBg,
+            border: `2px solid ${verdictColor}`,
             borderRadius: 16,
             padding: "28px 32px",
             marginBottom: 24,
@@ -289,58 +382,52 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
             flexWrap: "wrap",
           }}
         >
-          {/* WIN badge */}
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              gap: 4,
-            }}
-          >
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
             <div
               style={{
                 width: 80,
                 height: 80,
                 borderRadius: "50%",
-                background: isWin ? "#16a34a" : "var(--p2)",
+                background: verdictColor,
                 color: "#fff",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: `0 4px 20px ${isWin ? "rgba(22,163,74,.3)" : "rgba(239,68,68,.3)"}`,
+                boxShadow: `0 4px 20px ${isWin ? "rgba(22,163,74,.3)" : isDraw ? "rgba(107,114,128,.2)" : "rgba(239,68,68,.3)"}`,
               }}
             >
-              <span style={{ fontSize: 28 }}>{isWin ? "✓" : "✗"}</span>
+              <span style={{ fontSize: 28 }}>{isDraw ? "=" : isWin ? "✓" : "✗"}</span>
             </div>
             <span
               style={{
                 fontSize: 22,
                 fontWeight: 800,
-                color: isWin ? "#15803d" : "var(--p2-ink)",
+                color: isDraw ? "#374151" : isWin ? "#15803d" : "var(--p2-ink)",
                 letterSpacing: "0.05em",
               }}
             >
-              {isWin ? "WIN" : "LOSE"}
+              {verdict}
             </span>
           </div>
 
-          {/* Message */}
           <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 4 }}>
-              {isWin ? "いい判断でした！" : "次回は巻き返しましょう"}
+              {isDraw
+                ? "互角の戦いでした"
+                : isWin
+                  ? "いい判断でした！"
+                  : "次回は巻き返しましょう"}
             </div>
             <div style={{ fontSize: 14, color: "var(--ink-soft)" }}>
-              索敵→射撃コンボが功を奏し、{MOCK_RESULT.totalTurns}ターンで決着がつきました。
+              {data.stats.totalTurns}ターンで決着がつきました。
             </div>
           </div>
 
-          {/* HP comparison */}
           <div style={{ display: "flex", gap: 12 }}>
             {[
-              { label: "あなた (P1)", hp: MOCK_RESULT.p1Hp, color: "var(--p1)", soft: "var(--p1-soft)", ink: "var(--p1-ink)" },
-              { label: "相手 (P2)", hp: MOCK_RESULT.p2Hp, color: "var(--p2)", soft: "var(--p2-soft)", ink: "var(--p2-ink)" },
+              { label: `あなた (${mySide.toUpperCase()})`, hp: myStats.finalHp, color: mySide === "p1" ? "var(--p1)" : "var(--p2)", soft: mySide === "p1" ? "var(--p1-soft)" : "var(--p2-soft)", ink: mySide === "p1" ? "var(--p1-ink)" : "var(--p2-ink)" },
+              { label: `相手 (${opSide.toUpperCase()})`, hp: opStats.finalHp, color: opSide === "p1" ? "var(--p1)" : "var(--p2)", soft: opSide === "p1" ? "var(--p1-soft)" : "var(--p2-soft)", ink: opSide === "p1" ? "var(--p1-ink)" : "var(--p2-ink)" },
             ].map((p) => (
               <div
                 key={p.label}
@@ -353,9 +440,7 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
                   minWidth: 100,
                 }}
               >
-                <div style={{ fontSize: 11, color: p.ink, fontWeight: 600, marginBottom: 4 }}>
-                  {p.label}
-                </div>
+                <div style={{ fontSize: 11, color: p.ink, fontWeight: 600, marginBottom: 4 }}>{p.label}</div>
                 <div
                   style={{
                     fontFamily: "JetBrains Mono, monospace",
@@ -371,7 +456,6 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
             ))}
           </div>
 
-          {/* Meta */}
           <div
             style={{
               background: "rgba(255,255,255,.7)",
@@ -385,34 +469,27 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
           >
             <div style={{ display: "flex", gap: 8 }}>
               <span style={{ color: "var(--ink-soft)" }}>終了理由:</span>
-              <span style={{ fontWeight: 600 }}>HP0</span>
+              <span style={{ fontWeight: 600 }}>{endReasonLabel}</span>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <span style={{ color: "var(--ink-soft)" }}>ターン数:</span>
               <span style={{ fontWeight: 600, fontFamily: "JetBrains Mono, monospace" }}>
-                {MOCK_RESULT.totalTurns}
+                {data.stats.totalTurns}
               </span>
             </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <span style={{ color: "var(--ink-soft)" }}>対戦時間:</span>
-              <span style={{ fontWeight: 600, fontFamily: "JetBrains Mono, monospace" }}>
-                {MOCK_RESULT.timeSec}s
-              </span>
-            </div>
+            {timeSec != null && (
+              <div style={{ display: "flex", gap: 8 }}>
+                <span style={{ color: "var(--ink-soft)" }}>対戦時間:</span>
+                <span style={{ fontWeight: 600, fontFamily: "JetBrains Mono, monospace" }}>{timeSec}s</span>
+              </div>
+            )}
           </div>
         </div>
 
         {/* CTA block */}
-        <div
-          style={{
-            display: "flex",
-            gap: 12,
-            marginBottom: 32,
-            flexWrap: "wrap",
-          }}
-        >
+        <div style={{ display: "flex", gap: 12, marginBottom: 32, flexWrap: "wrap" }}>
           <Link
-            href={`/match/${params.matchId}/coding`}
+            href={`/match/${matchId}/coding`}
             style={{
               background: "var(--accent)",
               color: "#fff",
@@ -429,7 +506,7 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
             ✎ コードを改善して再戦
           </Link>
           <Link
-            href={`/match/${params.matchId}/battle`}
+            href={`/match/${matchId}/battle`}
             style={{
               background: "var(--surface)",
               color: "var(--ink)",
@@ -473,24 +550,24 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
                 padding: 20,
               }}
             >
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
-                HPタイムライン
-              </div>
-              <HpTimelineSVG />
-              <div style={{ display: "flex", gap: 16, marginTop: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>HPタイムライン</div>
+              <HpTimelineSVG timeline={data.stats.hpTimeline} firstDamageTurn={data.stats.firstDamageTurn} />
+              <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
                 {[
-                  { color: "#2563eb", label: "P1 はなこ" },
-                  { color: "#ef4444", label: "P2 たろう" },
-                  { color: "#f59e0b", label: "FirstDamage (T3)", dashed: true },
+                  { color: "#2563eb", label: `P1 ${p1Name}` },
+                  { color: "#ef4444", label: `P2 ${p2Name}` },
+                  ...(data.stats.firstDamageTurn != null
+                    ? [{ color: "#f59e0b", label: `FirstDamage (T${data.stats.firstDamageTurn})`, dashed: true }]
+                    : []),
                 ].map((item) => (
                   <div key={item.label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <div
                       style={{
-                        width: item.dashed ? 16 : 12,
+                        width: "dashed" in item && item.dashed ? 16 : 12,
                         height: 2,
                         background: item.color,
-                        borderStyle: item.dashed ? "dashed" : "solid",
-                        borderWidth: item.dashed ? "1px 0 0 0" : 0,
+                        borderStyle: "dashed" in item && item.dashed ? "dashed" : "solid",
+                        borderWidth: "dashed" in item && item.dashed ? "1px 0 0 0" : 0,
                         flexShrink: 0,
                       }}
                     />
@@ -509,9 +586,7 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
                 padding: 20,
               }}
             >
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
-                対戦スタッツ
-              </div>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>対戦スタッツ</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }}>
                 {stats.map((stat) => (
                   <div
@@ -524,276 +599,228 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
                       textAlign: "center",
                     }}
                   >
-                    <div style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 4 }}>
-                      {stat.label}
-                    </div>
+                    <div style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 4 }}>{stat.label}</div>
                     <div style={{ display: "flex", justifyContent: "center", gap: 4, alignItems: "baseline" }}>
-                      <span style={{ fontFamily: "JetBrains Mono, monospace", fontWeight: 700, fontSize: 16, color: "var(--p1)" }}>
-                        {stat.p1}{stat.unit}
+                      <span
+                        style={{
+                          fontFamily: "JetBrains Mono, monospace",
+                          fontWeight: 700,
+                          fontSize: 16,
+                          color: mySide === "p1" ? "var(--p1)" : "var(--p2)",
+                        }}
+                      >
+                        {stat.me}
+                        {stat.unit}
                       </span>
                       <span style={{ fontSize: 10, color: "var(--ink-soft)" }}>/</span>
-                      <span style={{ fontFamily: "JetBrains Mono, monospace", fontWeight: 700, fontSize: 14, color: "var(--p2)" }}>
-                        {stat.p2}
+                      <span
+                        style={{
+                          fontFamily: "JetBrains Mono, monospace",
+                          fontWeight: 700,
+                          fontSize: 14,
+                          color: opSide === "p1" ? "var(--p1)" : "var(--p2)",
+                        }}
+                      >
+                        {stat.op}
                       </span>
                     </div>
                   </div>
                 ))}
+              </div>
+              <div style={{ fontSize: 10, color: "var(--ink-soft)", marginTop: 8, textAlign: "right" }}>
+                左: {meName} ({mySide.toUpperCase()}) ／ 右: {opName} ({opSide.toUpperCase()})
               </div>
             </div>
 
             {/* FirstDamage banner */}
-            <div
-              style={{
-                background: "#fef9c3",
-                border: "1px solid #fde047",
-                borderRadius: 10,
-                padding: "10px 16px",
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                fontSize: 13,
-              }}
-            >
-              <span style={{ fontSize: 18 }}>⭐</span>
-              <span>
-                <strong>First Damage!</strong> T{MOCK_RESULT.firstDamageTurn}で{MOCK_RESULT.p1Name}が先制攻撃に成功しました
-              </span>
-            </div>
+            {data.stats.firstDamageTurn != null && data.stats.firstDamageBy != null && (
+              <div
+                style={{
+                  background: "#fef9c3",
+                  border: "1px solid #fde047",
+                  borderRadius: 10,
+                  padding: "10px 16px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  fontSize: 13,
+                }}
+              >
+                <span style={{ fontSize: 18 }}>⭐</span>
+                <span>
+                  <strong>First Damage!</strong> T{data.stats.firstDamageTurn}で
+                  {data.stats.firstDamageBy === "p1" ? p1Name : p2Name}が先制攻撃に成功しました
+                </span>
+              </div>
+            )}
 
             {/* Turn highlights */}
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-                borderRadius: 12,
-                padding: 20,
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
-                ターンハイライト
-              </div>
-              {TURN_HIGHLIGHTS.map((h) => (
-                <div
-                  key={h.turn}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: "8px 0",
-                    borderBottom: "1px solid var(--line)",
-                  }}
-                >
+            {highlights.length > 0 && (
+              <div
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 12,
+                  padding: 20,
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>ターンハイライト</div>
+                {highlights.map((h, i) => (
                   <div
+                    key={i}
                     style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: "50%",
-                      background: h.color,
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      fontFamily: "JetBrains Mono, monospace",
-                      color: "var(--ink-soft)",
-                      minWidth: 24,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "8px 0",
+                      borderBottom: i < highlights.length - 1 ? "1px solid var(--line)" : "none",
                     }}
                   >
-                    T{h.turn}
-                  </span>
-                  <span style={{ fontSize: 13 }}>{h.event}</span>
-                </div>
-              ))}
-            </div>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: h.color, flexShrink: 0 }} />
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        fontFamily: "JetBrains Mono, monospace",
+                        color: "var(--ink-soft)",
+                        minWidth: 24,
+                      }}
+                    >
+                      T{h.turn}
+                    </span>
+                    <span style={{ fontSize: 13 }}>{h.event}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Right: Ranking */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Win rate card */}
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-                borderRadius: 12,
-                padding: 20,
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
-                勝率
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
-                <span
-                  style={{
-                    fontFamily: "JetBrains Mono, monospace",
-                    fontWeight: 800,
-                    fontSize: 40,
-                    color: "var(--p1)",
-                  }}
-                >
-                  {MOCK_RESULT.winRate}%
-                </span>
-                <span
-                  style={{
-                    background: "#dcfce7",
-                    color: "#166534",
-                    fontWeight: 700,
-                    fontSize: 13,
-                    padding: "3px 10px",
-                    borderRadius: 999,
-                  }}
-                >
-                  ▲ +{MOCK_RESULT.winRateDelta}pt
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 12 }}>
-                {[
-                  { label: "W", value: MOCK_RESULT.wins, color: "var(--success)" },
-                  { label: "L", value: MOCK_RESULT.losses, color: "var(--danger)" },
-                  { label: "D", value: MOCK_RESULT.draws, color: "var(--ink-soft)" },
-                ].map((item) => (
-                  <div key={item.label} style={{ flex: 1, textAlign: "center" }}>
-                    <div style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 2 }}>
-                      {item.label}
-                    </div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 18,
-                        color: item.color,
-                        fontFamily: "JetBrains Mono, monospace",
-                      }}
-                    >
-                      {item.value}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Recent matches */}
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-                borderRadius: 12,
-                padding: 20,
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
-                最近の対戦
-              </div>
-              {RECENT_MATCHES.map((m) => (
-                <div
-                  key={m.no}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "8px 10px",
-                    borderRadius: 8,
-                    background: m.isCurrent ? "var(--accent-soft)" : "transparent",
-                    border: m.isCurrent ? "1px solid #fde047" : "1px solid transparent",
-                    marginBottom: 4,
-                  }}
-                >
+            {meStats && (
+              <div
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 12,
+                  padding: 20,
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>勝率</div>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
                   <span
                     style={{
                       fontFamily: "JetBrains Mono, monospace",
-                      fontSize: 10,
-                      color: "var(--ink-soft)",
-                      minWidth: 24,
+                      fontWeight: 800,
+                      fontSize: 40,
+                      color: "var(--p1)",
                     }}
                   >
-                    #{m.no}
+                    {meStats.winRate}%
                   </span>
-                  <span
-                    style={{
-                      background: m.result === "WIN" ? "#dcfce7" : "#fee2e2",
-                      color: m.result === "WIN" ? "#166534" : "#7f1d1d",
-                      fontWeight: 700,
-                      fontSize: 10,
-                      padding: "1px 7px",
-                      borderRadius: 999,
-                    }}
-                  >
-                    {m.result}
-                  </span>
-                  <span style={{ flex: 1, fontSize: 13 }}>vs {m.opponent}</span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: m.delta.startsWith("+") ? "var(--success)" : "var(--danger)",
-                      fontFamily: "JetBrains Mono, monospace",
-                    }}
-                  >
-                    {m.delta}
-                  </span>
-                  {m.isCurrent && (
-                    <span
-                      style={{
-                        background: "var(--accent)",
-                        color: "#fff",
-                        fontSize: 9,
-                        fontWeight: 700,
-                        padding: "1px 6px",
-                        borderRadius: 4,
-                      }}
-                    >
-                      NOW
-                    </span>
-                  )}
+                  <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>({meStats.total} 戦)</span>
                 </div>
-              ))}
-            </div>
+                <div style={{ display: "flex", gap: 12 }}>
+                  {[
+                    { label: "W", value: meStats.wins, color: "var(--success)" },
+                    { label: "L", value: meStats.losses, color: "var(--danger)" },
+                    { label: "D", value: meStats.draws, color: "var(--ink-soft)" },
+                  ].map((item) => (
+                    <div key={item.label} style={{ flex: 1, textAlign: "center" }}>
+                      <div style={{ fontSize: 10, color: "var(--ink-soft)", marginBottom: 2 }}>{item.label}</div>
+                      <div
+                        style={{
+                          fontWeight: 700,
+                          fontSize: 18,
+                          color: item.color,
+                          fontFamily: "JetBrains Mono, monospace",
+                        }}
+                      >
+                        {item.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-            {/* Room ranking */}
-            <div
-              style={{
-                background: "var(--surface)",
-                border: "1px solid var(--line)",
-                borderRadius: 12,
-                padding: 20,
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>
-                ルームランキング
+            {recent.length > 0 && (
+              <div
+                style={{
+                  background: "var(--surface)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 12,
+                  padding: 20,
+                }}
+              >
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>最近の対戦</div>
+                {recent.map((m) => {
+                  const opName = m.opponent?.displayName ?? m.opponent?.username ?? "—";
+                  const isCurrent = m.id === data.matchId;
+                  return (
+                    <div
+                      key={m.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 10px",
+                        borderRadius: 8,
+                        background: isCurrent ? "var(--accent-soft)" : "transparent",
+                        border: isCurrent ? "1px solid #fde047" : "1px solid transparent",
+                        marginBottom: 4,
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: "JetBrains Mono, monospace",
+                          fontSize: 10,
+                          color: "var(--ink-soft)",
+                          minWidth: 24,
+                        }}
+                      >
+                        #{m.matchNumber}
+                      </span>
+                      <span
+                        style={{
+                          background:
+                            m.result === "WIN" ? "#dcfce7" : m.result === "LOSE" ? "#fee2e2" : "#f3f4f6",
+                          color:
+                            m.result === "WIN" ? "#166534" : m.result === "LOSE" ? "#7f1d1d" : "#374151",
+                          fontWeight: 700,
+                          fontSize: 10,
+                          padding: "1px 7px",
+                          borderRadius: 999,
+                        }}
+                      >
+                        {m.result}
+                      </span>
+                      <span style={{ flex: 1, fontSize: 13 }}>vs {opName}</span>
+                      {isCurrent && (
+                        <span
+                          style={{
+                            background: "var(--accent)",
+                            color: "#fff",
+                            fontSize: 9,
+                            fontWeight: 700,
+                            padding: "1px 6px",
+                            borderRadius: 4,
+                          }}
+                        >
+                          NOW
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span
-                  style={{
-                    fontFamily: "JetBrains Mono, monospace",
-                    fontWeight: 800,
-                    fontSize: 36,
-                    color: "#f59e0b",
-                  }}
-                >
-                  {MOCK_RESULT.roomRank}位
-                </span>
-                <span
-                  style={{
-                    background: "#dcfce7",
-                    color: "#166534",
-                    fontWeight: 700,
-                    fontSize: 12,
-                    padding: "2px 8px",
-                    borderRadius: 999,
-                  }}
-                >
-                  ↑+{MOCK_RESULT.roomRankDelta}
-                </span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
         {/* Learning hints */}
         <div style={{ marginTop: 32 }}>
-          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>
-            💡 学習ヒント
-          </div>
+          <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>💡 学習ヒント</div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
             {LEARNING_HINTS.map((hint) => (
               <div
@@ -812,9 +839,7 @@ export default function ResultPage({ params }: { params: { matchId: string } }) 
                   <span style={{ fontSize: 20 }}>{hint.icon}</span>
                   <span style={{ fontWeight: 700, fontSize: 14 }}>{hint.title}</span>
                 </div>
-                <p style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.7, margin: 0 }}>
-                  {hint.body}
-                </p>
+                <p style={{ fontSize: 13, color: "var(--ink-soft)", lineHeight: 1.7, margin: 0 }}>{hint.body}</p>
                 <pre
                   style={{
                     background: "#1f2330",
