@@ -111,7 +111,7 @@ scaffolding is gone.
 | :--- | :----- | :---- |
 | CI (lint / type / test / build) | ✅ | PR #4, #10 |
 | Simulator unit tests | ✅ | PR #10 |
-| `src/lib/auth.ts` unit tests | ⬜ | Vitest is wired; cover session round-trip + role guards |
+| `src/lib/auth.ts` unit tests | ✅ | PR #13 — 15 cases (token round-trip, role guards, getSession branches) |
 | Email confirmation on signup | ⬜ | HANDOFF §4.4 |
 | 2FA enable/verify flow | ⬜ | Schema has `twoFactorEnabled`; no flow **(TBD if in v0.2)** |
 | Dependency cleanup (`next-auth` unused) | ⬜ | HANDOFF design note #5 |
