@@ -11,14 +11,10 @@ import {
 // <!-- bind: WS recv coding_start { codingDeadlineAt } -->
 // <!-- bind: WS send coding_lock { matchId, strategy, blocklyXml? } -->
 
-const MOCK_MATCH = {
-  matchId: "match-001",
-  roomName: "教室A-5限",
-  matchNo: 7,
-  opponentDisplayName: "たろう",
-  myDisplayName: "はなこ",
-};
-
+// MOCK_STRATEGY_JSON is the payload submitted on lock — the Blockly editor
+// isn't wired to a serializer yet, so every player currently locks in the
+// same stub strategy. See docs/STATUS.md → "Open questions" for the plan
+// to swap this with a real Blockly-driven payload.
 const MOCK_STRATEGY_JSON = {
   version: "1.0",
   rules: [
@@ -107,21 +103,55 @@ export default function CodingPage({
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
   const [opponentLocked, setOpponentLocked] = useState(false);
   const [myUserId, setMyUserId] = useState<string | null>(null);
+  const [matchMeta, setMatchMeta] = useState<{
+    roomName: string;
+    matchNumber: number;
+    player1: { id: string; displayName: string | null; username: string } | null;
+    player2: { id: string; displayName: string | null; username: string } | null;
+  } | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["アクション"]);
 
-  // Fetch current user id so we can distinguish self vs opponent lock events.
+  // Fetch session + match meta. We need the user id to distinguish self vs
+  // opponent lock events, and the match meta to render room name / match
+  // number / opponent name without mocks.
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/me", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (!cancelled && data?.user?.id) setMyUserId(data.user.id);
-      })
-      .catch(() => {});
+    Promise.allSettled([
+      fetch("/api/me", { credentials: "include" }),
+      fetch(`/api/match/${matchId}/state`, { credentials: "include" }),
+    ]).then(async ([meRes, stateRes]) => {
+      if (cancelled) return;
+      if (meRes.status === "fulfilled" && meRes.value.ok) {
+        const data = await meRes.value.json();
+        if (data?.user?.id) setMyUserId(data.user.id);
+      }
+      if (stateRes.status === "fulfilled" && stateRes.value.ok) {
+        const data = await stateRes.value.json();
+        const m = data?.match;
+        if (m?.room?.name) {
+          setMatchMeta({
+            roomName: m.room.name,
+            matchNumber: m.matchNumber,
+            player1: m.player1 ?? null,
+            player2: m.player2 ?? null,
+          });
+        }
+      }
+    });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [matchId]);
+
+  const opponent = (() => {
+    if (!matchMeta || !myUserId) return null;
+    if (matchMeta.player1?.id === myUserId) return matchMeta.player2;
+    if (matchMeta.player2?.id === myUserId) return matchMeta.player1;
+    return null;
+  })();
+  const roomName = matchMeta?.roomName ?? "…";
+  const matchNumber = matchMeta?.matchNumber ?? 0;
+  const opponentName = opponent?.displayName ?? opponent?.username ?? "—";
 
   // Wire Socket.io for this match.
   useEffect(() => {
@@ -244,11 +274,11 @@ export default function CodingPage({
         {/* Center: Match info */}
         <div style={{ textAlign: "center" }}>
           <div style={{ fontWeight: 700, fontSize: 15, color: "var(--ink)" }}>
-            {MOCK_MATCH.roomName}
+            {roomName}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginTop: 2 }}>
             <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-              対戦 #{MOCK_MATCH.matchNo}
+              対戦 #{matchNumber}
             </span>
             <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>vs</span>
             <span
@@ -261,7 +291,7 @@ export default function CodingPage({
                 color: "var(--ink-soft)",
               }}
             >
-              非公開
+              {opponentName}
             </span>
           </div>
         </div>
