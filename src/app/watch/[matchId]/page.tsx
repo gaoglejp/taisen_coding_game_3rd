@@ -4,9 +4,10 @@
 // bind: GET /api/match/:matchId/replay
 // bind: WS subscribe (live)
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { TopbarPaper } from "@/components/layout/TopbarPaper";
+import { connectSocket, disconnectSocket } from "@/lib/socket-client";
 
 /* ===========================================================================
    Dummy data — mirrors GET /api/match/:matchId/public + /replay payloads
@@ -682,6 +683,19 @@ export default function WatchPage() {
 
   const [speed, setSpeed] = useState<0.5 | 1 | 2 | 4>(1);
   const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const socket = connectSocket(matchId);
+    const onTurn = (data: unknown) => console.log("watch turn_event", data);
+    const onResult = (data: unknown) => console.log("watch match_result", data);
+    socket.on("turn_event", onTurn);
+    socket.on("match_result", onResult);
+    return () => {
+      socket.off("turn_event", onTurn);
+      socket.off("match_result", onResult);
+      disconnectSocket();
+    };
+  }, [matchId]);
   const shareUrl = useMemo(
     () => `https://taisen-coding.example.jp/watch/${matchId}`,
     [matchId]

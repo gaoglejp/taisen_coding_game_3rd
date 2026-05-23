@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import Link from "next/link";
+import { connectSocket, disconnectSocket } from "@/lib/socket-client";
 
 const MOCK_MATCH = {
   matchId: "match-001",
@@ -396,12 +397,26 @@ function RecognitionPanel({
 export default function BattlePage({
   params,
 }: {
-  params: { matchId: string };
+  params: Promise<{ matchId: string }>;
 }) {
+  const { matchId } = use(params);
   const [currentTurn, setCurrentTurn] = useState(3);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const socket = connectSocket(matchId);
+    const onTurn = (data: unknown) => console.log("turn_event", data);
+    const onResult = (data: unknown) => console.log("match_result", data);
+    socket.on("turn_event", onTurn);
+    socket.on("match_result", onResult);
+    return () => {
+      socket.off("turn_event", onTurn);
+      socket.off("match_result", onResult);
+      disconnectSocket();
+    };
+  }, [matchId]);
 
   const p1: Player = { ...INITIAL_P1, x: 3 + Math.min(currentTurn, 5), y: 7 };
   const p2: Player = { ...INITIAL_P2, x: 9 - Math.min(currentTurn, 4), y: 2 };
@@ -489,7 +504,7 @@ export default function BattlePage({
             👁 {MOCK_MATCH.spectatorCount} 人観戦中
           </span>
           <Link
-            href={`/match/${params.matchId}/result`}
+            href={`/match/${matchId}/result`}
             style={{
               fontSize: 13,
               fontWeight: 600,
