@@ -13,46 +13,44 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #12 — feat(rooms): wire matches list + standings + your-record
+- **PR**: #13 — test(auth): unit tests for src/lib/auth.ts
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-23
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Rooms page matches list** now fetches `/api/rooms/:n/matches` and
-  renders real WAITING / CODING / BATTLING matches. The ALL/LIVE/CODING/
-  OPEN filter maps onto real statuses; "YOU" badge + 入室/参加/観戦 CTA
-  are decided from session vs. player IDs (via `/api/me`). Empty state
-  added.
-- **Top-5 standings** now fetches `/api/rooms/:n/standings` (wins/losses/
-  draws/points already aggregated server-side). Renders the real top 5
-  with the current user highlighted; empty state added.
-- **"あなたの戦績" card** is derived from the current user's standings
-  entry (rank / win-rate / W-L-D), with a graceful "no record yet"
-  fallback.
-- **Hero "進行中 N マッチ"** now counts real BATTLING matches.
-- **Still mock** (commented): "あなたの予定" schedule and announcements —
-  no backing API yet (ROADMAP Milestone C).
-- ROADMAP Milestone C rows flipped to ✅ for matches / standings / your
-  record.
+- **`src/lib/auth.test.ts`**: 15 unit tests, total suite now 24.
+  - `createSessionToken` — base64 round-trip recovers the user id,
+    includes a timestamp segment, distinct per user.
+  - `isAdmin` / `isSystemAdmin` — table-driven across all four roles.
+  - `getSession` — branches with `next/headers` `cookies()` and the
+    Prisma client mocked via `vi.mock`: no cookie → null (no DB call);
+    valid token → active user with the lookup scoped to
+    `{ id, status: "ACTIVE" }`; user not found → null; DB throws → null
+    (the try/catch swallows it).
+- Mocking pattern: `vi.mock("next/headers", …)` and
+  `vi.mock("./db", …)` with per-test `mockResolvedValue` /
+  `mockRejectedValue`. Useful template for testing other server modules
+  that touch cookies + Prisma.
+- ROADMAP Milestone E row for auth tests flipped to ✅.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **`src/lib/auth.ts` unit tests** (ROADMAP Milestone E). Vitest is
-   wired — cover cookie session round-trip and `getSession` role guards.
-   Unambiguous, low-risk, and protects the auth path before anyone
-   touches it. Good next confident step while the Blockly approach is
-   being decided.
-2. **Admin pages mock removal** (ROADMAP Milestone D). The
+1. **Admin pages mock removal** (ROADMAP Milestone D). The
    `/api/admin/*` routes already exist; the system + room admin pages
-   render on inline mocks. Mechanical, several pages — can be split
-   per page.
-3. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
+   render on inline mocks. Mechanical, several pages — can be split per
+   page. Recommend starting with `/admin/system/users` (wire to
+   `GET /api/admin/users`).
+2. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
    critical-path blocker). Needs a product call first: real Blockly
    integration vs. a lightweight rule-builder. Once decided, this is
    the highest-leverage piece — it's what makes two players actually
    compete with different strategies.
+3. **API route handler tests.** With the `vi.mock` cookies+Prisma
+   pattern from PR #13 established, the `/api/match/*` and `/api/rooms/*`
+   handlers (especially the access-control branches) are now
+   straightforward to cover.
 
 ### Deferred / out of scope right now
 
@@ -88,6 +86,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #12** (merged) — feat(rooms): wire matches list + standings +
+  your-record to `/api/rooms/:n/{matches,standings}`. ROADMAP Milestone
+  C mostly done (schedule + announcements remain).
 - **PR #11** (merged) — feat(rooms): wire rooms page hero to
   `/api/rooms/:roomNumber` + add `docs/ROADMAP.md` (v0.2 definition of
   done + milestones A–E).
