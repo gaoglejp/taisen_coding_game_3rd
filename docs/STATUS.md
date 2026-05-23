@@ -13,44 +13,41 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #13 — test(auth): unit tests for src/lib/auth.ts
+- **PR**: #14 — feat(admin): wire system users page to /api/admin/users
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-23
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **`src/lib/auth.test.ts`**: 15 unit tests, total suite now 24.
-  - `createSessionToken` — base64 round-trip recovers the user id,
-    includes a timestamp segment, distinct per user.
-  - `isAdmin` / `isSystemAdmin` — table-driven across all four roles.
-  - `getSession` — branches with `next/headers` `cookies()` and the
-    Prisma client mocked via `vi.mock`: no cookie → null (no DB call);
-    valid token → active user with the lookup scoped to
-    `{ id, status: "ACTIVE" }`; user not found → null; DB throws → null
-    (the try/catch swallows it).
-- Mocking pattern: `vi.mock("next/headers", …)` and
-  `vi.mock("./db", …)` with per-test `mockResolvedValue` /
-  `mockRejectedValue`. Useful template for testing other server modules
-  that touch cookies + Prisma.
-- ROADMAP Milestone E row for auth tests flipped to ✅.
+- **`src/app/admin/system/users/page.tsx` rewired**: drops
+  `MOCK_USERS`. Fetches `/api/admin/users` with **server-side** filter +
+  pagination — `q` (search, 250 ms debounced), `role`, `status`, `page`,
+  `limit=20`. Renders real username / displayName / email / role /
+  status / 2FA badge / membership chips (room numbers, with "+N"
+  overflow) / created + last-login dates. Added loading / empty / error
+  rows and real pagination (uses `pagination.total` / `totalPages`).
+- Filter changes reset to page 1 **in the handlers** (`onSearch` /
+  `onRole` / `onStatus`), not an effect — avoids the
+  setState-in-effect lint error.
+- **Still UI-only**: the invite / disable / password-reset modals. Those
+  are POST/PATCH actions with confirmation flows; wiring them is a
+  separate PR (tracked in ROADMAP Milestone D "Account actions").
+- ROADMAP Milestone D "System users page" row → ✅.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Admin pages mock removal** (ROADMAP Milestone D). The
-   `/api/admin/*` routes already exist; the system + room admin pages
-   render on inline mocks. Mechanical, several pages — can be split per
-   page. Recommend starting with `/admin/system/users` (wire to
-   `GET /api/admin/users`).
-2. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
+1. **Admin system rooms + audit pages** (ROADMAP Milestone D, continue).
+   Same pattern as the users page just landed: wire
+   `/admin/system/rooms` → `GET /api/admin/rooms` and
+   `/admin/system/audit` → `GET /api/admin/audit`. Mechanical.
+2. **Admin room-scoped pages** (ROADMAP Milestone D). Overview / members
+   / matches / standings / settings under `/admin/rooms/:id`, wired to
+   `/api/admin/rooms/:id/*`. Larger — split per page.
+3. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
    critical-path blocker). Needs a product call first: real Blockly
-   integration vs. a lightweight rule-builder. Once decided, this is
-   the highest-leverage piece — it's what makes two players actually
-   compete with different strategies.
-3. **API route handler tests.** With the `vi.mock` cookies+Prisma
-   pattern from PR #13 established, the `/api/match/*` and `/api/rooms/*`
-   handlers (especially the access-control branches) are now
-   straightforward to cover.
+   integration vs. a lightweight rule-builder. Highest-leverage piece
+   for actual gameplay once decided.
 
 ### Deferred / out of scope right now
 
@@ -86,6 +83,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #13** (merged) — test(auth): 15 unit tests for `src/lib/auth.ts`
+  (token round-trip, role guards, `getSession` branches with mocked
+  cookies + Prisma). Suite total 24. ROADMAP Milestone E auth row done.
 - **PR #12** (merged) — feat(rooms): wire matches list + standings +
   your-record to `/api/rooms/:n/{matches,standings}`. ROADMAP Milestone
   C mostly done (schedule + announcements remain).

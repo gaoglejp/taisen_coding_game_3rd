@@ -98,10 +98,12 @@ scaffolding is gone.
 | Item | Status | Notes |
 | :--- | :----- | :---- |
 | Admin API routes (users / rooms / members / audit) | ✅ | Implemented (HANDOFF §1) |
-| System rooms / users / audit pages | ⬜ | Render on mocks; wire to `/api/admin/*` |
+| System users page | ✅ | PR #14 — `/api/admin/users` (server filter + pagination) |
+| System rooms / audit pages | ⬜ | Render on mocks; wire to `/api/admin/{rooms,audit}` |
 | Room overview / members / matches / standings pages | ⬜ | Render on mocks; wire to `/api/admin/rooms/:id/*` |
 | Room settings page | ⬜ | Wire to `PATCH /api/admin/rooms/:id` |
 | Invite-code validation on signup | ⬜ | HANDOFF §4.4 — needs `InviteCode` model (schema change) |
+| Account actions (invite / disable / reset) | ⬜ | Modals exist on the users page but POST/PATCH not wired |
 
 **D is done when** an admin can manage a room without seeing any mock data.
 
