@@ -33,23 +33,32 @@ When you push, do these three things in `docs/STATUS.md`:
   doc: matches list, top-5 ranking, "your record", "your schedule",
   announcements. None of those have backing APIs yet — covered as
   individual follow-ups below.
+- **`docs/ROADMAP.md` created** (resolves the open question from the
+  prior status block). Defines the v0.2 "definition of done" and groups
+  the backlog into milestones A–E with status. `AGENTS.md` now lists it
+  as required reading and part of the doc convention. Marked as a draft
+  pending product confirmation — milestones are inferred from the
+  prototypes + schema, not a written spec, so several scope lines carry
+  **(TBD)** markers for the product owner.
+- **Note for the next agent**: `/api/rooms/:roomNumber/matches` and
+  `/standings` already exist (HANDOFF §1) — the rooms page's mocked
+  matches list and standings can be wired without writing new
+  endpoints. The earlier "needs an endpoint" note was wrong.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **`docs/ROADMAP.md`** — pending product input. The user just asked
-   (2026-05-23) whether a "process to completion" doc exists; today
-   the closest is HANDOFF section 4 + this file's "Next 1-3". If the
-   answer is "yes, please write one", that PR comes first and frames
-   the rest. Track the question under "Open questions" below.
-2. **Blockly → strategy JSON serializer.** The single biggest remaining
-   mock. Convert the workspace's actual blocks into the `{ rules,
-   fallbackActions }` shape the simulator consumes, and submit that on
-   lock. Once this lands, two players can run genuinely different
-   strategies against each other end-to-end.
-3. **`/api/rooms/:roomNumber/matches` endpoint** + rooms page wiring.
-   The rooms page's "進行中・募集中のマッチ" panel is currently mocked;
-   the underlying Match table has everything we need. Mechanical work
-   once the endpoint exists.
+1. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
+   critical-path blocker). Convert the workspace's actual blocks into
+   the `{ rules, fallbackActions }` shape the simulator consumes, and
+   submit that on lock. Once this lands, two players can run genuinely
+   different strategies against each other end-to-end — this is what
+   turns "the simulator runs" into "students actually compete."
+2. **Rooms page matches + standings** (ROADMAP Milestone C). Wire the
+   already-existing `/api/rooms/:n/matches` and `/api/rooms/:n/standings`
+   endpoints into the rooms page panels. Mechanical — no new endpoints.
+3. **`src/lib/auth.ts` unit tests** (ROADMAP Milestone E). Vitest is
+   wired — cover cookie session round-trip and `getSession` role guards
+   before touching auth again.
 
 ### Deferred / out of scope right now
 
@@ -64,16 +73,16 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ### Open questions / handoff notes
 
-- **NEW**: User asked (2026-05-23) whether the repo has a
-  "process-to-completion" document. Today it doesn't — HANDOFF
-  section 4 is a backlog, STATUS is a rolling log, neither defines
-  the v0.2 "done" criteria or milestones. A `docs/ROADMAP.md` would
-  cover that gap. Awaiting confirmation from the user before writing
-  it (so we don't fabricate milestones unilaterally).
-- The rooms page's matches list, standings, schedule, and
-  announcements need backing APIs. Reasonable next endpoints:
-  `/api/rooms/:n/matches?status=`, `/api/rooms/:n/standings`,
-  `/api/rooms/:n/announcements`. None of those exist yet.
+- **`docs/ROADMAP.md` is a draft pending product review.** Its
+  milestones and "definition of done" are inferred from the prototypes
+  + schema, not a written spec. Scope lines marked **(TBD)** need a
+  product decision: whether obstacles/items/AP, live commentary, 2FA,
+  and email confirmation are in v0.2 or post-v0.2. Resolve those before
+  building the affected items.
+- The rooms page's schedule and announcements still need backing data.
+  `/api/rooms/:n/matches` and `/standings` **already exist** (use them);
+  announcements would need a new endpoint over the existing
+  `Announcement` model.
 - The simulator tests intentionally don't exercise an HP_ZERO win —
   no in-bounds starting alignments hit with the current six action
   types. Add coverage once AP / obstacles / items land.
