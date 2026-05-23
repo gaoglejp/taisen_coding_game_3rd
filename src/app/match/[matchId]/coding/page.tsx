@@ -1,10 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
+import { useState, useEffect, use } from "react";
+import { useRouter } from "next/navigation";
+import {
+  connectSocket,
+  disconnectSocket,
+  lockCoding,
+} from "@/lib/socket-client";
 
 // <!-- bind: WS recv coding_start { codingDeadlineAt } -->
-// <!-- bind: WS send coding_lock { matchSessionId, strategy, blocklyXml? } -->
+// <!-- bind: WS send coding_lock { matchId, strategy, blocklyXml? } -->
 
 const MOCK_MATCH = {
   matchId: "match-001",
@@ -90,15 +95,61 @@ function BlockMock({
 export default function CodingPage({
   params,
 }: {
-  params: { matchId: string };
+  params: Promise<{ matchId: string }>;
 }) {
+  const { matchId } = use(params);
+  const router = useRouter();
   const [timeLeft, setTimeLeft] = useState(300);
   const [activeTab, setActiveTab] = useState<"status" | "lastTurn" | "hints" | "json">("status");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
   const [locked, setLocked] = useState(false);
   const [waitingForOpponent, setWaitingForOpponent] = useState(false);
+  const [opponentLocked, setOpponentLocked] = useState(false);
+  const [myUserId, setMyUserId] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["アクション"]);
+
+  // Fetch current user id so we can distinguish self vs opponent lock events.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/me", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.user?.id) setMyUserId(data.user.id);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Wire Socket.io for this match.
+  useEffect(() => {
+    const socket = connectSocket(matchId);
+
+    const onCodingLocked = ({
+      playerId,
+    }: {
+      playerId: string;
+      autoLocked: boolean;
+    }) => {
+      if (myUserId && playerId !== myUserId) {
+        setOpponentLocked(true);
+      }
+    };
+    const onMatchStarted = () => {
+      router.push(`/match/${matchId}/battle`);
+    };
+
+    socket.on("coding_locked", onCodingLocked);
+    socket.on("match_started", onMatchStarted);
+
+    return () => {
+      socket.off("coding_locked", onCodingLocked);
+      socket.off("match_started", onMatchStarted);
+      disconnectSocket();
+    };
+  }, [matchId, myUserId, router]);
 
   const expired = timeLeft <= 0;
   useEffect(() => {
@@ -217,6 +268,22 @@ export default function CodingPage({
 
         {/* Right: Timer + CTA */}
         <div style={{ display: "flex", alignItems: "center", gap: 16, justifyContent: "flex-end" }}>
+          {opponentLocked && (
+            <span
+              style={{
+                background: "#fef3c7",
+                color: "#92400e",
+                fontSize: 11,
+                fontWeight: 700,
+                padding: "3px 10px",
+                borderRadius: 999,
+                border: "1px solid #fde047",
+                fontFamily: "JetBrains Mono, monospace",
+              }}
+            >
+              相手 ✓ 確定済み
+            </span>
+          )}
           <div
             style={{
               fontFamily: "JetBrains Mono, monospace",
@@ -1038,6 +1105,7 @@ export default function CodingPage({
               </button>
               <button
                 onClick={() => {
+                  lockCoding(matchId, MOCK_STRATEGY_JSON);
                   setLocked(true);
                   setShowConfirmModal(false);
                   setWaitingForOpponent(true);

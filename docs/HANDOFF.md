@@ -144,30 +144,52 @@ These are the calls the previous session made that the next session should
    pages declare their mock data as a top-level `const` so swapping to a
    `useEffect(() => fetch())` is mechanical. Don't extract into a shared mocks
    module — that delays the eventual API wiring.
+7. **Strategy lives on `Match`, not a separate `MatchSession` table.** Earlier
+   drafts referred to `MatchSession.strategy`; the schema actually keeps both
+   players' strategies on `Match.strategy1` / `Match.strategy2` and uses
+   `Match.status` (`WAITING` → `CODING` → `BATTLING` → `FINISHED`) for the
+   phase transitions. There is no `MatchSession` model.
+8. **Socket.io auth via the same cookie.** The Socket.io middleware in
+   `server.ts` reads the `session` cookie from the handshake and decodes it
+   with the same base64 scheme as `src/lib/auth.ts`. Unauthenticated sockets
+   are rejected at handshake time, and `coding_lock` checks that the user is
+   one of the match's two players before persisting. Keep these two auth
+   paths (HTTP cookies and WS handshake) in lockstep.
 
 ## 4. Known unfinished work (in priority order)
 
-1. **Wire Socket.io into the client.** `src/lib/socket-client.ts` exposes
-   `getSocket()` but no page calls it yet. The coding/battle/watch pages need:
-   - `socket.emit("join_match", { matchId })` on mount
-   - `socket.on("coding_locked", ...)` and the other events declared in
-     `server.ts`
-   - The matching server-side handlers in `server.ts` currently just log and
-     echo; they need to persist `MatchSession.strategy` and check for
-     both-locked transitions.
-2. **Replace mock data with API calls.** Every page declares mock data inline
+1. ~~Wire Socket.io into the client.~~ **Done.** `src/lib/socket-client.ts`
+   now exposes `connectSocket(matchId)` and `lockCoding(matchId, strategy)`
+   helpers. The coding/battle/watch pages call `connectSocket` on mount and
+   subscribe to `coding_locked`, `match_started`, `turn_event`, `match_result`.
+   `server.ts` persists `Match.strategy1`/`strategy2` on `coding_lock`,
+   transitions `Match.status` (`CODING` → `BATTLING`) and stamps `startedAt`
+   when both players are locked, then broadcasts `match_started`. The coding
+   page redirects to `/match/:id/battle` on `match_started`. Edge cases
+   verified end-to-end with two browser contexts: solo lock → opponent sees
+   "相手 ✓ 確定済み" pill; both lock → both redirect to battle; non-participant
+   `coding_lock` returns `error_message { reason: "not_a_participant" }`;
+   unauthenticated socket handshake is rejected. `turn_event` / `match_result`
+   subscribers on battle/watch are placeholder consoles — the actual
+   turn-by-turn simulation has not been written yet (see new TODO 2 below).
+2. **Run the turn simulation server-side.** Now that both strategies are
+   persisted on `match_started`, something needs to consume them, simulate
+   turns, and emit `turn_event` / `match_result` to the room. Today the loop
+   simply doesn't exist; the battle page animates from `MOCK_MATCH` and
+   nothing on the server moves the match toward `FINISHED`.
+3. **Replace mock data with API calls.** Every page declares mock data inline
    (see `mockStates` in `src/app/match/[matchId]/battle/page.tsx` line 82 for
    the pattern). Switch each to `useEffect`+`fetch` against the route that
    already exists.
-3. **TODOs flagged in routes:**
+4. **TODOs flagged in routes:**
    - `src/app/api/me/stats/route.ts:13` — replace placeholder aggregation
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-4. **No automated tests.** The verification above was manual. Adding Playwright
+5. **No automated tests.** The verification above was manual. Adding Playwright
    for the 17 pages + Vitest for `src/lib/auth.ts` would catch regressions.
-5. **CI is not set up.** No `.github/workflows/`.
+6. **CI is not set up.** No `.github/workflows/`.
 
 ## 5. How to run
 

@@ -9,6 +9,7 @@ export function getSocket(): Socket {
     socket = io({
       path: "/api/socket",
       autoConnect: false,
+      withCredentials: true,
     });
   }
   return socket;
@@ -18,9 +19,22 @@ export function connectSocket(matchId: string): Socket {
   const s = getSocket();
   if (!s.connected) {
     s.connect();
+    s.once("connect", () => {
+      s.emit("join_match", { matchId });
+    });
+  } else {
+    s.emit("join_match", { matchId });
   }
-  s.emit("join_match", { matchId });
   return s;
+}
+
+export function lockCoding(
+  matchId: string,
+  strategy: unknown,
+  blocklyXml?: string
+): void {
+  const s = getSocket();
+  s.emit("coding_lock", { matchId, strategy, blocklyXml });
 }
 
 export function disconnectSocket(): void {

@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, Prisma } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import pg from "pg";
 import bcrypt from "bcryptjs";
@@ -141,6 +141,30 @@ async function main() {
     },
   });
 
+  // Active coding match for realtime testing
+  const codingMatch = await prisma.match.upsert({
+    where: { roomId_matchNumber: { roomId: room.id, matchNumber: 2 } },
+    update: {
+      status: "CODING",
+      strategy1: Prisma.DbNull,
+      strategy2: Prisma.DbNull,
+      startedAt: null,
+      endedAt: null,
+      winnerId: null,
+      endReason: null,
+    },
+    create: {
+      matchNumber: 2,
+      roomId: room.id,
+      player1Id: user1.id,
+      player2Id: user2.id,
+      status: "CODING",
+      round: 1,
+      isPublicWatch: true,
+      codingDeadlineAt: new Date(Date.now() + 300000),
+    },
+  });
+
   // Audit log
   await prisma.auditLog.create({
     data: {
@@ -161,7 +185,8 @@ async function main() {
   console.log(`  Student 1: taro_student / password123!`);
   console.log(`  Student 2: hanako_student / password123!`);
   console.log(`  Room: ROOM-2026-0001`);
-  console.log(`  Match ID: ${match.id}`);
+  console.log(`  Match ID (finished): ${match.id}`);
+  console.log(`  Match ID (coding):   ${codingMatch.id}`);
 }
 
 main()
