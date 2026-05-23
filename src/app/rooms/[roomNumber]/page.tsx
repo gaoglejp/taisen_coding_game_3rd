@@ -1,25 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { TopbarPaper } from "@/components/layout/TopbarPaper";
 
 // <!-- bind: GET /api/rooms/:roomNumber -->
-// <!-- bind: GET /api/rooms/:roomNumber/matches?status=open|live -->
-// <!-- bind: GET /api/me/upcoming-matches?roomNumber=:n -->
-// <!-- bind: GET /api/rooms/:roomNumber/standings?limit=5 -->
+// <!-- bind: GET /api/rooms/:roomNumber/matches?status=open|live -- TODO -->
+// <!-- bind: GET /api/me/upcoming-matches?roomNumber=:n -- TODO -->
+// <!-- bind: GET /api/rooms/:roomNumber/standings?limit=5 -- TODO -->
 
-const MOCK_ROOM = {
-  roomNumber: "ROOM-2026-0142",
-  name: "プログラミング入門クラス A組",
-  kind: "CLASSROOM" as "CLASSROOM" | "TOURNAMENT" | "PUBLIC_LOBBY",
-  status: "ACTIVE",
-  expiresAt: "2026-07-31",
-  daysLeft: 70,
-  memberCount: 24,
-  liveMatchCount: 3,
-  rules: { board: "10×10", maxTurns: 20, ap: 2, obstacles: 5, items: ["CROSS", "BARRIER"], codingLimit: "5分" },
-};
+interface RoomData {
+  id: string;
+  roomNumber: string;
+  name: string;
+  description: string | null;
+  kind: "CLASSROOM" | "TOURNAMENT" | "PUBLIC_LOBBY";
+  status: string;
+  expiresAt: string | null;
+  activeMemberCount: number;
+  totalMatches: number;
+}
 
 const KIND_CONFIG = {
   CLASSROOM: { label: "CLASSROOM", bg: "rgba(8,145,178,0.12)", color: "#0891b2" },
@@ -27,6 +27,21 @@ const KIND_CONFIG = {
   PUBLIC_LOBBY: { label: "PUBLIC LOBBY", bg: "rgba(245,158,11,0.12)", color: "#b45309" },
 };
 
+// Rule preset defaults — the schema has `Room.rulePreset` (JSON) but most
+// rooms ship with `{}`. Until rule presets are populated, the page shows the
+// game's global defaults rather than room-specific values.
+const RULE_DEFAULTS = {
+  board: "10×10",
+  maxTurns: 20,
+  ap: 2,
+  obstacles: 5,
+  items: ["CROSS", "BARRIER"],
+  codingLimit: "5分",
+};
+
+// Matches list, "あなたの戦績", "あなたの予定", standings, and announcements
+// don't have backing APIs yet — left as mocks with this comment so the next
+// pass knows where to wire them. See docs/STATUS.md → Next 1–3 PRs.
 const MOCK_MATCHES = [
   { id: "m1", no: 12, p1: "たろう", p2: "はなこ", status: "BATTLING", isMyMatch: true },
   { id: "m2", no: 11, p1: "けんじ", p2: "みか", status: "CODING", isMyMatch: false },
@@ -49,10 +64,46 @@ const ANNOUNCEMENTS = [
   { id: 3, title: "リーグ戦の参加方法", body: "6月開催のリーグ戦への参加希望者は管理者まで連絡してください。", time: "1週間前", author: "田中先生", pinned: false },
 ];
 
-export default function RoomTopPage({ params: _ }: { params: Promise<{ roomNumber: string }> }) {
+function daysUntil(iso: string | null): number | null {
+  if (!iso) return null;
+  const ms = new Date(iso).getTime() - Date.now();
+  if (Number.isNaN(ms)) return null;
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toISOString().slice(0, 10);
+}
+
+export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: string }> }) {
+  const { roomNumber } = use(params);
   const [matchFilter, setMatchFilter] = useState("ALL");
-  const room = MOCK_ROOM;
-  const kc = KIND_CONFIG[room.kind];
+  const [room, setRoom] = useState<RoomData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/rooms/${roomNumber}`)
+      .then(async (r) => {
+        if (cancelled) return;
+        if (r.ok) {
+          const data = await r.json();
+          setRoom(data.room);
+        } else {
+          const data = await r.json().catch(() => null);
+          setError(data?.error ?? "ルーム情報を取得できませんでした");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setError("ルーム情報を取得できませんでした");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [roomNumber]);
 
   const filteredMatches = MOCK_MATCHES.filter((m) => {
     if (matchFilter === "ALL") return true;
@@ -61,6 +112,25 @@ export default function RoomTopPage({ params: _ }: { params: Promise<{ roomNumbe
     if (matchFilter === "OPEN") return m.status === "OPEN" || m.status === "WAITING";
     return true;
   });
+
+  if (error) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "var(--ink-soft)" }}>
+        {error}
+        <div style={{ marginTop: 16 }}>
+          <Link href="/dashboard" style={{ color: "var(--accent)" }}>ダッシュボードへ</Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!room) {
+    return <div style={{ padding: 40, textAlign: "center", color: "var(--ink-soft)" }}>読み込み中…</div>;
+  }
+
+  const kc = KIND_CONFIG[room.kind];
+  const daysLeft = daysUntil(room.expiresAt);
+  const liveMatchCount = MOCK_MATCHES.filter((m) => m.status === "BATTLING").length;
 
   return (
     <div style={{ minHeight: "100vh" }}>
@@ -82,25 +152,28 @@ export default function RoomTopPage({ params: _ }: { params: Promise<{ roomNumbe
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                 <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: "var(--ink-soft)", fontWeight: 600 }}>{room.roomNumber}</span>
                 <span style={{ padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: kc.bg, color: kc.color }}>{kc.label}</span>
-                <span style={{ padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "#dcfce7", color: "#15803d" }}>ACTIVE</span>
+                <span style={{ padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "#dcfce7", color: "#15803d" }}>{room.status}</span>
               </div>
               <h1 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 800 }}>{room.name}</h1>
               <div style={{ display: "flex", gap: 20, fontSize: 13, color: "var(--ink-soft)" }}>
-                <span>📅 {room.expiresAt} まで（残{room.daysLeft}日）</span>
-                <span>👥 {room.memberCount}名</span>
-                <span>⚔ 進行中 {room.liveMatchCount}マッチ</span>
+                <span>
+                  📅 {formatDate(room.expiresAt)} まで
+                  {daysLeft != null && `（残${daysLeft}日）`}
+                </span>
+                <span>👥 {room.activeMemberCount}名</span>
+                <span>⚔ 進行中 {liveMatchCount}マッチ</span>
               </div>
             </div>
           </div>
 
-          {/* Rule summary */}
+          {/* Rule summary — defaults until rulePreset is populated */}
           <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
             {[
-              { k: "盤面", v: room.rules.board },
-              { k: "最大ターン", v: `${room.rules.maxTurns}T` },
-              { k: "AP上限", v: `${room.rules.ap} AP/T` },
-              { k: "障害物", v: `${room.rules.obstacles}個` },
-              { k: "コーディング制限", v: room.rules.codingLimit },
+              { k: "盤面", v: RULE_DEFAULTS.board },
+              { k: "最大ターン", v: `${RULE_DEFAULTS.maxTurns}T` },
+              { k: "AP上限", v: `${RULE_DEFAULTS.ap} AP/T` },
+              { k: "障害物", v: `${RULE_DEFAULTS.obstacles}個` },
+              { k: "コーディング制限", v: RULE_DEFAULTS.codingLimit },
             ].map((r) => (
               <div key={r.k} style={{ background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "7px 14px", textAlign: "center" }}>
                 <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 600 }}>{r.k}</div>
@@ -110,7 +183,7 @@ export default function RoomTopPage({ params: _ }: { params: Promise<{ roomNumbe
             <div style={{ background: "var(--bg-2)", border: "1px solid var(--line)", borderRadius: 8, padding: "7px 14px" }}>
               <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 600 }}>アイテム</div>
               <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-                {room.rules.items.map((it) => (
+                {RULE_DEFAULTS.items.map((it) => (
                   <span key={it} style={{ fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 4, background: "#dbeafe", color: "var(--p1-ink)" }}>{it}</span>
                 ))}
               </div>

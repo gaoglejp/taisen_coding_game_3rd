@@ -192,17 +192,18 @@ These are the calls the previous session made that the next session should
 3. **Replace remaining mock data with API calls.** The battle page's HP/
    position/direction/turn-log are now live, the result page is fully wired
    (PR #7), the coding page header pulls room name / match number /
-   opponent name from `/api/match/:id/state` (PR #8), and the watch page
+   opponent name from `/api/match/:id/state` (PR #8), the watch page
    pulls room / players from `/api/match/:id/public` and tank
-   positions / HP / actions / cumulative damage from `turn_event` (PR #9).
-   Still on mocks: the **strategy payload** the coding page submits (it
-   still locks in `MOCK_STRATEGY_JSON` — the Blockly workspace isn't
-   wired to a serializer); the coding page's `lastTurn` tab data; the
-   watch page's obstacles / items / timeline-events / commentary feed /
-   state-gallery (the simulator doesn't model items or yet expose
-   ticker-worthy events); the dashboard's room cards; and most admin
-   pages. Same pattern applies — swap each `const MOCK_*` to a
-   `useEffect`+`fetch` against the route that already exists.
+   positions / HP / actions / cumulative damage from `turn_event` (PR #9),
+   and the rooms page hero/rules are now real (PR #11) — room name,
+   number, kind, status, expiresAt with computed days-left, and active
+   member count come from `/api/rooms/:roomNumber`. Still on mocks: the
+   **strategy payload** the coding page submits (Blockly workspace
+   isn't wired to a serializer); the coding page's `lastTurn` tab data;
+   the watch page's obstacles / items / timeline-events / commentary /
+   state-gallery; the rooms page's matches list / standings /
+   announcements / "your record" / "your schedule"; and most admin
+   pages.
 4. **TODOs flagged in routes:**
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
      future `InviteCode` model (schema change required)
