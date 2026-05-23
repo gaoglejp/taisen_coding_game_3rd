@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, use } from "react";
 import Link from "next/link";
 import { connectSocket, disconnectSocket } from "@/lib/socket-client";
+import type { TurnSnapshot } from "@/lib/match-simulator";
 
 const MOCK_MATCH = {
   matchId: "match-001",
@@ -11,10 +12,9 @@ const MOCK_MATCH = {
   p1Name: "はなこ",
   p2Name: "たろう",
   spectatorCount: 12,
-  ended: false,
 };
 
-const TOTAL_TURNS = 20;
+const MAX_TURNS = 20;
 
 // 10x10 grid: null=empty, "WALL"=obstacle, "CROSS"=cross attack item, "BARRIER"=barrier item, "REPEAT"=repeat item
 const GRID_DATA: Record<string, string> = {
@@ -28,14 +28,6 @@ const GRID_DATA: Record<string, string> = {
   "5,6": "REPEAT",
 };
 
-const TURN_LOG = [
-  { turn: 1, text: "はなこ: MOVE_FORWARD → 移動成功", color: "var(--p1)" },
-  { turn: 1, text: "たろう: SCAN → 索敵ヒット", color: "var(--p2)" },
-  { turn: 2, text: "はなこ: SHOOT_FORWARD → MISS", color: "var(--p1)" },
-  { turn: 2, text: "たろう: MOVE_FORWARD → 移動成功", color: "var(--p2)" },
-  { turn: 3, text: "はなこ: SHOOT_FORWARD → HIT! -15", color: "var(--p1)" },
-];
-
 interface Player {
   x: number;
   y: number;
@@ -44,8 +36,8 @@ interface Player {
   maxHp: number;
 }
 
-const INITIAL_P1: Player = { x: 0, y: 0, dir: "E", hp: 65, maxHp: 100 };
-const INITIAL_P2: Player = { x: 9, y: 9, dir: "W", hp: 80, maxHp: 100 };
+const INITIAL_P1: Player = { x: 0, y: 0, dir: "E", hp: 100, maxHp: 100 };
+const INITIAL_P2: Player = { x: 9, y: 9, dir: "W", hp: 100, maxHp: 100 };
 
 const DIR_ARROW: Record<string, string> = { N: "↑", E: "→", S: "↓", W: "←" };
 
@@ -400,15 +392,23 @@ export default function BattlePage({
   params: Promise<{ matchId: string }>;
 }) {
   const { matchId } = use(params);
-  const [currentTurn, setCurrentTurn] = useState(3);
+  const [turns, setTurns] = useState<TurnSnapshot[]>([]);
+  const [currentTurn, setCurrentTurn] = useState(0);
+  const [ended, setEnded] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const socket = connectSocket(matchId);
-    const onTurn = (data: unknown) => console.log("turn_event", data);
-    const onResult = (data: unknown) => console.log("match_result", data);
+    const onTurn = (snap: TurnSnapshot) => {
+      setTurns((prev) => {
+        if (prev.some((t) => t.turn === snap.turn)) return prev;
+        return [...prev, snap];
+      });
+      setCurrentTurn(snap.turn);
+    };
+    const onResult = () => setEnded(true);
     socket.on("turn_event", onTurn);
     socket.on("match_result", onResult);
     return () => {
@@ -418,14 +418,19 @@ export default function BattlePage({
     };
   }, [matchId]);
 
-  const p1: Player = { ...INITIAL_P1, x: 3 + Math.min(currentTurn, 5), y: 7 };
-  const p2: Player = { ...INITIAL_P2, x: 9 - Math.min(currentTurn, 4), y: 2 };
+  const activeSnapshot = currentTurn > 0 ? turns[currentTurn - 1] : undefined;
+  const p1: Player = activeSnapshot
+    ? { x: activeSnapshot.p1.x, y: activeSnapshot.p1.y, dir: activeSnapshot.p1.dir, hp: activeSnapshot.p1.hp, maxHp: 100 }
+    : INITIAL_P1;
+  const p2: Player = activeSnapshot
+    ? { x: activeSnapshot.p2.x, y: activeSnapshot.p2.y, dir: activeSnapshot.p2.dir, hp: activeSnapshot.p2.hp, maxHp: 100 }
+    : INITIAL_P2;
 
   useEffect(() => {
     if (playing) {
       intervalRef.current = setInterval(() => {
         setCurrentTurn((t) => {
-          if (t >= TOTAL_TURNS) {
+          if (t >= turns.length) {
             setPlaying(false);
             return t;
           }
@@ -438,7 +443,7 @@ export default function BattlePage({
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [playing, speed]);
+  }, [playing, speed, turns.length]);
 
   const COLS = "ABCDEFGHIJ";
 
@@ -508,13 +513,13 @@ export default function BattlePage({
             style={{
               fontSize: 13,
               fontWeight: 600,
-              color: MOCK_MATCH.ended ? "var(--p1-ink)" : "#9ca3af",
+              color: ended ? "var(--p1-ink)" : "#9ca3af",
               textDecoration: "none",
               padding: "6px 14px",
               borderRadius: 8,
-              border: `1px solid ${MOCK_MATCH.ended ? "var(--p1)" : "var(--line)"}`,
+              border: `1px solid ${ended ? "var(--p1)" : "var(--line)"}`,
               background: "var(--surface)",
-              pointerEvents: MOCK_MATCH.ended ? "auto" : "none",
+              pointerEvents: ended ? "auto" : "none",
             }}
           >
             結果へ →
@@ -556,7 +561,7 @@ export default function BattlePage({
                 borderRadius: 999,
               }}
             >
-              TURN {currentTurn} / {TOTAL_TURNS}
+              TURN {currentTurn} / {MAX_TURNS}
             </span>
           </div>
 
@@ -772,10 +777,10 @@ export default function BattlePage({
                 },
                 {
                   icon: "⏩",
-                  action: () => setCurrentTurn((t) => Math.min(TOTAL_TURNS, t + 1)),
+                  action: () => setCurrentTurn((t) => Math.min(MAX_TURNS, t + 1)),
                   title: "次のターン",
                 },
-                { icon: "⏭", action: () => setCurrentTurn(TOTAL_TURNS), title: "最後へ" },
+                { icon: "⏭", action: () => setCurrentTurn(MAX_TURNS), title: "最後へ" },
               ].map((btn) => (
                 <button
                   key={btn.icon}
@@ -827,7 +832,7 @@ export default function BattlePage({
               <input
                 type="range"
                 min={0}
-                max={TOTAL_TURNS}
+                max={MAX_TURNS}
                 value={currentTurn}
                 onChange={(e) => {
                   setPlaying(false);
@@ -846,7 +851,7 @@ export default function BattlePage({
                   title={`T${marker.turn}: ${marker.label}`}
                   style={{
                     position: "absolute",
-                    left: `${(marker.turn / TOTAL_TURNS) * 100}%`,
+                    left: `${(marker.turn / MAX_TURNS) * 100}%`,
                     top: -4,
                     width: 8,
                     height: 8,
@@ -860,7 +865,7 @@ export default function BattlePage({
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
               <span>T0</span>
-              <span>T{TOTAL_TURNS}</span>
+              <span>T{MAX_TURNS}</span>
             </div>
           </div>
 
@@ -878,35 +883,44 @@ export default function BattlePage({
             <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8, color: "var(--ink-soft)" }}>
               ターンログ (最新5件)
             </div>
-            {TURN_LOG.slice(-5).map((log, i) => (
-              <div
-                key={i}
-                style={{
-                  fontSize: 12,
-                  padding: "4px 0",
-                  borderBottom: i < 4 ? "1px solid var(--line)" : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                }}
-              >
-                <span
+            {turns
+              .flatMap((snap) =>
+                snap.logs.map((log) => ({
+                  turn: snap.turn,
+                  text: `${log.playerId === "p1" ? MOCK_MATCH.p1Name : MOCK_MATCH.p2Name}: ${log.text}`,
+                  color: log.playerId === "p1" ? "var(--p1)" : "var(--p2)",
+                }))
+              )
+              .slice(-5)
+              .map((log, i, arr) => (
+                <div
+                  key={i}
                   style={{
-                    fontFamily: "JetBrains Mono, monospace",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    color: "#fff",
-                    background: log.color,
-                    padding: "1px 5px",
-                    borderRadius: 4,
-                    flexShrink: 0,
+                    fontSize: 12,
+                    padding: "4px 0",
+                    borderBottom: i < arr.length - 1 ? "1px solid var(--line)" : "none",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
                   }}
                 >
-                  T{log.turn}
-                </span>
-                <span>{log.text}</span>
-              </div>
-            ))}
+                  <span
+                    style={{
+                      fontFamily: "JetBrains Mono, monospace",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      color: "#fff",
+                      background: log.color,
+                      padding: "1px 5px",
+                      borderRadius: 4,
+                      flexShrink: 0,
+                    }}
+                  >
+                    T{log.turn}
+                  </span>
+                  <span>{log.text}</span>
+                </div>
+              ))}
           </div>
         </div>
 
@@ -953,7 +967,7 @@ export default function BattlePage({
                 position: "absolute",
                 top: "50%",
                 left: 0,
-                width: `${(currentTurn / TOTAL_TURNS) * 100}%`,
+                width: `${(currentTurn / MAX_TURNS) * 100}%`,
                 height: 4,
                 background: "var(--p1)",
                 borderRadius: 999,
@@ -973,7 +987,7 @@ export default function BattlePage({
                 title={`T${m.turn}: ${m.label}`}
                 style={{
                   position: "absolute",
-                  left: `${(m.turn / TOTAL_TURNS) * 100}%`,
+                  left: `${(m.turn / MAX_TURNS) * 100}%`,
                   top: "50%",
                   transform: "translate(-50%, -50%)",
                   width: 10,

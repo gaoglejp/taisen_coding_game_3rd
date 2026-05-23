@@ -3,8 +3,9 @@ import { createServer } from "http";
 import { parse } from "url";
 import next from "next";
 import { Server as SocketIOServer } from "socket.io";
-import { setSocketServer } from "./src/lib/socket-server";
+import { setSocketServer, getSocketServer } from "./src/lib/socket-server";
 import { prisma } from "./src/lib/db";
+import { simulate, type Strategy } from "./src/lib/match-simulator";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -30,6 +31,51 @@ function userIdFromToken(token: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+const TURN_DELAY_MS = 1200;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runMatch(
+  matchId: string,
+  player1Id: string | null,
+  player2Id: string | null,
+  strategy1: unknown,
+  strategy2: unknown
+): Promise<void> {
+  const result = simulate(strategy1 as Strategy, strategy2 as Strategy);
+
+  for (const snapshot of result.turns) {
+    // Emit before sleeping so a late-joining client doesn't desync; the
+    // delay is purely visual pacing on the receiving page.
+    getSocketServer()?.to(`match:${matchId}`).emit("turn_event", snapshot);
+    await sleep(TURN_DELAY_MS);
+  }
+
+  const winnerId =
+    result.winner === "p1" ? player1Id : result.winner === "p2" ? player2Id : null;
+
+  await prisma.match.update({
+    where: { id: matchId },
+    data: {
+      status: "FINISHED",
+      endReason: result.endReason,
+      winnerId,
+      endedAt: new Date(),
+      replayData: { turns: result.turns, finalHp: result.finalHp } as object,
+    },
+  });
+
+  getSocketServer()?.to(`match:${matchId}`).emit("match_result", {
+    matchId,
+    winnerId,
+    endReason: result.endReason,
+    finalHp: result.finalHp,
+    totalTurns: result.totalTurns,
+  });
 }
 
 app.prepare().then(() => {
@@ -138,6 +184,23 @@ app.prepare().then(() => {
             data: { status: "BATTLING", startedAt: new Date() },
           });
           io.to(`match:${matchId}`).emit("match_started", { matchId });
+
+          // Strategy on `match` is stale — it was fetched before this update —
+          // so re-read both fields and run the turn loop.
+          const fresh = await prisma.match.findUnique({
+            where: { id: matchId },
+            select: {
+              player1Id: true,
+              player2Id: true,
+              strategy1: true,
+              strategy2: true,
+            },
+          });
+          if (fresh) {
+            runMatch(matchId, fresh.player1Id, fresh.player2Id, fresh.strategy1, fresh.strategy2).catch(
+              (err) => console.error(`Match ${matchId} simulation failed:`, err)
+            );
+          }
         }
       }
     );
