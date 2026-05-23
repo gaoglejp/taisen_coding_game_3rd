@@ -195,10 +195,15 @@ These are the calls the previous session made that the next session should
 
 ```bash
 docker compose up -d                 # Postgres on 127.0.0.1:5432
-npm install
-npm run db:push && npm run db:generate && npm run db:seed
+cp .env.example .env                 # required; prisma reads DATABASE_URL from it
+npm install                          # postinstall runs `prisma generate`
+npm run db:push && npm run db:seed
 npm run dev                          # http://localhost:3000
 ```
+
+Without `.env`, `prisma db push` fails with
+`Error: The datasource.url property is required in your Prisma config file`
+because `prisma.config.ts` resolves `DATABASE_URL` at load time.
 
 If `npm run dev` fails with a Socket.io port-in-use error, kill leftover `tsx`
 processes (`pkill -f "tsx watch server.ts"`) and retry. This bites once per
