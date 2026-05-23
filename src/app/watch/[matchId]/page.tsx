@@ -8,26 +8,37 @@ import { useState, useMemo, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { TopbarPaper } from "@/components/layout/TopbarPaper";
 import { connectSocket, disconnectSocket } from "@/lib/socket-client";
+import type { TurnSnapshot, Direction } from "@/lib/match-simulator";
 
 /* ===========================================================================
-   Dummy data — mirrors GET /api/match/:matchId/public + /replay payloads
+   Default placeholders — live data overrides these once /api/match/:id/public
+   resolves and turn_event events start arriving over the socket.
    =========================================================================== */
 
-const META = {
-  matchId: "M-22064",
+const META_DEFAULTS = {
   visibility: "PUBLIC" as "PUBLIC" | "LIMITED",
   delaySeconds: 15,
   mode: "LIVE" as "LIVE" | "REPLAY" | "ENDED",
   viewerCount: 14,
   viewerDelta: 3,
-  roomName: "3-A クラス・5月課題",
-  p1: { id: "P1", name: "たろう_06", initials: "TR" },
-  p2: { id: "P2", name: "HanaCoder", initials: "HC" },
+  roomName: "—",
+  p1: { id: "P1", name: "P1", initials: "P1" },
+  p2: { id: "P2", name: "P2", initials: "P2" },
   totalTurns: 20,
-  currentTurn: 8,
-  shareUrl: "https://taisen-coding.example.jp/watch/M-22064",
+  currentTurn: 0,
 };
 
+function initialsFor(name: string | null | undefined, fallback: string): string {
+  if (!name) return fallback;
+  // Take the first 2 chars of the username/displayName; works for both
+  // Japanese names (e.g. たろう → たろ) and ASCII (HanaCoder → Ha).
+  const trimmed = name.trim();
+  return trimmed.slice(0, 2).toUpperCase() || fallback;
+}
+
+// Obstacles and items are still mock — the simulator doesn't model them yet.
+// Tank positions are now driven by the latest turn_event (passed into Board
+// as a prop). Shot line is left out until the simulator surfaces shot rays.
 const BOARD = {
   width: 10,
   height: 10,
@@ -39,12 +50,9 @@ const BOARD = {
     { x: 2, y: 1, kind: "BARRIER" as const },
     { x: 8, y: 4, kind: "REPEAT" as const },
   ],
-  tanks: [
-    { id: "P1", x: 3, y: 6, dir: "N" as const, name: "TR" },
-    { id: "P2", x: 6, y: 3, dir: "S" as const, name: "HC" },
-  ],
-  shot: { from: { x: 3, y: 6 }, to: { x: 3, y: 3 }, hit: false },
 };
+
+interface LiveTank { id: "P1" | "P2"; x: number; y: number; dir: Direction; name: string }
 
 const TIMELINE_EVENTS = [
   { turn: 3, kind: "first" as const, label: "P1 が FirstDamage", icon: "★" },
@@ -677,17 +685,65 @@ function MiniPill({
    Page
    =========================================================================== */
 
+interface PublicMatch {
+  matchId: string;
+  matchNumber: number;
+  status: string;
+  isPublicWatch: boolean;
+  player1: { id: string; username: string; displayName: string | null } | null;
+  player2: { id: string; username: string; displayName: string | null } | null;
+  room: { name: string; roomNumber: string; watchingPublic: string; replayShareEnabled: boolean };
+}
+
+const DIR_LABEL: Record<Direction, string> = { N: "↑ NORTH", E: "→ EAST", S: "↓ SOUTH", W: "← WEST" };
+const ACTION_KIND: Record<string, PanelData["actions"][number]["kind"]> = {
+  MOVE_FORWARD: "move",
+  SHOOT_FORWARD: "shoot",
+  TURN_LEFT: "turn",
+  TURN_RIGHT: "turn",
+  SCAN: "scan",
+  WAIT: "turn",
+};
+const ACTION_LABEL: Record<string, string> = {
+  MOVE_FORWARD: "MOVE FWD",
+  SHOOT_FORWARD: "SHOOT",
+  TURN_LEFT: "TURN L",
+  TURN_RIGHT: "TURN R",
+  SCAN: "SCAN",
+  WAIT: "WAIT",
+};
+
 export default function WatchPage() {
   const params = useParams<{ matchId: string }>();
-  const matchId = (params?.matchId as string | undefined) ?? META.matchId;
+  const matchId = (params?.matchId as string | undefined) ?? "";
 
   const [speed, setSpeed] = useState<0.5 | 1 | 2 | 4>(1);
   const [copied, setCopied] = useState(false);
+  const [publicData, setPublicData] = useState<PublicMatch | null>(null);
+  const [turns, setTurns] = useState<TurnSnapshot[]>([]);
+  const [ended, setEnded] = useState(false);
 
   useEffect(() => {
+    if (!matchId) return;
+    let cancelled = false;
+    fetch(`/api/match/${matchId}/public`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.matchId) setPublicData(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId]);
+
+  useEffect(() => {
+    if (!matchId) return;
     const socket = connectSocket(matchId);
-    const onTurn = (data: unknown) => console.log("watch turn_event", data);
-    const onResult = (data: unknown) => console.log("watch match_result", data);
+    const onTurn = (snap: TurnSnapshot) => {
+      setTurns((prev) => (prev.some((t) => t.turn === snap.turn) ? prev : [...prev, snap]));
+    };
+    const onResult = () => setEnded(true);
     socket.on("turn_event", onTurn);
     socket.on("match_result", onResult);
     return () => {
@@ -697,47 +753,87 @@ export default function WatchPage() {
     };
   }, [matchId]);
   const shareUrl = useMemo(
-    () => `https://taisen-coding.example.jp/watch/${matchId}`,
+    () => (typeof window !== "undefined" ? `${window.location.origin}/watch/${matchId}` : `/watch/${matchId}`),
     [matchId]
   );
 
+  // Derive display values from live data with default fallbacks so the page
+  // never renders blank while data is loading.
+  const p1Name = publicData?.player1?.displayName ?? publicData?.player1?.username ?? META_DEFAULTS.p1.name;
+  const p2Name = publicData?.player2?.displayName ?? publicData?.player2?.username ?? META_DEFAULTS.p2.name;
+  const meta = {
+    ...META_DEFAULTS,
+    matchId: publicData?.matchId ?? matchId,
+    roomName: publicData?.room?.name ?? META_DEFAULTS.roomName,
+    p1: { id: "P1", name: p1Name, initials: initialsFor(p1Name, "P1") },
+    p2: { id: "P2", name: p2Name, initials: initialsFor(p2Name, "P2") },
+    currentTurn: turns.length,
+    mode: (ended ? "ENDED" : "LIVE") as "LIVE" | "REPLAY" | "ENDED",
+  };
+
+  const latest = turns[turns.length - 1];
+  const fmtAction = (
+    action: string | undefined
+  ): { kind: PanelData["actions"][number]["kind"]; label: string } => ({
+    kind: (action ? ACTION_KIND[action] : undefined) ?? "turn",
+    label: (action ? ACTION_LABEL[action] : undefined) ?? "—",
+  });
+
   const p1Data: PanelData = {
     side: "p1",
-    name: META.p1.name,
-    initials: META.p1.initials,
-    x: 3,
-    y: 6,
-    dir: "↑ NORTH",
-    hp: 84,
+    name: meta.p1.name,
+    initials: meta.p1.initials,
+    x: latest?.p1.x ?? 0,
+    y: latest?.p1.y ?? 0,
+    dir: latest ? DIR_LABEL[latest.p1.dir] : "↑ NORTH",
+    hp: latest?.p1.hp ?? 100,
     maxHp: 100,
-    detected: "forward: +3 · right: +3",
+    detected: latest?.p1.scan_detected && latest.p1.detected_targets[0]
+      ? `forward: +${latest.p1.detected_targets[0].distance}`
+      : "—",
     detectedAge: 0,
-    actions: [
-      { slot: 1, kind: "move", label: "MOVE FWD" },
-      { slot: 2, kind: "shoot", label: "SHOOT" },
-    ],
-    lastTurn: { damaged: "0", shootResult: "MISS", scanDetected: "true" },
-    score: { dealt: 24, taken: 16 },
+    actions: latest
+      ? [{ slot: 1, ...fmtAction(latest.p1.action) }]
+      : [{ slot: 1, kind: "move", label: "—" }],
+    lastTurn: {
+      damaged: latest ? String(latest.p1.damaged) : "0",
+      shootResult: latest?.p1.shoot_result ?? "—",
+      scanDetected: latest?.p1.scan_detected ? "true" : "false",
+    },
+    score: { dealt: 0, taken: 0 },
   };
 
   const p2Data: PanelData = {
     side: "p2",
-    name: META.p2.name,
-    initials: META.p2.initials,
-    x: 6,
-    y: 3,
-    dir: "↓ SOUTH",
-    hp: 76,
+    name: meta.p2.name,
+    initials: meta.p2.initials,
+    x: latest?.p2.x ?? 9,
+    y: latest?.p2.y ?? 9,
+    dir: latest ? DIR_LABEL[latest.p2.dir] : "↓ SOUTH",
+    hp: latest?.p2.hp ?? 100,
     maxHp: 100,
-    detected: "forward: +3 · right: −3",
+    detected: latest?.p2.scan_detected && latest.p2.detected_targets[0]
+      ? `forward: +${latest.p2.detected_targets[0].distance}`
+      : "—",
     detectedAge: 0,
-    actions: [
-      { slot: 1, kind: "turn", label: "TURN R" },
-      { slot: 2, kind: "move", label: "MOVE FWD" },
-    ],
-    lastTurn: { damaged: "8 ↓", shootResult: "—", scanDetected: "false" },
-    score: { dealt: 16, taken: 24 },
+    actions: latest
+      ? [{ slot: 1, ...fmtAction(latest.p2.action) }]
+      : [{ slot: 1, kind: "move", label: "—" }],
+    lastTurn: {
+      damaged: latest ? String(latest.p2.damaged) : "0",
+      shootResult: latest?.p2.shoot_result ?? "—",
+      scanDetected: latest?.p2.scan_detected ? "true" : "false",
+    },
+    score: { dealt: 0, taken: 0 },
   };
+
+  // Roll up cumulative damage scores from turns we've received.
+  for (const t of turns) {
+    p1Data.score.taken += t.p1.damaged;
+    p2Data.score.taken += t.p2.damaged;
+    p1Data.score.dealt += t.p2.damaged;
+    p2Data.score.dealt += t.p1.damaged;
+  }
 
   const handleCopy = async () => {
     try {
@@ -777,10 +873,10 @@ export default function WatchPage() {
               fontSize: 12.5,
             }}
           >
-            <ScopePill visibility={META.visibility} />
-            <MetaBlock label="// MATCH" value={`#${META.matchId}`} mono />
+            <ScopePill visibility={meta.visibility} />
+            <MetaBlock label="// MATCH" value={`#${meta.matchId}`} mono />
             <MetaSep />
-            <MetaBlock label="// ROOM" value={META.roomName} />
+            <MetaBlock label="// ROOM" value={meta.roomName} />
             <MetaSep />
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span
@@ -795,7 +891,7 @@ export default function WatchPage() {
                 {"// 対戦カード"}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 1, fontWeight: 700, fontSize: 13 }}>
-                <PlayerChip side="p1" initials={META.p1.initials} name={META.p1.name} />
+                <PlayerChip side="p1" initials={meta.p1.initials} name={meta.p1.name} />
                 <span
                   style={{
                     fontFamily: "JetBrains Mono, monospace",
@@ -806,7 +902,7 @@ export default function WatchPage() {
                 >
                   vs
                 </span>
-                <PlayerChip side="p2" initials={META.p2.initials} name={META.p2.name} />
+                <PlayerChip side="p2" initials={meta.p2.initials} name={meta.p2.name} />
               </span>
             </div>
           </div>
@@ -814,7 +910,7 @@ export default function WatchPage() {
         rightContent={
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10 }}>
             <LivePill />
-            <ViewerCount count={META.viewerCount} delta={META.viewerDelta} />
+            <ViewerCount count={meta.viewerCount} delta={meta.viewerDelta} />
             <button
               aria-label="リンクをコピー"
               onClick={handleCopy}
@@ -872,7 +968,7 @@ export default function WatchPage() {
         </div>
         <div>
           <strong style={{ color: "#7c2d12", fontWeight: 700 }}>
-            公式戦のため {META.delaySeconds} 秒遅延配信中
+            公式戦のため {meta.delaySeconds} 秒遅延配信中
           </strong>
           <span style={{ marginLeft: 6, color: "var(--ink-soft)" }}>
             プレイヤーの公平性を保つため、観戦表示はリアルタイムから少し遅れています。
@@ -949,10 +1045,10 @@ export default function WatchPage() {
                   padding: "3px 9px",
                 }}
               >
-                Turn {META.currentTurn}
+                Turn {meta.currentTurn}
                 <small style={{ color: "var(--ink-soft)", fontWeight: 600, fontSize: 10.5 }}>
                   {" "}
-                  / {META.totalTurns}
+                  / {meta.totalTurns}
                 </small>
               </span>
             </div>
@@ -968,7 +1064,12 @@ export default function WatchPage() {
               minHeight: 0,
             }}
           >
-            <Board />
+            <Board
+              tanks={[
+                { id: "P1", x: p1Data.x, y: p1Data.y, dir: (latest?.p1.dir ?? "E") as Direction, name: meta.p1.initials },
+                { id: "P2", x: p2Data.x, y: p2Data.y, dir: (latest?.p2.dir ?? "W") as Direction, name: meta.p2.initials },
+              ]}
+            />
           </div>
 
           {/* Replay controls */}
@@ -1014,13 +1115,13 @@ export default function WatchPage() {
                     left: 0,
                     top: 0,
                     bottom: 0,
-                    width: `${(META.currentTurn / META.totalTurns) * 100}%`,
+                    width: `${(meta.currentTurn / meta.totalTurns) * 100}%`,
                     background: "linear-gradient(90deg, var(--accent), #fbbf24)",
                   }}
                 />
               </div>
               <div
-                aria-label={`現在ターン ${META.currentTurn}`}
+                aria-label={`現在ターン ${meta.currentTurn}`}
                 style={{
                   position: "absolute",
                   top: 3,
@@ -1031,7 +1132,7 @@ export default function WatchPage() {
                   borderRadius: "50%",
                   transform: "translateX(-50%)",
                   boxShadow: "0 1px 4px rgba(31,35,48,.18)",
-                  left: `${(META.currentTurn / META.totalTurns) * 100}%`,
+                  left: `${(meta.currentTurn / meta.totalTurns) * 100}%`,
                 }}
               />
               {/* Event ticks */}
@@ -1146,12 +1247,12 @@ export default function WatchPage() {
                   marginLeft: 6,
                 }}
               >
-                {"// 0 → {META.totalTurns}"}
+                {"// 0 → {meta.totalTurns}"}
               </small>
             </h2>
             <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11 }}>
               現在:{" "}
-              <strong style={{ color: "var(--ink)" }}>T{META.currentTurn}</strong>
+              <strong style={{ color: "var(--ink)" }}>T{meta.currentTurn}</strong>
             </span>
           </header>
           <div style={{ padding: "14px 16px" }}>
@@ -1175,7 +1276,7 @@ export default function WatchPage() {
                   background: "var(--ink)",
                   borderRadius: 1,
                   transform: "translateX(-50%)",
-                  left: `${(META.currentTurn / META.totalTurns) * 100}%`,
+                  left: `${(meta.currentTurn / meta.totalTurns) * 100}%`,
                 }}
               >
                 <span
@@ -1194,7 +1295,7 @@ export default function WatchPage() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  T{META.currentTurn}
+                  T{meta.currentTurn}
                 </span>
               </span>
               {/* Events */}
@@ -1222,7 +1323,7 @@ export default function WatchPage() {
                       cursor: "pointer",
                       border: "1.5px solid #fff",
                       boxShadow: "0 1px 3px rgba(31,35,48,.18)",
-                      left: `${(ev.turn / META.totalTurns) * 100}%`,
+                      left: `${(ev.turn / meta.totalTurns) * 100}%`,
                     }}
                   >
                     {ev.icon}
@@ -1806,16 +1907,7 @@ function PlayerChip({ side, initials, name }: { side: "p1" | "p2"; initials: str
    Board (10x10)
    =========================================================================== */
 
-function Board() {
-  const sx = BOARD.shot.from.x * CELL_PX + CELL_PX / 2;
-  const sy = BOARD.shot.from.y * CELL_PX + CELL_PX / 2;
-  const ex = BOARD.shot.to.x * CELL_PX + CELL_PX / 2;
-  const ey = BOARD.shot.to.y * CELL_PX + CELL_PX / 2;
-  const dx = ex - sx;
-  const dy = ey - sy;
-  const shotLen = Math.hypot(dx, dy);
-  const shotAng = (Math.atan2(dy, dx) * 180) / Math.PI;
-
+function Board({ tanks }: { tanks: LiveTank[] }) {
   return (
     <div
       aria-label="10x10 盤面"
@@ -1878,7 +1970,7 @@ function Board() {
         </div>
       ))}
       {/* Tanks */}
-      {BOARD.tanks.map((t) => (
+      {tanks.map((t) => (
         <div
           key={`tk-${t.id}`}
           style={{
@@ -1894,23 +1986,6 @@ function Board() {
           <TankGlyph side={t.id === "P1" ? "p1" : "p2"} name={t.name} dir={t.dir} />
         </div>
       ))}
-      {/* Shot line */}
-      <div
-        style={{
-          position: "absolute",
-          background:
-            "linear-gradient(90deg, rgba(239,68,68,.05), rgba(239,68,68,.85), rgba(239,68,68,.05))",
-          height: 3,
-          borderRadius: 2,
-          transformOrigin: "0 50%",
-          boxShadow: "0 0 6px rgba(239,68,68,.4)",
-          animation: "shotflash 1.4s ease-out infinite",
-          left: sx,
-          top: sy - 1.5,
-          width: shotLen,
-          transform: `rotate(${shotAng}deg)`,
-        }}
-      />
     </div>
   );
 }
