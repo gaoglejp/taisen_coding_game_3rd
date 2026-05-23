@@ -155,6 +155,11 @@ These are the calls the previous session made that the next session should
    are rejected at handshake time, and `coding_lock` checks that the user is
    one of the match's two players before persisting. Keep these two auth
    paths (HTTP cookies and WS handshake) in lockstep.
+9. **Simulator emits one `turn_event` per turn with a stable shape.** The
+   `TurnSnapshot` type in `src/lib/match-simulator.ts` is the wire format the
+   battle/watch pages consume. New rule features (AP budgets, obstacles,
+   items, richer conditions) should extend the snapshot additively rather
+   than replace fields, so the existing client code keeps working.
 
 ## 4. Known unfinished work (in priority order)
 
@@ -169,27 +174,39 @@ These are the calls the previous session made that the next session should
    verified end-to-end with two browser contexts: solo lock → opponent sees
    "相手 ✓ 確定済み" pill; both lock → both redirect to battle; non-participant
    `coding_lock` returns `error_message { reason: "not_a_participant" }`;
-   unauthenticated socket handshake is rejected. `turn_event` / `match_result`
-   subscribers on battle/watch are placeholder consoles — the actual
-   turn-by-turn simulation has not been written yet (see new TODO 2 below).
-2. **Run the turn simulation server-side.** Now that both strategies are
-   persisted on `match_started`, something needs to consume them, simulate
-   turns, and emit `turn_event` / `match_result` to the room. Today the loop
-   simply doesn't exist; the battle page animates from `MOCK_MATCH` and
-   nothing on the server moves the match toward `FINISHED`.
-3. **Replace mock data with API calls.** Every page declares mock data inline
-   (see `mockStates` in `src/app/match/[matchId]/battle/page.tsx` line 82 for
-   the pattern). Switch each to `useEffect`+`fetch` against the route that
-   already exists.
+   unauthenticated socket handshake is rejected. The battle page now consumes
+   `turn_event` and `match_result` to drive HP/position/direction/turn-log —
+   the previous "placeholder console" caveat is resolved by TODO 2.
+2. ~~Run the turn simulation server-side.~~ **Done.** `src/lib/match-simulator.ts`
+   is a pure deterministic simulator: 10×10 grid, two players, up to 20 turns,
+   100 HP each, six action types (`MOVE_FORWARD`, `TURN_LEFT`, `TURN_RIGHT`,
+   `SHOOT_FORWARD`, `SCAN`, `WAIT`). Strategies are evaluated rule-by-rule;
+   the first matching rule's first action runs (no AP budget yet). After
+   `match_started`, `server.ts` calls `simulate()`, walks the turns with a
+   1.2s pacing delay, emits one `turn_event` per turn, then persists
+   `Match.status=FINISHED`, `winnerId`, `endReason`, `endedAt`, and a
+   `replayData = { turns, finalHp }` blob, and finally broadcasts
+   `match_result`. Rich rule features (AP budget, obstacles, items, more
+   conditions, target detection beyond "forward") are intentional follow-ups —
+   the event shape won't change, just the data inside.
+3. **Replace remaining mock data with API calls.** The battle page's HP/
+   position/direction/turn-log are now live, but its surroundings (compass
+   grid), `detected_targets` panel, and score widgets still render from
+   inline mocks. Same pattern applies to dashboard, rooms, admin pages, and
+   the watch/result pages: swap each `const MOCK_*` to a `useEffect`+`fetch`
+   against the route that already exists.
 4. **TODOs flagged in routes:**
    - `src/app/api/me/stats/route.ts:13` — replace placeholder aggregation
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **No automated tests.** The verification above was manual. Adding Playwright
-   for the 17 pages + Vitest for `src/lib/auth.ts` would catch regressions.
-6. **CI is not set up.** No `.github/workflows/`.
+5. **No automated tests.** The verification above was manual. Adding Vitest
+   would unlock unit tests for `src/lib/match-simulator.ts` (pure functions,
+   easy first target) and `src/lib/auth.ts`; Playwright would cover the 17
+   pages end-to-end.
+6. ~~CI is not set up.~~ **Done.** `.github/workflows/ci.yml` runs lint,
+   `tsc --noEmit`, and `next build` on every PR (PR #4).
 
 ## 5. How to run
 
