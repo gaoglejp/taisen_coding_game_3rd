@@ -11,7 +11,10 @@ repository — both Claude Code and Codex. `CLAUDE.md` re-exports this file
    Section 1 maps page routes to prototypes and lists API routes; section 3
    collects design decisions that should not be silently undone; section 4 is
    the prioritized TODO list.
-2. Skim `docs/STATUS.md`. It is the rolling cross-agent status report —
+2. Read `docs/ROADMAP.md`. It defines what "v0.2 完成" means and groups the
+   backlog into milestones (A–E) with status, so you can see how close the
+   project is and what the critical path is.
+3. Skim `docs/STATUS.md`. It is the rolling cross-agent status report —
    updated on every push — with the latest PR outcome, the next 1–3
    recommended steps, and any open questions.
 
@@ -63,5 +66,7 @@ notices. In particular:
   `@` reference and reads this file.
 - `docs/HANDOFF.md` — the long-form implementation record. Sections 3 (design
   decisions) and 4 (TODOs) are the most important to keep current.
+- `docs/ROADMAP.md` — the milestone map and v0.2 definition of done. Update a
+  milestone row when its state changes.
 - `docs/STATUS.md` — the rolling status report shared with Codex. Updated on
   every push.
