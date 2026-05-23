@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
@@ -16,19 +16,36 @@ const SYSTEM_NAV = [
   { label: "設定", href: "/admin/system/settings", icon: "⚙" },
 ];
 
-const MOCK_USERS = [
-  { id: "u1", username: "yamada_t", displayName: "山田 太郎", email: "yamada@example.com", role: "SYSTEM_ADMIN" as UserRole, status: "ACTIVE", rooms: ["R-2401"], createdAt: "2024-01-10", lastLoginAt: "2024-03-15 09:32", twoFactor: true },
-  { id: "u2", username: "suzuki_h", displayName: "鈴木 花子", email: "suzuki@example.com", role: "ROOM_ADMIN" as UserRole, status: "ACTIVE", rooms: ["R-2402"], createdAt: "2024-01-15", lastLoginAt: "2024-03-14 18:22", twoFactor: false },
-  { id: "u3", username: "tanaka_k", displayName: "田中 健二", email: "tanaka@example.com", role: "ROOM_ADMIN" as UserRole, status: "ACTIVE", rooms: ["R-2403"], createdAt: "2024-02-01", lastLoginAt: "2024-03-15 11:05", twoFactor: true },
-  { id: "u4", username: "ito_m", displayName: "伊藤 みか", email: "ito@example.com", role: "GENERAL_USER" as UserRole, status: "ACTIVE", rooms: [], createdAt: "2024-02-10", lastLoginAt: "2024-03-13 20:14", twoFactor: false },
-  { id: "u5", username: "watanabe_r", displayName: "渡辺 涼", email: "watanabe@example.com", role: "ROOM_USER" as UserRole, status: "ACTIVE", rooms: ["R-2401"], createdAt: "2024-02-15", lastLoginAt: "2024-03-15 08:55", twoFactor: false },
-  { id: "u6", username: "nakamura_s", displayName: "中村 俊介", email: "nakamura@example.com", role: "ROOM_USER" as UserRole, status: "DISABLED", rooms: ["R-2401"], createdAt: "2024-01-20", lastLoginAt: "2024-02-28 15:30", twoFactor: false },
-  { id: "u7", username: "kobayashi_y", displayName: "小林 陽一", email: "kobayashi@example.com", role: "GENERAL_USER" as UserRole, status: "PENDING", rooms: [], createdAt: "2024-03-14", lastLoginAt: "—", twoFactor: false },
-  { id: "u8", username: "kato_n", displayName: "加藤 奈々", email: "kato@example.com", role: "ROOM_USER" as UserRole, status: "EXPIRED", rooms: ["R-2312"], createdAt: "2023-12-01", lastLoginAt: "2024-01-15 12:00", twoFactor: false },
-];
+interface AdminUser {
+  id: string;
+  username: string;
+  displayName: string | null;
+  email: string | null;
+  role: UserRole;
+  status: string;
+  twoFactorEnabled: boolean;
+  lastLoginAt: string | null;
+  createdAt: string;
+  membershipCount: number;
+  memberships: { id: string; room: { id: string; name: string; roomNumber: string; kind: string } }[];
+}
 
 const ROLE_FILTERS = ["ALL", "SYSTEM_ADMIN", "ROOM_ADMIN", "GENERAL_USER", "ROOM_USER"];
 const STATUS_FILTERS = ["すべて", "ACTIVE", "DISABLED", "PENDING", "EXPIRED"];
+const PER_PAGE = 20;
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
+}
+
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${d.toISOString().slice(0, 10)} ${d.toISOString().slice(11, 16)}`;
+}
 
 export default function SystemUsersPage() {
   const [search, setSearch] = useState("");
@@ -41,18 +58,73 @@ export default function SystemUsersPage() {
   const [page, setPage] = useState(1);
   const [inviteForm, setInviteForm] = useState({ email: "", role: "ROOM_ADMIN", message: "" });
 
-  const filtered = MOCK_USERS.filter((u) => {
-    if (roleFilter !== "ALL" && u.role !== roleFilter) return false;
-    if (statusFilter !== "すべて" && u.status !== statusFilter) return false;
-    if (search && !u.username.includes(search) && !u.displayName.includes(search) && !u.email.includes(search)) return false;
-    return true;
-  });
+  const [users, setUsers] = useState<AdminUser[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const perPage = 8;
-  const totalPages = Math.ceil(filtered.length / perPage);
-  const pageItems = filtered.slice((page - 1) * perPage, page * perPage);
-  const disableTarget = MOCK_USERS.find((u) => u.id === showDisableModal);
-  const resetTarget = MOCK_USERS.find((u) => u.id === showResetModal);
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (search) params.set("q", search);
+      if (roleFilter !== "ALL") params.set("role", roleFilter);
+      if (statusFilter !== "すべて") params.set("status", statusFilter);
+      params.set("page", String(page));
+      params.set("limit", String(PER_PAGE));
+      try {
+        const res = await fetch(`/api/admin/users?${params.toString()}`, { signal });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error ?? "ユーザー一覧を取得できませんでした");
+          setUsers([]);
+          return;
+        }
+        const data = await res.json();
+        setUsers(data.users ?? []);
+        setTotal(data.pagination?.total ?? 0);
+        setTotalPages(data.pagination?.totalPages ?? 1);
+        setError(null);
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") {
+          setError("ユーザー一覧を取得できませんでした");
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [search, roleFilter, statusFilter, page]
+  );
+
+  // Debounce so typing in the search box doesn't fire a request per keystroke.
+  useEffect(() => {
+    const controller = new AbortController();
+    const t = setTimeout(() => load(controller.signal), 250);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [load]);
+
+  // Filter changes reset to page 1 (done in the handlers, not an effect, to
+  // avoid a cascading setState-in-effect render).
+  const onSearch = (v: string) => {
+    setSearch(v);
+    setPage(1);
+  };
+  const onRole = (v: string) => {
+    setRoleFilter(v);
+    setPage(1);
+  };
+  const onStatus = (v: string) => {
+    setStatusFilter(v);
+    setPage(1);
+  };
+
+  const pageItems = users;
+  const disableTarget = users.find((u) => u.id === showDisableModal);
+  const resetTarget = users.find((u) => u.id === showResetModal);
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
@@ -84,7 +156,7 @@ export default function SystemUsersPage() {
           {/* Header */}
           <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
             <h1 style={{ fontSize: 24, fontWeight: 800, color: "var(--ink)", margin: 0 }}>アカウント</h1>
-            <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>{MOCK_USERS.length} 件</span>
+            <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>{total} 件</span>
           </div>
 
           {/* Toolbar */}
@@ -104,19 +176,19 @@ export default function SystemUsersPage() {
             <input
               placeholder="ユーザー名・メールで検索..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => onSearch(e.target.value)}
               style={inputStyle}
             />
             <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
               {ROLE_FILTERS.map((f) => (
-                <button key={f} onClick={() => setRoleFilter(f)} style={filterChipStyle(roleFilter === f)}>
+                <button key={f} onClick={() => onRole(f)} style={filterChipStyle(roleFilter === f)}>
                   {f === "ALL" ? "すべて" : f.replace("_", " ")}
                 </button>
               ))}
             </div>
             <div style={{ display: "flex", gap: "6px" }}>
               {STATUS_FILTERS.map((f) => (
-                <button key={f} onClick={() => setStatusFilter(f)} style={filterChipStyle(statusFilter === f)}>
+                <button key={f} onClick={() => onStatus(f)} style={filterChipStyle(statusFilter === f)}>
                   {f}
                 </button>
               ))}
@@ -142,7 +214,14 @@ export default function SystemUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageItems.map((user, i) => (
+                {(loading || error || pageItems.length === 0) && (
+                  <tr>
+                    <td colSpan={8} style={{ padding: "32px 16px", textAlign: "center", fontSize: 13, color: error ? "#dc2626" : "var(--ink-soft)" }}>
+                      {error ? error : loading ? "読み込み中…" : "該当するアカウントはありません"}
+                    </td>
+                  </tr>
+                )}
+                {!loading && !error && pageItems.map((user, i) => (
                   <tr key={user.id} style={{ borderBottom: i < pageItems.length - 1 ? "1px solid var(--line)" : "none", height: 56 }}>
                     <td style={{ padding: "0 16px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
@@ -152,13 +231,13 @@ export default function SystemUsersPage() {
                           color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
                           fontSize: 13, fontWeight: 700,
                         }}>
-                          {user.displayName[0]}
+                          {(user.displayName ?? user.username)[0]}
                         </div>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", fontFamily: "JetBrains Mono, monospace" }}>
                             @{user.username}
                           </div>
-                          {user.twoFactor && (
+                          {user.twoFactorEnabled && (
                             <span style={{ fontSize: 10, background: "#dcfce7", color: "#15803d", borderRadius: 999, padding: "1px 6px", fontWeight: 700 }}>2FA</span>
                           )}
                         </div>
@@ -171,16 +250,19 @@ export default function SystemUsersPage() {
                     <td style={{ padding: "0 16px" }}><RoleBadge role={user.role} /></td>
                     <td style={{ padding: "0 16px" }}><StatusBadge status={user.status} /></td>
                     <td style={{ padding: "0 16px" }}>
-                      {user.rooms.length > 0 ? (
+                      {user.memberships.length > 0 ? (
                         <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                          {user.rooms.map((r) => (
-                            <span key={r} style={{ fontSize: 11, background: "rgba(8,145,178,0.1)", color: "#0891b2", borderRadius: 999, padding: "1px 7px", fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }}>{r}</span>
+                          {user.memberships.map((m) => (
+                            <span key={m.id} title={m.room.name} style={{ fontSize: 11, background: "rgba(8,145,178,0.1)", color: "#0891b2", borderRadius: 999, padding: "1px 7px", fontFamily: "JetBrains Mono, monospace", fontWeight: 700 }}>{m.room.roomNumber}</span>
                           ))}
+                          {user.membershipCount > user.memberships.length && (
+                            <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>+{user.membershipCount - user.memberships.length}</span>
+                          )}
                         </div>
                       ) : <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>—</span>}
                     </td>
-                    <td style={{ padding: "0 16px", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{user.createdAt}</td>
-                    <td style={{ padding: "0 16px", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{user.lastLoginAt}</td>
+                    <td style={{ padding: "0 16px", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{fmtDate(user.createdAt)}</td>
+                    <td style={{ padding: "0 16px", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>{fmtDateTime(user.lastLoginAt)}</td>
                     <td style={{ padding: "0 16px" }}>
                       <div style={{ display: "flex", gap: "5px" }}>
                         <button style={actionBtnStyle("#1d4ed8", "rgba(29,78,216,0.08)")}>詳細</button>
@@ -197,7 +279,7 @@ export default function SystemUsersPage() {
           {/* Pagination */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px" }}>
             <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-              {filtered.length === 0 ? "0件" : `${(page - 1) * perPage + 1}–${Math.min(page * perPage, filtered.length)} / ${filtered.length}件`}
+              {total === 0 ? "0件" : `${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, total)} / ${total}件`}
             </span>
             <div style={{ display: "flex", gap: "8px" }}>
               <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} style={{ ...pageBtnStyle, opacity: page === 1 ? 0.4 : 1 }}>← 前</button>
