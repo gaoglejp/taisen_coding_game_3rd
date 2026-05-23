@@ -1,16 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { useParams } from "next/navigation";
+import { useState, useMemo, useEffect, use } from "react";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
 
-// bind: GET /admin/api/rooms/:id/matches?status=&q=
 type MatchStatus = "WAITING" | "CODING" | "BATTLING" | "FINISHED" | "CANCELED";
 type Side = { i: string; n: string } | null;
 type Match = {
-  id: string;
+  id: string;       // real match id (keys, watch links, cancel target)
+  label: string;    // display "#<matchNumber>"
   round: string;
   p1: Side;
   p2: Side;
@@ -20,27 +19,55 @@ type Match = {
   reason: string;
 };
 
-const MOCK_MATCHES: Match[] = [
-  { id: "#M-22064", round: "R1-04", p1: { i: "TR", n: "たろう_06" }, p2: { i: "HC", n: "HanaCoder" }, due: "2026-05-25", status: "CODING", winner: null, reason: "—" },
-  { id: "#M-22062", round: "R1-03", p1: { i: "MI", n: "misora.dev" }, p2: { i: "K9", n: "K-9bot" }, due: "2026-05-25", status: "BATTLING", winner: null, reason: "—" },
-  { id: "#M-22061", round: "R1-02", p1: { i: "TN", n: "tanu_55" }, p2: { i: "KN", n: "kuroneko" }, due: "2026-05-25", status: "CODING", winner: null, reason: "—" },
-  { id: "#M-22055", round: "R1-01", p1: { i: "HC", n: "HanaCoder" }, p2: { i: "YK", n: "yukikko" }, due: "2026-05-24", status: "FINISHED", winner: "P1", reason: "相手 HP 0" },
-  { id: "#M-22054", round: "R0-04", p1: { i: "MI", n: "misora.dev" }, p2: { i: "TR", n: "たろう_06" }, due: "2026-05-24", status: "FINISHED", winner: "P2", reason: "相手 HP 0" },
-  { id: "#M-22070", round: "R2-01", p1: { i: "YK", n: "yukikko" }, p2: null, due: "2026-05-26", status: "WAITING", winner: null, reason: "—" },
-  { id: "#M-22071", round: "R2-02", p1: null, p2: null, due: "2026-05-26", status: "WAITING", winner: null, reason: "—" },
-  { id: "#M-22039", round: "R0-01", p1: { i: "KN", n: "kuroneko" }, p2: { i: "TN", n: "tanu_55" }, due: "2026-05-22", status: "CANCELED", winner: null, reason: "NO_SHOW" },
-];
+interface ApiPlayer {
+  id: string;
+  username: string;
+  displayName: string | null;
+}
+interface ApiMatch {
+  id: string;
+  matchNumber: number;
+  status: MatchStatus;
+  round: number | null;
+  endReason: string | null;
+  winnerId: string | null;
+  codingDeadlineAt: string | null;
+  player1: ApiPlayer | null;
+  player1Id: string | null;
+  player2: ApiPlayer | null;
+  player2Id: string | null;
+}
 
 const STATUS_FILTERS: (MatchStatus | "ALL")[] = ["ALL", "WAITING", "CODING", "BATTLING", "FINISHED", "CANCELED"];
-const STATUS_COUNTS: Record<string, number> = { ALL: 42, WAITING: 2, CODING: 2, BATTLING: 1, FINISHED: 32, CANCELED: 2 };
+
+const END_REASON_LABEL: Record<string, string> = {
+  HP_ZERO: "相手 HP 0",
+  TIMEOUT: "ターン上限",
+  DISCONNECT: "切断",
+  NO_SHOW: "不参加",
+  LEAVE: "退出",
+  CANCELED: "キャンセル",
+};
+
+function initials(p: ApiPlayer): string {
+  const base = p.displayName ?? p.username;
+  return base.slice(0, 2).toUpperCase();
+}
+function toSide(p: ApiPlayer | null): Side {
+  return p ? { i: initials(p), n: p.displayName ?? p.username } : null;
+}
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
+}
 
 type ViewMode = "LIST" | "TOURNAMENT" | "ROUND_ROBIN";
 type CreateMode = "MANUAL" | "RANDOM" | "ROUND_ROBIN" | "TOURNAMENT";
 type CancelReason = "NO_SHOW" | "CANCELED" | "DISCONNECT" | "LEAVE";
 
-export default function RoomMatchesPage() {
-  const params = useParams();
-  const roomId = params.roomId as string;
+export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: string }> }) {
+  const { roomId } = use(params);
 
   const ROOM_NAV = [
     { label: "概要", href: `/admin/rooms/${roomId}`, icon: "📊" },
@@ -59,27 +86,78 @@ export default function RoomMatchesPage() {
   const [cancelReason, setCancelReason] = useState<CancelReason>("CANCELED");
   const [confirmText, setConfirmText] = useState("");
 
+  const [roomName, setRoomName] = useState("");
+  const [roomNumber, setRoomNumber] = useState("");
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/admin/rooms/${roomId}/matches`)
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error ?? "マッチ一覧を取得できませんでした");
+          return;
+        }
+        const data = await res.json();
+        setRoomName(data.room?.name ?? "");
+        setRoomNumber(data.room?.roomNumber ?? "");
+        const rows: Match[] = (data.matches as ApiMatch[]).map((m) => ({
+          id: m.id,
+          label: `#${m.matchNumber}`,
+          round: m.round != null ? `R${m.round}` : "—",
+          p1: toSide(m.player1),
+          p2: toSide(m.player2),
+          due: fmtDate(m.codingDeadlineAt),
+          status: m.status,
+          winner:
+            m.winnerId && m.winnerId === m.player1Id
+              ? "P1"
+              : m.winnerId && m.winnerId === m.player2Id
+                ? "P2"
+                : null,
+          reason: m.endReason ? END_REASON_LABEL[m.endReason] ?? m.endReason : "—",
+        }));
+        setMatches(rows);
+        setError(null);
+      })
+      .catch(() => {
+        if (!cancelled) setError("マッチ一覧を取得できませんでした");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId]);
+
+  const statusCounts = useMemo(() => {
+    const c: Record<string, number> = { ALL: matches.length, WAITING: 0, CODING: 0, BATTLING: 0, FINISHED: 0, CANCELED: 0 };
+    for (const m of matches) c[m.status] = (c[m.status] ?? 0) + 1;
+    return c;
+  }, [matches]);
+
   const filtered = useMemo(() => {
-    return MOCK_MATCHES.filter((m) => {
+    return matches.filter((m) => {
       if (statusFilter !== "ALL" && m.status !== statusFilter) return false;
       if (search) {
         const q = search.toLowerCase();
         const hit =
-          m.id.toLowerCase().includes(q) ||
+          m.label.toLowerCase().includes(q) ||
           (m.p1?.n.toLowerCase().includes(q) ?? false) ||
           (m.p2?.n.toLowerCase().includes(q) ?? false);
         if (!hit) return false;
       }
       return true;
     });
-  }, [statusFilter, search]);
+  }, [matches, statusFilter, search]);
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
       <TopbarAdmin username="nakamura.sensei" displayName="中村 先生" role="ROOM_ADMIN" />
       <ScopeBanner variant="room" />
       <div style={{ display: "flex" }}>
-        <AdminSidenav items={ROOM_NAV} scope="room" roomName="3-A クラス・5月課題" roomNumber="ROOM-2026-0142" />
+        <AdminSidenav items={ROOM_NAV} scope="room" roomName={roomName} roomNumber={roomNumber} />
         <main style={{ flex: 1, padding: "24px 32px 32px", minWidth: 0 }}>
           {/* Page head */}
           <header style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24, marginBottom: 16 }}>
@@ -90,10 +168,10 @@ export default function RoomMatchesPage() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
-              <span style={counterPillStyle()}>合計 <strong style={{ color: "var(--ink)" }}>42</strong></span>
-              <span style={counterPillStyle(true)}>LIVE <strong style={{ color: "#7c2d12" }}>3</strong></span>
-              <span style={counterPillStyle()}>FINISHED <strong style={{ color: "var(--ink)" }}>32</strong></span>
-              <span style={counterPillStyle()}>CANCELED <strong style={{ color: "var(--ink)" }}>2</strong></span>
+              <span style={counterPillStyle()}>合計 <strong style={{ color: "var(--ink)" }}>{statusCounts.ALL}</strong></span>
+              <span style={counterPillStyle(true)}>LIVE <strong style={{ color: "#7c2d12" }}>{statusCounts.BATTLING}</strong></span>
+              <span style={counterPillStyle()}>FINISHED <strong style={{ color: "var(--ink)" }}>{statusCounts.FINISHED}</strong></span>
+              <span style={counterPillStyle()}>CANCELED <strong style={{ color: "var(--ink)" }}>{statusCounts.CANCELED}</strong></span>
             </div>
           </header>
 
@@ -104,7 +182,7 @@ export default function RoomMatchesPage() {
               {STATUS_FILTERS.map((s) => (
                 <button key={s} onClick={() => setStatusFilter(s)} style={filterChipStyle(statusFilter === s)}>
                   {s === "ALL" ? "すべて" : s}
-                  <span style={filterNumStyle(statusFilter === s)}>{STATUS_COUNTS[s]}</span>
+                  <span style={filterNumStyle(statusFilter === s)}>{statusCounts[s]}</span>
                 </button>
               ))}
             </div>
@@ -150,6 +228,13 @@ export default function RoomMatchesPage() {
                   </tr>
                 </thead>
                 <tbody>
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={8} style={{ ...tdStyle, textAlign: "center", color: error ? "#dc2626" : "var(--ink-soft)", padding: "32px 16px" }}>
+                        {error ? error : "マッチカードはありません"}
+                      </td>
+                    </tr>
+                  )}
                   {filtered.map((m, idx) => {
                     const isLast = idx === filtered.length - 1;
                     const p1Win = m.winner === "P1";
@@ -162,13 +247,13 @@ export default function RoomMatchesPage() {
                         <td style={tdStyle}>
                           <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: "var(--ink-soft)", whiteSpace: "nowrap" }}>
                             <strong style={{ color: "var(--ink)", fontWeight: 700 }}>{m.round}</strong>
-                            <br />{m.id}
+                            <br />{m.label}
                           </div>
                         </td>
                         <td style={tdStyle}><PlayerCell side={m.p1} colorVariant="p1" winner={p1Win} /></td>
                         <td style={tdStyle}><PlayerCell side={m.p2} colorVariant="p2" winner={p2Win} /></td>
                         <td style={tdStyle}>
-                          <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: m.due === "2026-05-25" ? "#92400e" : "var(--ink-soft)", fontWeight: m.due === "2026-05-25" ? 700 : 400 }}>
+                          <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: "var(--ink-soft)" }}>
                             {m.due}
                           </span>
                         </td>
@@ -180,7 +265,7 @@ export default function RoomMatchesPage() {
                         <td style={tdStyle}>
                           <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", alignItems: "center", flexWrap: "nowrap" }}>
                             {watchAvailable ? (
-                              <a href={`#w-${m.id.slice(1)}`} style={actBtnWatchStyle}>▸ 観戦</a>
+                              <a href={`/watch/${m.id}`} style={actBtnWatchStyle}>▸ 観戦</a>
                             ) : (
                               <span style={actBtnDisabledStyle}>▸ 観戦</span>
                             )}
@@ -202,19 +287,11 @@ export default function RoomMatchesPage() {
                   })}
                 </tbody>
               </table>
-              {/* Pagination */}
+              {/* Footer count */}
               <div style={paginationStyle}>
-                <div>1 - 8 / <strong style={{ color: "var(--ink)" }}>42</strong> 件</div>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <button disabled style={{ ...pageBtnStyle, opacity: 0.4, cursor: "not-allowed" }} aria-label="前のページ">‹</button>
-                  <button style={pageBtnActiveStyle} aria-current="page">1</button>
-                  <button style={pageBtnStyle}>2</button>
-                  <button style={pageBtnStyle}>3</button>
-                  <button style={pageBtnStyle}>4</button>
-                  <button style={pageBtnStyle}>5</button>
-                  <button style={pageBtnStyle} aria-label="次のページ">›</button>
+                <div>
+                  {filtered.length === 0 ? "0" : `1 - ${filtered.length}`} / <strong style={{ color: "var(--ink)" }}>{filtered.length}</strong> 件
                 </div>
-                <div style={{ fontFamily: "JetBrains Mono, monospace" }}>表示件数 8 ▾</div>
               </div>
             </section>
           )}
@@ -1202,26 +1279,6 @@ const paginationStyle: React.CSSProperties = {
   color: "var(--ink-soft)",
 };
 
-const pageBtnStyle: React.CSSProperties = {
-  appearance: "none",
-  width: 28,
-  height: 28,
-  border: "1px solid var(--line)",
-  background: "#fff",
-  borderRadius: 6,
-  fontSize: 11.5,
-  color: "var(--ink-soft)",
-  cursor: "pointer",
-  fontFamily: "JetBrains Mono, monospace",
-  fontWeight: 600,
-};
-
-const pageBtnActiveStyle: React.CSSProperties = {
-  ...pageBtnStyle,
-  background: "var(--room-admin-accent)",
-  color: "#fff",
-  borderColor: "var(--room-admin-accent)",
-};
 
 const altViewCardStyle: React.CSSProperties = {
   background: "#fff",

@@ -103,7 +103,8 @@ scaffolding is gone.
 | System audit page | ✅ | PR #16 — `/api/admin/audit` (cursor pagination; category/type filtered client-side) |
 | Room overview page | ✅ | PR #16 — `/api/admin/rooms/:id` + matches/standings (today-matches & activity still mock) |
 | Room members page | ✅ | PR #17 — `/api/admin/rooms/:id/members` + standings for W/L/D |
-| Room matches / standings pages | ⬜ | Render on mocks; wire to `/api/admin/rooms/:id/*` |
+| Room matches page (LIST) | ✅ | PR #18 — `/api/admin/rooms/:id/matches`; bracket views still mock |
+| Room standings page | ⬜ | Needs damage/turns/recent aggregation the standings API doesn't expose — enriched endpoint first |
 | Room settings page | ⬜ | Wire to `PATCH /api/admin/rooms/:id` |
 | Invite-code validation on signup | ⬜ | HANDOFF §4.4 — needs `InviteCode` model (schema change) |
 | Account actions (invite / disable / reset) | ⬜ | Modals exist on the users page but POST/PATCH not wired |
