@@ -13,34 +13,50 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #14 — feat(admin): wire system users page to /api/admin/users
+- **PR**: #15 — feat(admin): wire system rooms page to /api/admin/rooms
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-23
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **`src/app/admin/system/users/page.tsx` rewired**: drops
-  `MOCK_USERS`. Fetches `/api/admin/users` with **server-side** filter +
-  pagination — `q` (search, 250 ms debounced), `role`, `status`, `page`,
-  `limit=20`. Renders real username / displayName / email / role /
-  status / 2FA badge / membership chips (room numbers, with "+N"
-  overflow) / created + last-login dates. Added loading / empty / error
-  rows and real pagination (uses `pagination.total` / `totalPages`).
-- Filter changes reset to page 1 **in the handlers** (`onSearch` /
-  `onRole` / `onStatus`), not an effect — avoids the
-  setState-in-effect lint error.
-- **Still UI-only**: the invite / disable / password-reset modals. Those
-  are POST/PATCH actions with confirmation flows; wiring them is a
-  separate PR (tracked in ROADMAP Milestone D "Account actions").
-- ROADMAP Milestone D "System users page" row → ✅.
+- **`src/app/admin/system/rooms/page.tsx` rewired**: drops
+  `MOCK_ROOMS`. Fetches `/api/admin/rooms` with **server-side** filter +
+  pagination — `q` (250 ms debounced), `kind`, `status`, `page`,
+  `limit=20`. Renders real roomNumber / name / kind / adminCount /
+  memberCount / activeMatchCount / status / createdAt. Loading / empty /
+  error rows + real pagination.
+- **Header status pills** (合計 / ACTIVE / ARCHIVED / DELETED) are
+  fetched once on mount as four `limit=1` count requests reading
+  `pagination.total` — global counts, independent of the active filter.
+- The admin column shows `adminCount` ("N 名" / "未任命") since the list
+  endpoint returns a count, not the admin's name.
+- Filter changes reset to page 1 in handlers (not an effect).
+- **Still UI-only**: the create / delete / archive / 任命 actions. Those
+  are POST/PATCH/DELETE with confirmation; separate PR.
+- ROADMAP Milestone D "System rooms page" row → ✅.
+
+### Note on the audit page
+
+`/admin/system/audit` was deliberately **not** done in this PR. Its
+`/api/admin/audit` endpoint uses **cursor** pagination (not offset), and
+the page's filters don't map 1:1 to the API: the page filters actions by
+*category* (CREATE/UPDATE/…) while the API filters by exact
+`AuditAction`, and the page filters by *target type* (ROOM/USER/MATCH)
+while the API only filters by `targetId`. Also field names differ
+(`ipAddress`/`userAgent`/`metadata` vs the mock's `ip`/`ua`/`meta`).
+Wiring it correctly (cursor stack for prev/next, period→`from`,
+category/type handled client-side or via a small API tweak) deserves its
+own PR.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Admin system rooms + audit pages** (ROADMAP Milestone D, continue).
-   Same pattern as the users page just landed: wire
-   `/admin/system/rooms` → `GET /api/admin/rooms` and
-   `/admin/system/audit` → `GET /api/admin/audit`. Mechanical.
+1. **Admin system audit page** (ROADMAP Milestone D). Wire
+   `/admin/system/audit` → `GET /api/admin/audit`. Needs care: cursor
+   pagination (maintain a cursor stack for prev/next), period→`from`
+   conversion, and the category/target-type filter mismatch (handle
+   client-side on the loaded page or extend the API). Field rename
+   `ip`/`ua`/`meta` → `ipAddress`/`userAgent`/`metadata`.
 2. **Admin room-scoped pages** (ROADMAP Milestone D). Overview / members
    / matches / standings / settings under `/admin/rooms/:id`, wired to
    `/api/admin/rooms/:id/*`. Larger — split per page.
@@ -83,6 +99,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #14** (merged) — feat(admin): wire system users page to
+  `/api/admin/users` (server-side filter + pagination). ROADMAP
+  Milestone D users-page row done.
 - **PR #13** (merged) — test(auth): 15 unit tests for `src/lib/auth.ts`
   (token round-trip, role guards, `getSession` branches with mocked
   cookies + Prisma). Suite total 24. ROADMAP Milestone E auth row done.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
@@ -14,69 +14,33 @@ const SYSTEM_NAV = [
   { label: "設定", href: "/admin/system/settings", icon: "⚙" },
 ];
 
-const MOCK_ROOMS = [
-  {
-    id: "r1",
-    roomNumber: "R-2401",
-    name: "プログラミング基礎クラスA",
-    kind: "CLASSROOM",
-    admin: { username: "yamada_t", displayName: "山田 太郎" },
-    memberCount: 24,
-    activeMatches: 3,
-    status: "ACTIVE",
-    createdAt: "2024-01-15",
-  },
-  {
-    id: "r2",
-    roomNumber: "R-2402",
-    name: "春季トーナメント2024",
-    kind: "TOURNAMENT",
-    admin: { username: "suzuki_h", displayName: "鈴木 花子" },
-    memberCount: 16,
-    activeMatches: 1,
-    status: "ACTIVE",
-    createdAt: "2024-02-01",
-  },
-  {
-    id: "r3",
-    roomNumber: "R-2403",
-    name: "パブリックロビー β",
-    kind: "PUBLIC_LOBBY",
-    admin: { username: "tanaka_k", displayName: "田中 健二" },
-    memberCount: 88,
-    activeMatches: 12,
-    status: "ACTIVE",
-    createdAt: "2024-02-10",
-  },
-  {
-    id: "r4",
-    roomNumber: "R-2312",
-    name: "冬季特訓クラス",
-    kind: "CLASSROOM",
-    admin: { username: "ito_m", displayName: "伊藤 みか" },
-    memberCount: 18,
-    activeMatches: 0,
-    status: "ARCHIVED",
-    createdAt: "2023-12-01",
-  },
-  {
-    id: "r5",
-    roomNumber: "R-2311",
-    name: "テスト用ルーム",
-    kind: "TOURNAMENT",
-    admin: { username: "admin_sys", displayName: "システム管理" },
-    memberCount: 4,
-    activeMatches: 0,
-    status: "DELETED",
-    createdAt: "2023-11-20",
-  },
-];
+interface AdminRoom {
+  id: string;
+  roomNumber: string;
+  name: string;
+  description: string | null;
+  kind: string;
+  status: string;
+  expiresAt: string | null;
+  createdAt: string;
+  adminCount: number;
+  memberCount: number;
+  activeMatchCount: number;
+}
 
 const KIND_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   CLASSROOM: { label: "CLASSROOM", bg: "rgba(8,145,178,0.12)", color: "#0891b2" },
   TOURNAMENT: { label: "TOURNAMENT", bg: "rgba(124,58,237,0.12)", color: "#7c3aed" },
   PUBLIC_LOBBY: { label: "PUBLIC LOBBY", bg: "rgba(245,158,11,0.12)", color: "#b45309" },
 };
+
+const PER_PAGE = 20;
+
+function fmtDate(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
+}
 
 export default function SystemRoomsPage() {
   const [search, setSearch] = useState("");
@@ -88,28 +52,95 @@ export default function SystemRoomsPage() {
   const [page, setPage] = useState(1);
   const [createForm, setCreateForm] = useState({ name: "", kind: "CLASSROOM", expiresAt: "", adminSearch: "" });
 
+  const [rooms, setRooms] = useState<AdminRoom[]>([]);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const [counts, setCounts] = useState({ total: 0, active: 0, archived: 0, deleted: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const kindFilters = ["すべて", "CLASSROOM", "TOURNAMENT", "PUBLIC_LOBBY"];
   const statusFilters = ["すべて", "ACTIVE", "ARCHIVED", "DELETED"];
 
-  const filtered = MOCK_ROOMS.filter((r) => {
-    if (kindFilter !== "すべて" && r.kind !== kindFilter) return false;
-    if (statusFilter !== "すべて" && r.status !== statusFilter) return false;
-    if (search && !r.name.includes(search) && !r.roomNumber.includes(search)) return false;
-    return true;
-  });
+  const load = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      const params = new URLSearchParams();
+      if (search) params.set("q", search);
+      if (kindFilter !== "すべて") params.set("kind", kindFilter);
+      if (statusFilter !== "すべて") params.set("status", statusFilter);
+      params.set("page", String(page));
+      params.set("limit", String(PER_PAGE));
+      try {
+        const res = await fetch(`/api/admin/rooms?${params.toString()}`, { signal });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error ?? "ルーム一覧を取得できませんでした");
+          setRooms([]);
+          return;
+        }
+        const data = await res.json();
+        setRooms(data.rooms ?? []);
+        setTotal(data.pagination?.total ?? 0);
+        setTotalPages(data.pagination?.totalPages ?? 1);
+        setError(null);
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") setError("ルーム一覧を取得できませんでした");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [search, kindFilter, statusFilter, page]
+  );
 
-  const perPage = 5;
-  const totalPages = Math.ceil(filtered.length / perPage);
-  const pageItems = filtered.slice((page - 1) * perPage, page * perPage);
+  // Global status counts for the header pills — independent of the current
+  // search/kind/status filter, so fetched once on mount via limit=1 requests
+  // that only read pagination.total.
+  useEffect(() => {
+    let cancelled = false;
+    const countFor = async (status?: string) => {
+      const p = new URLSearchParams({ limit: "1" });
+      if (status) p.set("status", status);
+      const res = await fetch(`/api/admin/rooms?${p.toString()}`);
+      if (!res.ok) return 0;
+      const data = await res.json();
+      return data.pagination?.total ?? 0;
+    };
+    Promise.all([countFor(), countFor("ACTIVE"), countFor("ARCHIVED"), countFor("DELETED")])
+      .then(([t, a, ar, d]) => {
+        if (!cancelled) setCounts({ total: t, active: a, archived: ar, deleted: d });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  const counts = {
-    total: MOCK_ROOMS.length,
-    active: MOCK_ROOMS.filter((r) => r.status === "ACTIVE").length,
-    archived: MOCK_ROOMS.filter((r) => r.status === "ARCHIVED").length,
-    deleted: MOCK_ROOMS.filter((r) => r.status === "DELETED").length,
+  // Debounced list fetch (search-as-you-type).
+  useEffect(() => {
+    const controller = new AbortController();
+    const t = setTimeout(() => load(controller.signal), 250);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [load]);
+
+  const onSearch = (v: string) => {
+    setSearch(v);
+    setPage(1);
+  };
+  const onKind = (v: string) => {
+    setKindFilter(v);
+    setPage(1);
+  };
+  const onStatus = (v: string) => {
+    setStatusFilter(v);
+    setPage(1);
   };
 
-  const deleteTarget = MOCK_ROOMS.find((r) => r.id === showDeleteModal);
+  const pageItems = rooms;
+  const deleteTarget = rooms.find((r) => r.id === showDeleteModal);
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
@@ -163,7 +194,7 @@ export default function SystemRoomsPage() {
             <input
               placeholder="ルーム名・番号で検索..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => onSearch(e.target.value)}
               style={{
                 border: "1px solid var(--line)",
                 borderRadius: 8,
@@ -178,7 +209,7 @@ export default function SystemRoomsPage() {
               {kindFilters.map((f) => (
                 <button
                   key={f}
-                  onClick={() => setKindFilter(f)}
+                  onClick={() => onKind(f)}
                   style={{
                     background: kindFilter === f ? "var(--admin-accent)" : "#f3f4f6",
                     color: kindFilter === f ? "#fff" : "var(--ink)",
@@ -199,7 +230,7 @@ export default function SystemRoomsPage() {
               {statusFilters.map((f) => (
                 <button
                   key={f}
-                  onClick={() => setStatusFilter(f)}
+                  onClick={() => onStatus(f)}
                   style={{
                     background: statusFilter === f ? "var(--admin-accent)" : "#f3f4f6",
                     color: statusFilter === f ? "#fff" : "var(--ink)",
@@ -267,8 +298,15 @@ export default function SystemRoomsPage() {
                 </tr>
               </thead>
               <tbody>
-                {pageItems.map((room, i) => {
-                  const kind = KIND_CONFIG[room.kind];
+                {(loading || error || pageItems.length === 0) && (
+                  <tr>
+                    <td colSpan={9} style={{ padding: "32px 16px", textAlign: "center", fontSize: 13, color: error ? "#dc2626" : "var(--ink-soft)" }}>
+                      {error ? error : loading ? "読み込み中…" : "該当するルームはありません"}
+                    </td>
+                  </tr>
+                )}
+                {!loading && !error && pageItems.map((room, i) => {
+                  const kind = KIND_CONFIG[room.kind] ?? { label: room.kind, bg: "#f3f4f6", color: "#4b5563" };
                   return (
                     <tr
                       key={room.id}
@@ -298,38 +336,20 @@ export default function SystemRoomsPage() {
                           {kind.label}
                         </span>
                       </td>
-                      <td style={{ padding: "0 16px" }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                          <div
-                            style={{
-                              width: 28,
-                              height: 28,
-                              borderRadius: "50%",
-                              background: "var(--admin-accent)",
-                              color: "#fff",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              fontSize: 11,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {room.admin.displayName[0]}
-                          </div>
-                          <span style={{ fontSize: 13, color: "var(--ink)" }}>{room.admin.displayName}</span>
-                        </div>
+                      <td style={{ padding: "0 16px", fontSize: 13, color: "var(--ink)" }}>
+                        {room.adminCount > 0 ? `${room.adminCount} 名` : <span style={{ color: "var(--ink-soft)" }}>未任命</span>}
                       </td>
                       <td style={{ padding: "0 16px", fontSize: 14, fontWeight: 600, color: "var(--ink)", textAlign: "center" }}>
                         {room.memberCount}
                       </td>
-                      <td style={{ padding: "0 16px", fontSize: 14, fontWeight: 600, color: room.activeMatches > 0 ? "#d97706" : "var(--ink-soft)", textAlign: "center" }}>
-                        {room.activeMatches}
+                      <td style={{ padding: "0 16px", fontSize: 14, fontWeight: 600, color: room.activeMatchCount > 0 ? "#d97706" : "var(--ink-soft)", textAlign: "center" }}>
+                        {room.activeMatchCount}
                       </td>
                       <td style={{ padding: "0 16px" }}>
                         <StatusBadge status={room.status} />
                       </td>
                       <td style={{ padding: "0 16px", fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
-                        {room.createdAt}
+                        {fmtDate(room.createdAt)}
                       </td>
                       <td style={{ padding: "0 16px" }}>
                         <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap" }}>
@@ -354,7 +374,7 @@ export default function SystemRoomsPage() {
           {/* Pagination */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "16px" }}>
             <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>
-              {filtered.length === 0 ? "0件" : `${(page - 1) * perPage + 1}–${Math.min(page * perPage, filtered.length)} / ${filtered.length}件`}
+              {total === 0 ? "0件" : `${(page - 1) * PER_PAGE + 1}–${Math.min(page * PER_PAGE, total)} / ${total}件`}
             </span>
             <div style={{ display: "flex", gap: "8px" }}>
               <button
