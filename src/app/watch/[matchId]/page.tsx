@@ -19,8 +19,7 @@ const META_DEFAULTS = {
   visibility: "PUBLIC" as "PUBLIC" | "LIMITED",
   delaySeconds: 15,
   mode: "LIVE" as "LIVE" | "REPLAY" | "ENDED",
-  viewerCount: 14,
-  viewerDelta: 3,
+  viewerCount: 0,
   roomName: "—",
   p1: { id: "P1", name: "P1", initials: "P1" },
   p2: { id: "P2", name: "P2", initials: "P2" },
@@ -54,13 +53,44 @@ const BOARD = {
 
 interface LiveTank { id: "P1" | "P2"; x: number; y: number; dir: Direction; name: string }
 
-const TIMELINE_EVENTS = [
-  { turn: 3, kind: "first" as const, label: "P1 が FirstDamage", icon: "★" },
-  { turn: 4, kind: "item" as const, label: "P2 アイテム取得", icon: "◇" },
-  { turn: 5, kind: "hit" as const, label: "命中", icon: "●" },
-  { turn: 6, kind: "item" as const, label: "P1 BARRIER", icon: "◇" },
-  { turn: 8, kind: "hit" as const, label: "命中", icon: "●" },
-];
+interface TimelineEvent {
+  turn: number;
+  kind: "hit" | "finish";
+  label: string;
+  icon: string;
+}
+
+function timelineFromTurns(turns: TurnSnapshot[], winnerLabel?: string, endReason?: string): TimelineEvent[] {
+  const events: TimelineEvent[] = [];
+  for (const t of turns) {
+    if (t.p1.damaged > 0) {
+      events.push({
+        turn: t.turn,
+        kind: "hit",
+        label: `P2 が P1 に命中 (T${t.turn}, -${t.p1.damaged})`,
+        icon: "●",
+      });
+    }
+    if (t.p2.damaged > 0) {
+      events.push({
+        turn: t.turn,
+        kind: "hit",
+        label: `P1 が P2 に命中 (T${t.turn}, -${t.p2.damaged})`,
+        icon: "●",
+      });
+    }
+  }
+  if (turns.length > 0 && endReason) {
+    const finalTurn = turns[turns.length - 1]?.turn ?? turns.length;
+    events.push({
+      turn: finalTurn,
+      kind: "finish",
+      label: `T${finalTurn} 決着: ${winnerLabel ?? "引き分け"} (${endReason})`,
+      icon: "◆",
+    });
+  }
+  return events;
+}
 
 const COMMENTARY = [
   { id: 1, host: true, initials: "NK", name: "中村先生", turn: 3, time: "14:30:11", text: "P1 がいきなり FirstDamage。最初の SCAN を捨てて前進、当てた判断が良いです。", emphasis: "FirstDamage" },
@@ -205,7 +235,7 @@ function LivePill() {
   );
 }
 
-function ViewerCount({ count, delta }: { count: number; delta: number }) {
+function ViewerCount({ count }: { count: number }) {
   return (
     <span
       aria-label="観戦者数"
@@ -226,7 +256,6 @@ function ViewerCount({ count, delta }: { count: number; delta: number }) {
         👁
       </span>
       {count}
-      <span style={{ color: "var(--success)", fontSize: 10 }}>+{delta}</span>
     </span>
   );
 }
@@ -601,6 +630,11 @@ interface PublicMatch {
   player2: { id: string; username: string; displayName: string | null } | null;
   room: { name: string; roomNumber: string; watchingPublic: string; replayShareEnabled: boolean };
 }
+interface ReplayPayload {
+  replayData?: { turns?: TurnSnapshot[] };
+  winnerId?: string | null;
+  endReason?: string;
+}
 
 const DIR_LABEL: Record<Direction, string> = { N: "↑ NORTH", E: "→ EAST", S: "↓ SOUTH", W: "← WEST" };
 const ACTION_KIND: Record<string, PanelData["actions"][number]["kind"]> = {
@@ -629,6 +663,8 @@ export default function WatchPage() {
   const [publicData, setPublicData] = useState<PublicMatch | null>(null);
   const [turns, setTurns] = useState<TurnSnapshot[]>([]);
   const [ended, setEnded] = useState(false);
+  const [viewerCount, setViewerCount] = useState(0);
+  const [resultSummary, setResultSummary] = useState<{ winnerId: string | null; endReason: string } | null>(null);
 
   useEffect(() => {
     if (!matchId) return;
@@ -645,17 +681,44 @@ export default function WatchPage() {
   }, [matchId]);
 
   useEffect(() => {
+    if (!matchId || publicData?.status !== "FINISHED" || turns.length > 0) return;
+    let cancelled = false;
+    fetch(`/api/match/${matchId}/replay`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: ReplayPayload | null) => {
+        if (cancelled || !data) return;
+        if (data.replayData?.turns?.length) setTurns(data.replayData.turns);
+        if (data.endReason) {
+          setEnded(true);
+          setResultSummary({ winnerId: data.winnerId ?? null, endReason: data.endReason });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId, publicData?.status, turns.length]);
+
+  useEffect(() => {
     if (!matchId) return;
     const socket = connectSocket(matchId);
     const onTurn = (snap: TurnSnapshot) => {
       setTurns((prev) => (prev.some((t) => t.turn === snap.turn) ? prev : [...prev, snap]));
     };
-    const onResult = () => setEnded(true);
+    const onResult = (payload: { winnerId: string | null; endReason: string }) => {
+      setEnded(true);
+      setResultSummary(payload);
+    };
+    const onViewerCount = (payload: { matchId: string; count: number }) => {
+      if (payload.matchId === matchId) setViewerCount(payload.count);
+    };
     socket.on("turn_event", onTurn);
     socket.on("match_result", onResult);
+    socket.on("viewer_count", onViewerCount);
     return () => {
       socket.off("turn_event", onTurn);
       socket.off("match_result", onResult);
+      socket.off("viewer_count", onViewerCount);
       disconnectSocket();
     };
   }, [matchId]);
@@ -674,9 +737,18 @@ export default function WatchPage() {
     roomName: publicData?.room?.name ?? META_DEFAULTS.roomName,
     p1: { id: "P1", name: p1Name, initials: initialsFor(p1Name, "P1") },
     p2: { id: "P2", name: p2Name, initials: initialsFor(p2Name, "P2") },
+    viewerCount,
     currentTurn: turns.length,
     mode: (ended ? "ENDED" : "LIVE") as "LIVE" | "REPLAY" | "ENDED",
   };
+  const winnerLabel = resultSummary?.winnerId
+    ? resultSummary.winnerId === publicData?.player1?.id
+      ? "P1"
+      : resultSummary.winnerId === publicData?.player2?.id
+        ? "P2"
+        : "勝者"
+    : "引き分け";
+  const timelineEvents = timelineFromTurns(turns, winnerLabel, resultSummary?.endReason);
 
   const latest = turns[turns.length - 1];
   const fmtAction = (
@@ -817,7 +889,7 @@ export default function WatchPage() {
         rightContent={
           <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10 }}>
             <LivePill />
-            <ViewerCount count={meta.viewerCount} delta={meta.viewerDelta} />
+            <ViewerCount count={meta.viewerCount} />
             <button
               aria-label="リンクをコピー"
               onClick={handleCopy}
@@ -1206,12 +1278,11 @@ export default function WatchPage() {
                 </span>
               </span>
               {/* Events */}
-              {TIMELINE_EVENTS.map((ev) => {
-                const bg =
-                  ev.kind === "first" ? "var(--accent)" : ev.kind === "item" ? "#7c3aed" : "var(--p2)";
+              {timelineEvents.map((ev, index) => {
+                const bg = ev.kind === "finish" ? "var(--ink)" : "var(--p2)";
                 return (
                   <div
-                    key={`${ev.turn}-${ev.kind}`}
+                    key={`${ev.turn}-${ev.kind}-${index}`}
                     title={`${ev.label} @ T${ev.turn}`}
                     style={{
                       position: "absolute",
@@ -1237,6 +1308,20 @@ export default function WatchPage() {
                   </div>
                 );
               })}
+              {timelineEvents.length === 0 && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    display: "grid",
+                    placeItems: "center",
+                    color: "var(--ink-soft)",
+                    fontSize: 12,
+                  }}
+                >
+                  まだタイムラインイベントはありません
+                </div>
+              )}
               {/* Tick labels */}
               <div
                 style={{
