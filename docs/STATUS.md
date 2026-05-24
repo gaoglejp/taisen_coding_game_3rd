@@ -13,60 +13,55 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #23 — feat(coding): real Blockly strategy editor + workspace→JSON serializer
+- **PR**: #24 — feat(admin): enrich standings endpoint + wire room standings page
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Added the `blockly` dependency (v12.5.1)** and wired the real editor
-  into the coding page — this is the Milestone A critical-path blocker.
-  Players now build and submit their **own** strategies instead of a
-  shared `MOCK_STRATEGY_JSON` stub.
-- **`src/lib/strategy-blocks.ts`** (new) defines a 3-block language and the
-  serializer:
-  - `tank_rule` — a conditions statement-stack + one action dropdown.
-  - `tank_condition` — condition type (`scan_detected | damaged | moved`)
-    × `true/false`.
-  - `tank_fallback` — one action dropdown.
-  - `workspaceToStrategy(workspace)` walks top-level rule stacks (workspace
-    order = priority, first match wins), AND-s each rule's conditions, takes
-    the first action, and uses the first `tank_fallback` for
-    `fallbackActions`. Block field values **are** the simulator's enum
-    strings, so there's no translation layer. Output matches the `Strategy`
-    type in `match-simulator.ts` exactly.
-  - Ships `STRATEGY_TOOLBOX` + a `DEFAULT_WORKSPACE_STATE` starter
-    (scan→shoot, else advance, fallback wait — mirrors the old stub).
-- **`src/components/coding/BlocklyEditor.tsx`** (new) — client component
-  that injects Blockly, loads the seed, and calls `onChange(strategy,
-  stateJson)` on every (non-UI) edit. Loaded from the coding page via
-  `next/dynamic({ ssr: false })` since Blockly is DOM-only.
-- **`src/app/match/[matchId]/coding/page.tsx`** — replaced the hand-drawn
-  mock toolbox + workspace panes with the `BlocklyEditor`. The JSON tab now
-  shows the **live** serialized strategy; the lock button submits it via
-  `lockCoding(matchId, strategy, blocklyState)`. Removed `MOCK_STRATEGY_JSON`,
-  `BlockMock`, and the mock category/palette state.
-- **Tests**: `src/lib/strategy-blocks.test.ts` (jsdom env) covers the
-  default workspace, the empty-workspace WAIT fallback, and multi-condition
-  AND + rule order. Full suite: 27 passing. `tsc` / `lint` / `build` clean.
-- **Not verified in a browser** — this container has no display, so the
-  Blockly canvas drag-drop UX, toolbox flyout, and layout/height still need
-  a manual pass. The serializer logic itself is unit-tested.
+- **`/api/admin/rooms/:id/standings` enriched** (additive — existing
+  consumers unaffected; the room overview/members pages use the *player*
+  endpoint `/api/rooms/:n/standings`, not this one):
+  - Per player, now also returns `avgDamageDealt`, `avgDamageTaken`,
+    `avgTurns`, `recent` (last 5 W/L/D, most-recent-first), and
+    `recentMatches` (last 8 `{ matchNumber, opponentName, result,
+    endReason, turns }`). Damage is summed from `replayData.turns` —
+    per-turn `damaged` is damage *taken*, so a player's dealt damage is the
+    opponent's `damaged` summed (mirrors `result/route.ts`).
+  - Adds `room: { id, name, roomNumber }` and a `summary` block:
+    `totalMatches`, `avgTurns`, `avgWinRate`, `firstDamageWinRate`
+    (% of decisive matches the first-hit dealer won), and
+    `endReasonCounts` for the donut.
+- **`src/app/admin/rooms/[roomId]/standings/page.tsx` wired** to it
+  (was fully mock): fetches on mount and whenever the period filter
+  changes (全期間 / 直近7日 / 直近30日 / 任意期間 → `from`/`to`). The
+  ranking table, win-rate bars, recent-form dots, the detail drawer
+  (per-player stats + real 直近マッチ list), the KPI tiles, the end-reason
+  donut, and the sidenav room name are all live now. Loading/error/empty
+  states added; selection is by id so it survives refetches.
+  - **Dropped the fabricated period-over-period delta badges** (+8, −2.1…)
+    — they need historical comparison we don't store, so showing them as
+    real would be misleading. Relabeled the 4th KPI from the undefined
+    "FirstDamage取得率" to "先制ダメージ勝率" to match what's actually
+    computed.
+- `tsc` / `lint` / `build` clean; 27 tests still pass (no route-handler
+  tests added, consistent with the repo).
+- **Not verified in a browser** (no display here) — the data wiring,
+  types, and build are verified, but the rendered table/donut/drawer need
+  a manual pass.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Manual browser pass on the Blockly editor** + any UX polish (canvas
-   height/resize, toolbox styling vs. the dark prototype palette, locked/
-   read-only behaviour after submit). The component injects with a grid +
-   trashcan + zoom controls; confirm it renders and serializes live.
-2. **Enriched standings endpoint + room standings page** (ROADMAP
-   Milestone D). Add per-player avg-damage / avg-turns / recent-form
-   (from `replayData`) to `/api/admin/rooms/:id/standings`, then wire the
-   standings page that was deferred in PR #18.
-3. **Coding `lastTurn` tab real data** (Milestone A). Surface prior-turn
+1. **Manual browser pass** on the Blockly editor (PR #23) and this
+   standings page (PR #24) — both are data/build-verified but not visually
+   confirmed in this headless container.
+2. **Coding `lastTurn` tab real data** (Milestone A). Surface prior-turn
    perception from the simulator or add `/api/match/:id/lastTurn`; the tab
    still renders `MOCK_LAST_TURN`.
+3. **Create-match modal real player-picker** (matches page) — still uses a
+   hardcoded chip list; needs a member-search backed by
+   `/api/admin/rooms/:id/members` before its `POST …/matches` can be wired.
 
 ### Deferred / out of scope right now
 
@@ -102,6 +97,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #23** (merged) — feat(coding): real Blockly (v12) strategy editor +
+  `strategy-blocks.ts` workspace→`Strategy` serializer; coding page submits
+  the live strategy instead of a stub. Milestone A blocker cleared.
 - **PR #22** (merged) — feat(admin): match-cancel endpoint
   (`POST /api/admin/rooms/:id/matches/:matchId/cancel`) + wired the
   matches-page cancel modal. Closed out the admin write-action surface.

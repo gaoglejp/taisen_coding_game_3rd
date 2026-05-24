@@ -105,7 +105,7 @@ scaffolding is gone.
 | Room overview page | ✅ | PR #16 — `/api/admin/rooms/:id` + matches/standings (today-matches & activity still mock) |
 | Room members page | ✅ | PR #17 — `/api/admin/rooms/:id/members` + standings for W/L/D |
 | Room matches page (LIST) | ✅ | PR #18 — `/api/admin/rooms/:id/matches`; bracket views still mock |
-| Room standings page | ⬜ | Needs damage/turns/recent aggregation the standings API doesn't expose — enriched endpoint first |
+| Room standings page | ✅ | PR #24 — enriched `/api/admin/rooms/:id/standings` (avg dmg dealt/taken, avg turns, recent form, summary + end-reason counts) + wired the page (table, drawer, KPIs, donut, period filter) |
 | Room settings page | ✅ | PR #19 — GET/PATCH /api/admin/rooms/:id + archive/restore/delete (SYSTEM_ADMIN-only, per product decision) |
 | Invite-code validation on signup | ⬜ | HANDOFF §4.4 — needs `InviteCode` model (schema change) |
 | Member write actions (issue / reissue / disable) | ✅ | PR #20 — members page wired to existing POST/PATCH endpoints |
