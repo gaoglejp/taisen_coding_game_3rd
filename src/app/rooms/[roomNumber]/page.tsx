@@ -7,6 +7,7 @@ import { TopbarPaper } from "@/components/layout/TopbarPaper";
 // <!-- bind: GET /api/rooms/:roomNumber -->
 // <!-- bind: GET /api/rooms/:roomNumber/matches -->
 // <!-- bind: GET /api/rooms/:roomNumber/standings -->
+// <!-- bind: GET /api/rooms/:roomNumber/announcements -->
 
 interface RoomData {
   id: string;
@@ -64,20 +65,35 @@ const RULE_DEFAULTS = {
   codingLimit: "5分",
 };
 
-// "あなたの予定" (schedule) and announcements don't have backing APIs yet —
-// left as mocks with this comment so the next pass knows where to wire them.
+// "あなたの予定" (schedule) is still intentionally mock-only in this page.
+// Announcements are API-wired via GET /api/rooms/:roomNumber/announcements.
 // See docs/ROADMAP.md → Milestone C.
-const ANNOUNCEMENTS = [
-  { id: 1, title: "📌 来週は総当たり戦を実施します", body: "5/29（水）〜5/31（金）に全員参加の総当たり戦を行います。コードを準備しておいてください。", time: "2日前", author: "田中先生", pinned: true },
-  { id: 2, title: "SCAN の仕様変更について", body: "v0.2.1 より SCAN のコストが1→2 APに変更されました。戦略を見直してください。", time: "5日前", author: "田中先生", pinned: false },
-  { id: 3, title: "リーグ戦の参加方法", body: "6月開催のリーグ戦への参加希望者は管理者まで連絡してください。", time: "1週間前", author: "田中先生", pinned: false },
-];
+interface ApiAnnouncement {
+  id: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  createdAt: string;
+  authorName: string;
+}
+
 
 function daysUntil(iso: string | null): number | null {
   if (!iso) return null;
   const ms = new Date(iso).getTime() - Date.now();
   if (Number.isNaN(ms)) return null;
   return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+}
+
+function formatRelativeDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "日時不明";
+  const diff = Date.now() - d.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days <= 0) return "今日";
+  if (days < 7) return `${days}日前`;
+  if (days < 30) return `${Math.floor(days / 7)}週間前`;
+  return `${Math.floor(days / 30)}か月前`;
 }
 
 function formatDate(iso: string | null): string {
@@ -94,6 +110,7 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
   const [meId, setMeId] = useState<string | null>(null);
   const [matches, setMatches] = useState<ApiMatch[]>([]);
   const [standings, setStandings] = useState<ApiStanding[]>([]);
+  const [announcements, setAnnouncements] = useState<Array<{ id: string; title: string; body: string; author: string; time: string; pinned: boolean }>>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -105,7 +122,8 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
       fetch("/api/me"),
       fetch(`/api/rooms/${roomNumber}/matches`),
       fetch(`/api/rooms/${roomNumber}/standings`),
-    ]).then(async ([roomRes, meRes, matchesRes, standingsRes]) => {
+      fetch(`/api/rooms/${roomNumber}/announcements`),
+    ]).then(async ([roomRes, meRes, matchesRes, standingsRes, announcementsRes]) => {
       if (cancelled) return;
       if (roomRes.status === "fulfilled" && roomRes.value.ok) {
         const data = await roomRes.value.json();
@@ -127,6 +145,10 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
       if (standingsRes.status === "fulfilled" && standingsRes.value.ok) {
         const data = await standingsRes.value.json();
         setStandings(data.standings ?? []);
+      }
+      if (announcementsRes.status === "fulfilled" && announcementsRes.value.ok) {
+        const data = await announcementsRes.value.json();
+        setAnnouncements((data.announcements ?? []).map((a: ApiAnnouncement) => ({ id: a.id, title: a.title, body: a.body, pinned: !!a.pinned, author: a.authorName, time: formatRelativeDate(a.createdAt) })));
       }
     });
     return () => {
@@ -338,7 +360,7 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
         <div style={{ marginTop: 20 }}>
           <h2 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700 }}>📢 お知らせ</h2>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {ANNOUNCEMENTS.map((a) => (
+            {announcements.map((a) => (
               <div key={a.id} style={{ background: "var(--surface)", border: `1px solid ${a.pinned ? "var(--accent)" : "var(--line)"}`, borderRadius: "var(--radius-sm)", padding: "14px 18px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                   <span style={{ fontWeight: 700, fontSize: 13 }}>{a.title}</span>

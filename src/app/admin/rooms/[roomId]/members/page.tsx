@@ -52,6 +52,7 @@ export default function RoomMembersPage({ params }: { params: Promise<{ roomId: 
     { label: "メンバー", href: `/admin/rooms/${roomId}/members`, icon: "👥" },
     { label: "マッチカード", href: `/admin/rooms/${roomId}/matches`, icon: "⚔" },
     { label: "成績", href: `/admin/rooms/${roomId}/standings`, icon: "🏆" },
+    { label: "お知らせ", href: `/admin/rooms/${roomId}/announcements`, icon: "📢" },
     { label: "設定", href: `/admin/rooms/${roomId}/settings`, icon: "⚙" },
   ];
 
