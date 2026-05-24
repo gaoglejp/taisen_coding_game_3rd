@@ -218,8 +218,10 @@ These are the calls the previous session made that the next session should
    submits a **real strategy payload** — Blockly is wired to a serializer
    (PR #23, see decision #10). Still on mocks: the coding page's
    `lastTurn` tab data;
-   the watch page's obstacles / items / timeline-events / commentary /
-   state-gallery; the rooms page's "your schedule" + announcements; and the
+   the watch page's obstacles / items / timeline-events / commentary feed
+   (placeholder) + viewer count (mock — needs presence tracking); the
+   watch-page dev state-gallery was removed in PR #27. The rooms page's
+   "your schedule" + announcements; and the
    matches-page **tournament bracket** view (`TournamentView`) — it needs
    match-to-match advancement linkage the schema lacks, so it's blocked on
    a schema call. The create-match modal (PR #25) and the **round-robin /
