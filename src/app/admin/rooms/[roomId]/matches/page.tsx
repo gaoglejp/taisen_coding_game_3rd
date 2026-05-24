@@ -473,7 +473,7 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
           )}
 
           {/* Tournament view */}
-          {viewMode === "TOURNAMENT" && <TournamentView />}
+          {viewMode === "TOURNAMENT" && <TournamentView matches={matches} />}
 
           {/* Round-robin view */}
           {viewMode === "ROUND_ROBIN" && <RoundRobinView matches={matches} />}
@@ -768,109 +768,88 @@ function MatchStatusBadge({ status }: { status: MatchStatus }) {
   );
 }
 
-function TournamentView() {
+function TournamentView({ matches }: { matches: Match[] }) {
+  // No bracket-advancement linkage exists in the schema (Match.round only
+  // groups matches), so this renders real matches grouped by round rather
+  // than a speculative bracket tree.
+  const rounds = useMemo(() => {
+    const byRound = new Map<string, Match[]>();
+    for (const m of matches) {
+      if (m.round === "—") continue;
+      const list = byRound.get(m.round) ?? [];
+      list.push(m);
+      byRound.set(m.round, list);
+    }
+    const roundNum = (r: string) => {
+      const n = parseInt(r.replace(/^R/, ""), 10);
+      return Number.isNaN(n) ? Number.MAX_SAFE_INTEGER : n;
+    };
+    return [...byRound.entries()]
+      .sort((a, b) => roundNum(a[0]) - roundNum(b[0]))
+      .map(([round, list]) => ({
+        round,
+        matches: [...list].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true })),
+      }));
+  }, [matches]);
+
+  const totalMatches = rounds.reduce((acc, r) => acc + r.matches.length, 0);
+
+  const toRows = (m: Match): BracketRow[] => {
+    const finished = m.status === "FINISHED";
+    const p1Won = finished && m.winner === "P1";
+    const p2Won = finished && m.winner === "P2";
+    const side = (s: Side, variant: "p1" | "p2", won: boolean, lost: boolean): BracketRow =>
+      s
+        ? { variant, code: s.i, name: s.n, score: "—", winner: won, loser: lost }
+        : { variant: "empty", code: "", name: "募集中", score: "—", muted: true };
+    return [side(m.p1, "p1", p1Won, p2Won), side(m.p2, "p2", p2Won, p1Won)];
+  };
+
+  if (rounds.length === 0) {
+    return (
+      <section style={altViewCardStyle} aria-label="トーナメント表">
+        <header style={altViewHeadStyle}>
+          <h2 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>トーナメント表</h2>
+        </header>
+        <div style={{ padding: 32, textAlign: "center", fontSize: 13, color: "var(--ink-soft)" }}>
+          ラウンド付きのマッチがありません。マッチ作成で「トーナメント」モードを選ぶと round が割り当てられます。
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section style={altViewCardStyle} aria-label="トーナメント表">
       <header style={altViewHeadStyle}>
         <h2 style={{ margin: 0, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "baseline", gap: 8, color: "var(--ink)" }}>
           トーナメント表
-          <small style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--ink-soft)", fontWeight: 500 }}>{"// view: TOURNAMENT — 8 名シングル"}</small>
+          <small style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--ink-soft)", fontWeight: 500 }}>{`// view: TOURNAMENT — ${totalMatches} 試合 / ${rounds.length} ラウンド`}</small>
         </h2>
-        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--ink-soft)" }}>view モード切替時のプレビュー</span>
+        <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--ink-soft)" }}>ラウンドごとのマッチ一覧</span>
       </header>
       <div style={{ padding: 18 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 20, alignItems: "stretch", overflowX: "auto", paddingBottom: 8 }}>
-          {/* Round 1 */}
-          <div style={bracketRoundStyle}>
-            <div style={bracketRoundHeadStyle}>{"// R1 (8 → 4)"}</div>
-            <BracketMatch
-              rows={[
-                { variant: "p1", code: "HC", name: "HanaCoder", score: "100", winner: true },
-                { variant: "p2", code: "YU", name: "yu_8", score: "0", loser: true },
-              ]}
-              metaLeft="#M-22001 · T14"
-              metaRight="▸ 観戦"
-              metaRightHref="#w-22001"
-            />
-            <BracketMatch
-              live
-              rows={[
-                { variant: "p1", code: "MI", name: "misora.dev", score: "—" },
-                { variant: "p2", code: "K9", name: "K-9bot", score: "—" },
-              ]}
-              metaLeft="BATTLING · T8"
-              metaLeftColor="#92400e"
-              metaRight="▸ 観戦"
-              metaRightHref="#w-22002"
-            />
-            <BracketMatch
-              rows={[
-                { variant: "p1", code: "TR", name: "たろう_06", score: "72", winner: true },
-                { variant: "p2", code: "KN", name: "kuroneko", score: "0", loser: true },
-              ]}
-              metaLeft="#M-22003 · T18"
-              metaRight="▸ 観戦"
-              metaRightHref="#w-22003"
-            />
-            <BracketMatch
-              rows={[
-                { variant: "p1", code: "TN", name: "tanu_55", score: "36", winner: true },
-                { variant: "p2", code: "MK", name: "miki_dev", score: "0", loser: true },
-              ]}
-              metaLeft="#M-22004 · T20"
-              metaRight="▸ 観戦"
-              metaRightHref="#w-22004"
-            />
-          </div>
-
-          {/* Round 2 */}
-          <div style={bracketRoundStyle}>
-            <div style={bracketRoundHeadStyle}>{"// R2 (4 → 2)"}</div>
-            <BracketMatch
-              rows={[
-                { variant: "p1", code: "HC", name: "HanaCoder", score: "—" },
-                { variant: "empty", code: "", name: "待機中", score: "—", muted: true },
-              ]}
-              metaLeft="#M-22011 · WAITING"
-              metaRight="詳細"
-              metaRightGhost
-            />
-            <BracketMatch
-              rows={[
-                { variant: "p1", code: "TR", name: "たろう_06", score: "—" },
-                { variant: "p2", code: "TN", name: "tanu_55", score: "—" },
-              ]}
-              metaLeft="#M-22012 · WAITING"
-              metaRight="詳細"
-              metaRightGhost
-            />
-          </div>
-
-          {/* Final */}
-          <div style={bracketRoundStyle}>
-            <div style={bracketRoundHeadStyle}>{"// FINAL (2 → 1)"}</div>
-            <BracketMatch
-              isFinal
-              rows={[
-                { variant: "empty", code: "", name: "勝者 R2-1", score: "—", muted: true },
-                { variant: "empty", code: "", name: "勝者 R2-2", score: "—", muted: true },
-              ]}
-              metaLeft="#M-22021 · 未生成"
-              metaRight="詳細"
-              metaRightGhost
-            />
-          </div>
-
-          {/* Winner placeholder */}
-          <div style={bracketRoundStyle}>
-            <div style={bracketRoundHeadStyle}>{"// 🏆 優勝"}</div>
-            <div style={{ ...bracketMatchStyle, background: "repeating-linear-gradient(45deg, var(--bg), var(--bg) 4px, var(--bg-2, #efece3) 4px, var(--bg-2, #efece3) 8px)", borderStyle: "dashed" }}>
-              <div style={{ display: "flex", alignItems: "center", padding: "18px 10px", borderBottom: "none", gap: 7, fontSize: 12, color: "var(--ink-soft)" }}>
-                <span style={avEmptyStyle} />
-                <span style={{ flex: 1, fontStyle: "italic" }}>未決定</span>
-              </div>
+        <div style={{ display: "grid", gridAutoFlow: "column", gridAutoColumns: "minmax(220px, 1fr)", gap: 20, alignItems: "start", overflowX: "auto", paddingBottom: 8 }}>
+          {rounds.map((r) => (
+            <div key={r.round} style={bracketRoundStyle}>
+              <div style={bracketRoundHeadStyle}>{`// ${r.round} (${r.matches.length} 試合)`}</div>
+              {r.matches.map((m) => {
+                const watchable = m.status === "BATTLING" || m.status === "CODING" || m.status === "FINISHED";
+                const live = m.status === "BATTLING";
+                return (
+                  <BracketMatch
+                    key={m.id}
+                    live={live}
+                    rows={toRows(m)}
+                    metaLeft={`${m.label} · ${m.status}`}
+                    metaLeftColor={live ? "#92400e" : undefined}
+                    metaRight={watchable ? "▸ 観戦" : "詳細"}
+                    metaRightHref={watchable ? `/watch/${m.id}` : undefined}
+                    metaRightGhost={!watchable}
+                  />
+                );
+              })}
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </section>
