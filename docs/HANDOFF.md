@@ -221,12 +221,13 @@ These are the calls the previous session made that the next session should
    the watch page's obstacles / items / timeline-events / commentary feed
    (placeholder) + viewer count (mock — needs presence tracking); the
    watch-page dev state-gallery was removed in PR #27. The rooms page's
-   "your schedule" + announcements; and the
-   matches-page **tournament bracket** view (`TournamentView`) — it needs
-   match-to-match advancement linkage the schema lacks, so it's blocked on
-   a schema call. The create-match modal (PR #25) and the **round-robin /
-   head-to-head** view (PR #26, `RoundRobinView`) are now wired to real
-   match data. The system **users** (PR #14),
+   "your schedule" (announcements are being wired by Codex —
+   `docs/CODEX_TASK_announcements.md`). The matches page is otherwise fully
+   wired: create-match modal (PR #25), round-robin / head-to-head view
+   (PR #26, `RoundRobinView`), and the tournament view (PR #29,
+   `TournamentView`) — the last is a **round-grouped real-match list**, not
+   a true bracket *tree* (that would need match-advancement linkage in the
+   schema). The system **users** (PR #14),
    **rooms** (PR #15), **audit** (PR #16) pages and the room
    **overview** (PR #16) + **members** (PR #17) + **matches LIST** (PR #18)
    + **settings** (PR #19) + **standings** (PR #24, enriched endpoint with

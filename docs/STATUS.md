@@ -13,39 +13,49 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #27 — chore(watch): drop the dev-only state-gallery showcase
+- **PR**: #29 — feat(admin): wire tournament view as a round-grouped match list
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Removed the "// state variations" gallery** from
-  `src/app/watch/[matchId]/page.tsx` — a dev-only showcase of six mock
-  watch states (公開 / 限定 / 403 / Live↔Replay / 遅延 / 終了) that isn't
-  production UI. Deleted the `<section>` plus its five exclusively-used
-  helpers (`StateCard`, `MiniPill`, `MiniBoard`, `miniCtaStyle`,
-  `warnBoxStyle`); ~341 lines gone, no other references.
-- **Left as-is (need real sources, not cleanup):** the header **viewer
-  count** is still a hardcoded mock (`viewerCount: 14`) — a real value
-  needs Socket.io presence tracking; the **commentary feed** is an honest
-  self-describing placeholder ("本番では実況・先生のメモが流れます。") with no
-  backing commentary system. Both are features, not mock-removal, so they
-  stay until those sources exist.
+- **`TournamentView` on `src/app/admin/rooms/[roomId]/matches/page.tsx`
+  wired** to real match data (was hardcoded R1/R2/FINAL + 優勝 placeholders).
+  - Groups the loaded matches by `Match.round` (`R1`, `R2`, …; matches with
+    no round are skipped), sorts rounds ascending, and renders one column
+    per round of real `BracketMatch` cards (players, winner/loser highlight,
+    status). Decisive/live cards link to `/watch/:id`; the header shows the
+    real 試合数 / ラウンド数; empty state when no round-tagged matches exist.
+  - Reuses the existing `BracketMatch`/`BracketRow` presentational
+    component unchanged.
+  - **Chosen interpretation (no schema change):** this is a *round-grouped
+    list*, **not** a true bracket tree. The schema has no match-to-match
+    advancement linkage (`Match.round` only groups), so the speculative
+    tree edges + "勝者 R2-1" / 優勝 placeholders were dropped rather than
+    faked. A real bracket still needs a schema call (see below).
 - `tsc` / `lint` / `build` clean; 27 tests still pass.
 - **Not verified in a browser** (headless container).
+
+### Parallel work (Codex)
+
+- **Codex** is building the **room announcements feature** on branch
+  `codex/v0.2-announcements` — see `docs/CODEX_TASK_announcements.md`.
+  Scope: admin CRUD API + admin page + wiring the student rooms page's
+  お知らせ section (the `ANNOUNCEMENT` model already exists). The student
+  rooms page and each room page's `ROOM_NAV` are shared surfaces — rebase
+  carefully. Claude should avoid those if possible while Codex is active.
 
 ### Next 1–3 PRs (recommended order)
 
 1. **Manual browser pass** on the data-wired-but-unviewed pages: Blockly
    editor (#23), standings (#24), create-match modal (#25), round-robin
-   view (#26), and a glance that the watch page still renders after the
-   gallery removal (#27).
-2. **Tournament bracket — decide the data model.** To wire `TournamentView`
-   faithfully, add bracket-linkage to the schema (e.g. `Match.parentMatchId`
-   / `nextMatchSlot`) so winners advance into known slots; otherwise descope
-   the bracket tree to post-v0.2 and show a simpler round-grouped list.
-   **Needs a product/schema call.**
+   (#26), watch page post-gallery (#27), tournament round list (#29).
+2. **Real bracket tree (optional, needs schema call)** — only if a true
+   bracket is wanted for v0.2: add advancement linkage
+   (`Match.parentMatchId` / `nextMatchSlot`) and have the simulator/match
+   creation populate it; then `TournamentView` can draw edges. Otherwise the
+   round-grouped list (#29) is the v0.2 answer.
 3. **Coding `lastTurn` tab real data** (Milestone A) — still `MOCK_LAST_TURN`.
    **Needs a product call**: the match simulates in one shot, so "last turn"
    during coding is undefined without a turn-by-turn loop.
@@ -85,6 +95,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #27** (merged) — chore(watch): removed the dev-only state-variations
+  gallery (+ its 5 helpers, ~341 lines) from the watch page. Viewer
+  count / commentary left as placeholders pending real sources.
 - **PR #26** (merged) — feat(admin): wired `RoundRobinView` (head-to-head
   matrix + W/L/D summary) to real match data; `TournamentView` left on mock
   pending bracket-linkage schema.
