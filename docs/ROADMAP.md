@@ -108,7 +108,7 @@ scaffolding is gone.
 | Room settings page | ✅ | PR #19 — GET/PATCH /api/admin/rooms/:id + archive/restore/delete (SYSTEM_ADMIN-only, per product decision) |
 | Invite-code validation on signup | ⬜ | HANDOFF §4.4 — needs `InviteCode` model (schema change) |
 | Member write actions (issue / reissue / disable) | ✅ | PR #20 — members page wired to existing POST/PATCH endpoints |
-| Other write actions (room create / account invite·disable·reset / cancel-match) | ⬜ | Modals exist but not all wired; match-cancel endpoint missing |
+| Other write actions (room create / account invite·disable·reset / cancel-match) | ✅ | PR #21 (system rooms create/delete/archive + users invite/disable/reset) + PR #22 (new match-cancel endpoint + matches-page modal) |
 
 **Decision (2026-05-23):** Room **detail/settings** (`GET`/`PATCH`/`archive`/
 `restore`/`DELETE /api/admin/rooms/:id`) stays **SYSTEM_ADMIN-only** for now.

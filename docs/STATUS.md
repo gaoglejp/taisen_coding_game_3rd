@@ -13,69 +13,48 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #21 — feat(admin): wire system rooms + users page write actions
+- **PR**: #22 — feat(admin): match-cancel endpoint + wire matches-page cancel modal
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
-- **Date**: 2026-05-23
+- **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **`src/app/admin/system/users/page.tsx` write actions wired**
-  (SYSTEM_ADMIN scope):
-  - **招待 (invite)**: the invite modal `POST`s `{ email, role, message? }`
-    to `/api/admin/users/invite`. There is no email infra, so the returned
-    `inviteLink` (+ `expiresAt`) is surfaced one-time in the modal via a new
-    `LinkResult` component (read-only field + copy button); the list reloads
-    behind it.
-  - **無効化 (disable)**: `PATCH /api/admin/users/:id` with
-    `{ status: "DISABLED" }`, gated behind the username re-type confirm,
-    then reloads. (API blocks disabling self.)
-  - **リセット (force reset)**: `POST /api/admin/users/:id/force-password-reset`;
-    the returned `resetLink` is shown one-time via `LinkResult`.
-  - Each modal got a busy/disabled submit + inline error; `openInvite` /
-    `openDisable` / `openReset` reset per-modal state on open. 詳細 button
-    stays inert (no detail route yet).
-- **`src/app/admin/system/rooms/page.tsx` write actions wired**
-  (SYSTEM_ADMIN scope):
-  - **作成 (create)**: the create modal `POST`s
-    `{ name, kind, expiresAt? }` to `/api/admin/rooms`, then resets to
-    page 1 and reloads the list + header count pills. Submit is disabled
-    until a name is entered and shows a 作成中… spinner; API errors render
-    inline in the modal.
-  - **削除 (delete)**: the confirm modal (room-number re-type gate)
-    `DELETE`s `/api/admin/rooms/:id` (soft delete → `DELETED`), then
-    reloads list + counts. Inline error + 削除中… spinner.
-  - **ｱｰｶｲﾌﾞ / 復元 (archive·restore)**: the per-row button now toggles on
-    `room.status` — `POST /api/admin/rooms/:id/archive` for ACTIVE rooms,
-    `…/restore` for ARCHIVED ones — with a per-row busy/disabled state,
-    then reloads.
-  - Extracted the header-count fetch into a `loadCounts` `useCallback`
-    (was a one-shot mount effect) so every mutation refreshes the pills.
-    Its mount call is deferred via `setTimeout(0)` to satisfy the new
-    `react-hooks/set-state-in-effect` lint rule, mirroring how the
-    existing debounced `load` effect already defers.
-  - The 詳細 / 任命 row buttons and the create modal's "管理者ユーザー検索"
-    field stay inert — they need a user-picker / detail route that isn't
-    built yet, so `initialAdminId` is not sent on create.
+- **New route `POST /api/admin/rooms/:id/matches/:matchId/cancel`**
+  (`src/app/api/admin/rooms/[id]/matches/[matchId]/cancel/route.ts`).
+  `isAdmin`-gated; ROOM_ADMIN must own the room (same check as the matches
+  LIST/POST route). Validates the match belongs to the room and is not
+  already FINISHED/CANCELED (→ 409). Accepts `{ reason }` (one of
+  `NO_SHOW | CANCELED | DISCONNECT | LEAVE`, default `CANCELED`), sets
+  `status = CANCELED`, `endReason = reason`, `endedAt = now()`, and logs
+  the `MATCH_CANCEL` audit action (target `Match`, `targetRoomId` = room).
+- **`src/app/admin/rooms/[roomId]/matches/page.tsx` cancel modal wired.**
+  The confirm modal (match-id re-type gate) now `POST`s
+  `{ reason: cancelReason }` to the new route. The `CancelReason` union
+  already matches the `MatchEndReason` enum 1:1, so it is sent as-is. On
+  success the row is updated optimistically (status → CANCELED, 終了理由 ←
+  the returned `endReason`) — no refetch, so the existing mount effect is
+  untouched. Added `cancelling` busy state, a 処理中… label, and an inline
+  error box. Removed the stale `// bind: POST /admin/api/...` comment.
+- This **closes out the admin write-action surface** (members, system
+  rooms, system users, and now match-cancel are all wired). The create-
+  match modal on the same page is still mock-only (its player-picker is
+  hardcoded) — left for a follow-up since it needs a member-search UI.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Match-cancel endpoint + matches-page cancel modal** (ROADMAP
-   Milestone D — the last unwired admin write action). The `MATCH_CANCEL`
-   audit action exists but there is **no route**; add e.g.
-   `POST /api/admin/rooms/:id/matches/:matchId/cancel` (or a `PATCH` on
-   the match) that sets status → CANCELLED + logs audit, then wire the
-   cancel modal on `src/app/admin/rooms/[roomId]/matches/page.tsx`.
-   With members + system rooms + system users done, this closes out the
-   admin write-action surface.
-2. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
+1. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
    critical-path blocker). Needs a product call first: real Blockly
    integration vs. a lightweight rule-builder. Highest-leverage piece
    for actual gameplay once decided.
-3. **Enriched standings endpoint + room standings page** (ROADMAP
+2. **Enriched standings endpoint + room standings page** (ROADMAP
    Milestone D). Add per-player avg-damage / avg-turns / recent-form
    (from `replayData`) to `/api/admin/rooms/:id/standings`, then wire the
    standings page that was deferred in PR #18.
+3. **Create-match modal real player-picker** (matches page). The cancel
+   action is now wired, but the create modal still uses a hardcoded chip
+   list; it needs a member-search backed by `/api/admin/rooms/:id/members`
+   before its `POST …/matches` can be wired for MANUAL/RANDOM/etc.
 
 ### Deferred / out of scope right now
 
@@ -111,6 +90,10 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #21** (merged) — feat(admin): wire system rooms + users page write
+  actions. Rooms: create / soft-delete / archive↔restore. Users:
+  invite / disable / force-password-reset, with invite & reset links
+  surfaced one-time via a new `LinkResult` copy helper (no email infra).
 - **PR #20** (merged) — feat(admin): wire room member write actions
   (issue / reissue / disable) on
   `src/app/admin/rooms/[roomId]/members/page.tsx`. First real admin
