@@ -243,15 +243,16 @@ These are the calls the previous session made that the next session should
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **Test coverage is growing (37 cases).** Vitest is wired up (PR #10).
+5. **Test coverage is growing (53 cases).** Vitest is wired up (PR #10).
    Unit tests: `src/lib/match-simulator.ts` (9), `src/lib/auth.ts` (15,
    PR #13), `src/lib/strategy-blocks.ts` (3, jsdom — Blockly→Strategy
-   serializer). Route-handler tests (PR #30): `matches/[matchId]/cancel`
-   (7) and `standings` (3) — `vitest.config.ts` has an `@`→`src` alias so
-   any route can now be imported + tested by mocking `@/lib/auth` /
-   `@/lib/db` / `@/lib/audit`. Still missing: route tests for the other
-   admin write routes (matches POST, members, users) and Playwright
-   end-to-end coverage of the pages.
+   serializer). Route-handler tests: `matches/[matchId]/cancel` (7) +
+   `standings` (3) (PR #30), `matches` POST (9) + `users/[id]` PATCH (7)
+   (PR #32) — `vitest.config.ts` has an `@`→`src` alias so any route can be
+   imported + tested by mocking `@/lib/auth` / `@/lib/db` / `@/lib/audit`.
+   Still missing: route tests for members issue/reissue/disable, users
+   invite / force-password-reset, rooms create/delete/archive, and
+   Playwright end-to-end coverage of the pages.
 6. ~~CI is not set up.~~ **Done.** `.github/workflows/ci.yml` runs lint,
    `tsc --noEmit`, and `next build` on every PR (PR #4).
 

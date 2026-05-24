@@ -13,29 +13,24 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #30 — test(admin): route-handler tests for match-cancel + standings
+- **PR**: #32 — test(admin): route tests for matches POST + users PATCH
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **First API route-handler tests** (the repo had unit tests only for
-  `lib/`; HANDOFF §5 flagged routes as untested):
-  - `vitest.config.ts` gains a `resolve.alias` for `@` → `src` (no new dep)
-    so route files importing `@/...` can be imported in tests. This unblocks
-    route testing generally.
-  - **match-cancel** (7 cases): 401 / 403 non-admin / 403 ROOM_ADMIN
-    non-owner (short-circuits before match lookup) / 404 not-in-room / 409
-    already-finished / success (asserts `CANCELED` + `endReason` + `endedAt`
-    + `MATCH_CANCEL` audit) / invalid-reason → `CANCELED` fallback.
-  - **standings** (3 cases): 401, 404 missing room, and the replayData
-    aggregation (avg damage dealt/taken, avg turns, recent form, ranking,
-    and the `summary` totals + `firstDamageWinRate` + `endReasonCounts`).
-  - Mocks follow the existing `auth.test.ts` style (`vi.mock` of
-    `@/lib/auth` / `@/lib/db` / `@/lib/audit`; `isAdmin` reimplemented so the
-    real auth module — which imports `next/headers` — isn't loaded).
-- `npm test` 37 passing (was 27); `tsc` / `lint` / `build` clean.
+- **More API route-handler tests** (building on the `@`-alias harness from
+  #30), covering the admin **write** surface:
+  - **matches `POST`** (9 cases): 401 / 403 non-admin / 403 ROOM_ADMIN
+    non-owner (short-circuits before room load) / 404 missing room / 400
+    unknown mode / MANUAL → 1 `match.create` + `MATCH_CREATE` audit / RANDOM
+    `<2` players → 400 / ROUND_ROBIN → n·(n-1)/2 creates / TOURNAMENT →
+    ⌊n/2⌋ first-round creates tagged `round: 1`.
+  - **users `PATCH`** (7 cases): 401 / 403 system-admin-only / 404 / 400
+    self-change guard / disable → `USER_DISABLE` / re-enable → `USER_ENABLE`
+    / no audit when only `displayName` changes.
+- `npm test` **53 passing** (was 37); `tsc` / `lint` / `build` clean.
 
 ### Parallel work (Codex)
 
@@ -51,9 +46,9 @@ When you push, do these three things in `docs/STATUS.md`:
 1. **Manual browser pass** on the data-wired-but-unviewed pages: Blockly
    editor (#23), standings (#24), create-match modal (#25), round-robin
    (#26), watch page post-gallery (#27), tournament round list (#29).
-2. **More route-handler tests** now that the `@`-alias harness exists —
-   e.g. the matches `POST` mode branching, members issue/reissue/disable,
-   users invite/disable/reset — to lock in the admin write surface.
+2. **Remaining route tests** if desired — members issue/reissue/disable,
+   users invite / force-password-reset, rooms create/delete/archive — to
+   complete the admin-write test surface.
 3. **Coding `lastTurn` tab real data** (Milestone A) — still `MOCK_LAST_TURN`.
    **Needs a product call**: the match simulates in one shot, so "last turn"
    during coding is undefined without a turn-by-turn loop. (Real bracket
@@ -94,6 +89,8 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #30** (merged) — test(admin): first route-handler tests (match-cancel
+  7, standings 3) + a Vitest `@`→`src` alias so routes can be imported. 37 tests.
 - **PR #29** (merged) — feat(admin): wired `TournamentView` as a round-grouped
   real-match list (per `Match.round` columns of `BracketMatch` cards); a true
   bracket tree still needs match-advancement schema linkage.
