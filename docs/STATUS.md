@@ -56,34 +56,13 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ### Deferred / out of scope right now
 
-- Admin pages mock removal (same mechanical pattern, lower visibility).
-- Real-time room ranking on the result page (needs an aggregation
-  endpoint).
-- Item / barrier / obstacle support in the simulator (extends
-  `TurnSnapshot` additively per decision #9 in `docs/HANDOFF.md`).
-- Watch page: state-gallery dropped (PR #27). Still placeholder and
-  awaiting real sources — the viewer count (needs Socket.io presence) and
-  the commentary feed (needs a commentary system).
-- Email confirmation on signup (HANDOFF section 4 item 4).
+- Announcement read/unread state, push/mail notifications.
+- Schedule block real data source is still undecided (product call needed).
 
 ### Open questions / handoff notes
 
-- **`docs/ROADMAP.md` is a draft pending product review.** Its
-  milestones and "definition of done" are inferred from the prototypes
-  + schema, not a written spec. Scope lines marked **(TBD)** need a
-  product decision: whether obstacles/items/AP, live commentary, 2FA,
-  and email confirmation are in v0.2 or post-v0.2. Resolve those before
-  building the affected items.
-- The rooms page's "あなたの予定" schedule and announcements still need
-  backing data. Announcements would need a new endpoint over the
-  existing `Announcement` model; the schedule needs a defined source
-  (upcoming matches? coding deadlines?) — **TBD**.
-- The simulator tests intentionally don't exercise an HP_ZERO win —
-  no in-bounds starting alignments hit with the current six action
-  types. Add coverage once AP / obstacles / items land.
-- If Codex picks up work next: please update this file's "Latest" block
-  when you push, even if the change is small. Keeping the rolling log
-  current is what makes the cross-agent handoff usable.
+- This PR intentionally logs announcement writes via existing `ROOM_UPDATE` audit action (no `AuditAction` enum migration in this slice).
+- `src/app/admin/rooms/[roomId]/matches/page.tsx` was only touched for the one-line ROOM_NAV addition, to reduce parallel-work conflict risk with Claude.
 
 ---
 
