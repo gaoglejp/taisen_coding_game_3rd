@@ -13,7 +13,7 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #28 — feat(admin): wire tournament view as a round-grouped match list
+- **PR**: #29 — feat(admin): wire tournament view as a round-grouped match list
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
@@ -50,12 +50,12 @@ When you push, do these three things in `docs/STATUS.md`:
 
 1. **Manual browser pass** on the data-wired-but-unviewed pages: Blockly
    editor (#23), standings (#24), create-match modal (#25), round-robin
-   (#26), watch page post-gallery (#27), tournament round list (#28).
+   (#26), watch page post-gallery (#27), tournament round list (#29).
 2. **Real bracket tree (optional, needs schema call)** — only if a true
    bracket is wanted for v0.2: add advancement linkage
    (`Match.parentMatchId` / `nextMatchSlot`) and have the simulator/match
    creation populate it; then `TournamentView` can draw edges. Otherwise the
-   round-grouped list (#28) is the v0.2 answer.
+   round-grouped list (#29) is the v0.2 answer.
 3. **Coding `lastTurn` tab real data** (Milestone A) — still `MOCK_LAST_TURN`.
    **Needs a product call**: the match simulates in one shot, so "last turn"
    during coding is undefined without a turn-by-turn loop.

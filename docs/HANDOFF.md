@@ -224,7 +224,7 @@ These are the calls the previous session made that the next session should
    "your schedule" (announcements are being wired by Codex —
    `docs/CODEX_TASK_announcements.md`). The matches page is otherwise fully
    wired: create-match modal (PR #25), round-robin / head-to-head view
-   (PR #26, `RoundRobinView`), and the tournament view (PR #28,
+   (PR #26, `RoundRobinView`), and the tournament view (PR #29,
    `TournamentView`) — the last is a **round-grouped real-match list**, not
    a true bracket *tree* (that would need match-advancement linkage in the
    schema). The system **users** (PR #14),
