@@ -243,11 +243,15 @@ These are the calls the previous session made that the next session should
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **Test coverage is thin.** Vitest is wired up (PR #10). Unit tests
-   exist for `src/lib/match-simulator.ts` (9 cases) and `src/lib/auth.ts`
-   (15 cases — token round-trip, role guards, `getSession` branches with
-   mocked cookies + Prisma, PR #13). Still missing: Playwright coverage
-   of the 17 pages end-to-end, and tests for the API route handlers.
+5. **Test coverage is growing (37 cases).** Vitest is wired up (PR #10).
+   Unit tests: `src/lib/match-simulator.ts` (9), `src/lib/auth.ts` (15,
+   PR #13), `src/lib/strategy-blocks.ts` (3, jsdom — Blockly→Strategy
+   serializer). Route-handler tests (PR #30): `matches/[matchId]/cancel`
+   (7) and `standings` (3) — `vitest.config.ts` has an `@`→`src` alias so
+   any route can now be imported + tested by mocking `@/lib/auth` /
+   `@/lib/db` / `@/lib/audit`. Still missing: route tests for the other
+   admin write routes (matches POST, members, users) and Playwright
+   end-to-end coverage of the pages.
 6. ~~CI is not set up.~~ **Done.** `.github/workflows/ci.yml` runs lint,
    `tsc --noEmit`, and `next build` on every PR (PR #4).
 
