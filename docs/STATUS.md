@@ -13,61 +13,40 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #32 — test(admin): route tests for matches POST + users PATCH
-- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
+- **PR**: #TBD — feat(watch): spectator real-data (viewer count + timeline)
+- **Branch**: `codex/v0.2-spectator-realdata`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **More API route-handler tests** (building on the `@`-alias harness from
-  #30), covering the admin **write** surface:
-  - **matches `POST`** (9 cases): 401 / 403 non-admin / 403 ROOM_ADMIN
-    non-owner (short-circuits before room load) / 404 missing room / 400
-    unknown mode / MANUAL → 1 `match.create` + `MATCH_CREATE` audit / RANDOM
-    `<2` players → 400 / ROUND_ROBIN → n·(n-1)/2 creates / TOURNAMENT →
-    ⌊n/2⌋ first-round creates tagged `round: 1`.
-  - **users `PATCH`** (7 cases): 401 / 403 system-admin-only / 404 / 400
-    self-change guard / disable → `USER_DISABLE` / re-enable → `USER_ENABLE`
-    / no audit when only `displayName` changes.
-- `npm test` **53 passing** (was 37); `tsc` / `lint` / `build` clean.
+- `server.ts` now emits `viewer_count` on `join_match` and recalculates counts on `disconnecting` for each `match:*` room (single-process presence tracking).
+- `src/app/watch/[matchId]/page.tsx` now subscribes to `viewer_count` and renders real viewer counts (fabricated delta removed).
+- Watch timeline no longer uses `TIMELINE_EVENTS` mock data; it derives hit ticks from `turn_event` / replay turns and appends a finish tick from `match_result`/replay result.
+- Finished matches now bootstrap timeline data from `GET /api/match/:id/replay` when needed, and timeline has an explicit empty state.
 
-### Parallel work (Codex)
+### Parallel work (Claude)
 
-- **Codex** is building the **room announcements feature** on branch
-  `codex/v0.2-announcements` — see `docs/CODEX_TASK_announcements.md`.
-  Scope: admin CRUD API + admin page + wiring the student rooms page's
-  お知らせ section (the `ANNOUNCEMENT` model already exists). The student
-  rooms page and each room page's `ROOM_NAV` are shared surfaces — rebase
-  carefully. Claude should avoid those if possible while Codex is active.
+- Claude branch is focused on route-handler test expansion and docs updates; conflict risk remains low in watch/server surfaces.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Manual browser pass** on the data-wired-but-unviewed pages: Blockly
-   editor (#23), standings (#24), create-match modal (#25), round-robin
-   (#26), watch page post-gallery (#27), tournament round list (#29).
-2. **Remaining route tests** if desired — members issue/reissue/disable,
-   users invite / force-password-reset, rooms create/delete/archive — to
-   complete the admin-write test surface.
-3. **Coding `lastTurn` tab real data** (Milestone A) — still `MOCK_LAST_TURN`.
-   **Needs a product call**: the match simulates in one shot, so "last turn"
-   during coding is undefined without a turn-by-turn loop. (Real bracket
-   *tree* remains an optional schema call — see PR #29 notes.)
+1. Manual browser pass: verify 2-tab spectator join/leave updates `viewer_count` and hit events increase timeline in real time.
+2. If desired, add pure-function vitest coverage for timeline derivation and server-side room-count math helpers.
+3. Continue Milestone A/C leftovers (`coding` last-turn data source and room schedule source decision).
 
 ### Deferred / out of scope right now
 
-- Announcement read/unread state, push/mail notifications.
-- Schedule block real data source is still undecided (product call needed).
+- Commentary feed remains placeholder (post-v0.2).
+- Obstacles/items remain simulator-out-of-scope (post-v0.2).
 
 ### Open questions / handoff notes
 
-- This PR intentionally logs announcement writes via existing `ROOM_UPDATE` audit action (no `AuditAction` enum migration in this slice).
-- `src/app/admin/rooms/[roomId]/matches/page.tsx` was only touched for the one-line ROOM_NAV addition, to reduce parallel-work conflict risk with Claude.
-
----
+- Browser behavior is not validated in this container; manual verification required on local dev server.
 
 ## History
 
+- **PR #32** (open) — test(admin): matches POST + users PATCH route tests; suite to 53; lint/type/build clean.
 - **PR #30** (merged) — test(admin): first route-handler tests (match-cancel
   7, standings 3) + a Vitest `@`→`src` alias so routes can be imported. 37 tests.
 - **PR #29** (merged) — feat(admin): wired `TournamentView` as a round-grouped

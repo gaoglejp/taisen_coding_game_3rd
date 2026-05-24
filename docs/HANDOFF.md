@@ -218,8 +218,8 @@ These are the calls the previous session made that the next session should
    submits a **real strategy payload** — Blockly is wired to a serializer
    (PR #23, see decision #10). Still on mocks: the coding page's
    `lastTurn` tab data;
-   the watch page's obstacles / items / timeline-events / commentary feed
-   (placeholder) + viewer count (mock — needs presence tracking); the
+   the watch page's obstacles / items / commentary feed
+   (placeholder); viewer count + timeline events are now real-data via socket presence and turn/replay-derived ticks (PR TBD).
    watch-page dev state-gallery was removed in PR #27. The rooms page's
    "your schedule" (still mock); announcements are now API-wired (PR #28); and the
    matches-page **tournament bracket** view (`TournamentView`) — it needs

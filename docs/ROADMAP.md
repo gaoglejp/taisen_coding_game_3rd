@@ -73,8 +73,8 @@ simulation reflects them.
 | Watch page live board / panels | ✅ | PR #9 |
 | Watch header (room / players) | ✅ | PR #9 |
 | Obstacles / items on board | ⬜ | Depends on simulator modelling them (post-v0.2? **TBD**) |
-| Timeline event ticks | 🟡 | Mocked; derive from replay once events exist |
-| Viewer count (real) | ⬜ | Needs Socket.io room introspection **(TBD scope)** |
+| Timeline event ticks | ✅ | PR TBD — derived from `turn_event` / replay turns (hit ticks + finish tick), includes empty state |
+| Viewer count (real) | ✅ | PR TBD — Socket.io presence via `join_match` + `disconnecting` room-size broadcast |
 | Live commentary feed | ⬜ | No backing feature; likely **post-v0.2** |
 | Remove design-only "state gallery" | ⬜ | Bottom of watch page is a 6-card design showcase; shouldn't ship |
 

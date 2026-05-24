@@ -120,8 +120,11 @@ app.prepare().then(() => {
     );
 
     socket.on("join_match", ({ matchId }: { matchId: string }) => {
-      socket.join(`match:${matchId}`);
-      console.log(`Socket ${socket.id} joined match:${matchId}`);
+      const room = `match:${matchId}`;
+      socket.join(room);
+      const count = io.sockets.adapter.rooms.get(room)?.size ?? 0;
+      io.to(room).emit("viewer_count", { matchId, count });
+      console.log(`Socket ${socket.id} joined ${room}`);
     });
 
     socket.on(
@@ -204,6 +207,15 @@ app.prepare().then(() => {
         }
       }
     );
+
+    socket.on("disconnecting", () => {
+      for (const room of socket.rooms) {
+        if (!room.startsWith("match:")) continue;
+        const matchId = room.slice("match:".length);
+        const currentCount = io.sockets.adapter.rooms.get(room)?.size ?? 0;
+        io.to(room).emit("viewer_count", { matchId, count: Math.max(currentCount - 1, 0) });
+      }
+    });
 
     socket.on("disconnect", () => {
       console.log(`Socket disconnected: ${socket.id}`);
