@@ -30,7 +30,8 @@ spectator paths. Concretely:
 2. **Play a match end-to-end** — two students enter a match, each builds a
    *real* strategy in the block editor, locks it, the server simulates the
    turns, both watch the battle replay, and land on a result screen with real
-   stats. ⏳ *Blocked only on the Blockly → strategy serializer.*
+   stats. ⏳ *Serializer landed (PR #23); pending a manual browser pass on the
+   Blockly canvas UX to call this fully done.*
 3. **Spectate** — a third party can watch a match live with the delayed
    board, player panels, and result. ⏳ *Live data wired; UI cleanup pending.*
 4. **Room hub** — a student opens a room and sees its real matches, standings,
@@ -59,7 +60,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started
 | Turn simulator (server-side) | ✅ | PR #5, `src/lib/match-simulator.ts` |
 | Battle replay (live `turn_event`) | ✅ | PR #5 |
 | Result screen (real stats) | ✅ | PR #7 |
-| **Blockly → strategy JSON serializer** | ⬜ | **The one remaining blocker for A.** Coding page still submits `MOCK_STRATEGY_JSON`. Until this lands, both players always run the same stub strategy. |
+| **Blockly → strategy JSON serializer** | ✅ | PR #23 — real Blockly (v12) editor + `src/lib/strategy-blocks.ts` serializer; coding page submits the live workspace as `Strategy` JSON. Players now run their own strategies. Canvas UX needs manual browser verification. |
 | Coding `lastTurn` tab real data | ⬜ | Needs simulator to surface prior-turn perception OR a `/api/match/:id/lastTurn` endpoint **(TBD which)** |
 
 **A is done when** two students can build different strategies and the
@@ -141,11 +142,10 @@ scope is **TBD**.
   #11 (rooms hero + this roadmap).
 - **Open**: PR #12 (rooms matches + standings).
 - **Critical path to v0.2**: the **Blockly → strategy serializer (Milestone
-  A)** is the single highest-leverage piece — it's the last thing standing
-  between "the simulator runs" and "students actually compete." It needs a
-  product call on the editor approach (real Blockly integration vs. a
-  lightweight rule-builder) before building — flagged in STATUS open
-  questions.
+  A)** — the last thing standing between "the simulator runs" and "students
+  actually compete" — **landed in PR #23** (real Blockly integration). The
+  remaining gap is a manual browser pass on the canvas UX and the coding
+  `lastTurn` tab data.
 
 ---
 

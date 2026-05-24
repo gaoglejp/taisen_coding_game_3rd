@@ -161,6 +161,22 @@ These are the calls the previous session made that the next session should
    battle/watch pages consume. New rule features (AP budgets, obstacles,
    items, richer conditions) should extend the snapshot additively rather
    than replace fields, so the existing client code keeps working.
+10. **Real Blockly (v12) for the strategy editor, with a custom 3-block
+   language.** The coding page uses the actual `blockly` package, loaded via
+   `next/dynamic({ ssr: false })` (it's DOM-only) in
+   `src/components/coding/BlocklyEditor.tsx`. The block language and the
+   workspace→JSON serializer live in `src/lib/strategy-blocks.ts`:
+   `tank_rule` (conditions stack + one action dropdown), `tank_condition`
+   (condition-type + true/false), and `tank_fallback` (one action). The
+   serializer maps directly onto the simulator's `Strategy` shape — rules
+   in workspace order (first match wins), conditions AND-ed, first action
+   only, first `tank_fallback` → `fallbackActions`. The block field values
+   are exactly the simulator's condition/action enum strings, so no
+   translation layer is needed. Don't reintroduce the old hand-drawn mock
+   workspace. The serializer is unit-tested (`strategy-blocks.test.ts`,
+   jsdom env). The socket `coding_lock` handler still accepts an unused
+   `blocklyXml`; we now pass the workspace's JSON serialization there for
+   future resume/persistence (it is not yet stored).
 
 ## 4. Known unfinished work (in priority order)
 
@@ -198,9 +214,10 @@ These are the calls the previous session made that the next session should
    positions / HP / actions / cumulative damage from `turn_event` (PR #9),
    the rooms page hero/rules are real (PR #11), and the rooms page's
    matches list, top-5 standings, and "your record" are wired to
-   `/api/rooms/:n/matches` + `/standings` (PR #12). Still on mocks: the
-   **strategy payload** the coding page submits (Blockly workspace
-   isn't wired to a serializer); the coding page's `lastTurn` tab data;
+   `/api/rooms/:n/matches` + `/standings` (PR #12). The coding page now
+   submits a **real strategy payload** — Blockly is wired to a serializer
+   (PR #23, see decision #10). Still on mocks: the coding page's
+   `lastTurn` tab data;
    the watch page's obstacles / items / timeline-events / commentary /
    state-gallery; the rooms page's "your schedule" + announcements; the
    matches-page **bracket / round-robin** views and its **create-match**

@@ -1,34 +1,33 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import {
   connectSocket,
   disconnectSocket,
   lockCoding,
 } from "@/lib/socket-client";
+import type { Strategy } from "@/lib/match-simulator";
 
 // <!-- bind: WS recv coding_start { codingDeadlineAt } -->
 // <!-- bind: WS send coding_lock { matchId, strategy, blocklyXml? } -->
 
-// MOCK_STRATEGY_JSON is the payload submitted on lock — the Blockly editor
-// isn't wired to a serializer yet, so every player currently locks in the
-// same stub strategy. See docs/STATUS.md → "Open questions" for the plan
-// to swap this with a real Blockly-driven payload.
-const MOCK_STRATEGY_JSON = {
+// The strategy editor is real Blockly (DOM-only), so load it client-side with
+// SSR disabled. It serializes the block workspace into the Strategy JSON the
+// simulator consumes (see src/lib/strategy-blocks.ts) on every edit.
+const BlocklyEditor = dynamic(() => import("@/components/coding/BlocklyEditor"), {
+  ssr: false,
+  loading: () => (
+    <div style={{ display: "grid", placeItems: "center", height: "100%", color: "var(--ink-soft)", fontSize: 13 }}>
+      エディタを読み込み中…
+    </div>
+  ),
+});
+
+const EMPTY_STRATEGY: Strategy = {
   version: "1.0",
-  rules: [
-    {
-      id: "rule_1",
-      conditions: [{ type: "scan_detected", value: true }],
-      actions: [{ type: "SHOOT_FORWARD", ap: 1 }],
-    },
-    {
-      id: "rule_2",
-      conditions: [],
-      actions: [{ type: "MOVE_FORWARD", ap: 1 }],
-    },
-  ],
+  rules: [],
   fallbackActions: [{ type: "WAIT", ap: 0 }],
 };
 
@@ -47,45 +46,6 @@ function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
-function BlockMock({
-  label,
-  color,
-  indent = 0,
-  height = 32,
-}: {
-  label: string;
-  color: string;
-  indent?: number;
-  height?: number;
-}) {
-  return (
-    <div
-      style={{
-        marginLeft: indent * 20,
-        marginBottom: 4,
-        height,
-        background: color,
-        borderRadius: 6,
-        display: "flex",
-        alignItems: "center",
-        paddingLeft: 12,
-        paddingRight: 12,
-        fontSize: 12,
-        fontWeight: 700,
-        color: "#fff",
-        fontFamily: "JetBrains Mono, monospace",
-        boxShadow: `inset 0 -2px 0 rgba(0,0,0,.25)`,
-        cursor: "grab",
-        userSelect: "none",
-        whiteSpace: "nowrap",
-        minWidth: 120,
-      }}
-    >
-      {label}
-    </div>
-  );
 }
 
 export default function CodingPage({
@@ -109,7 +69,12 @@ export default function CodingPage({
     player1: { id: string; displayName: string | null; username: string } | null;
     player2: { id: string; displayName: string | null; username: string } | null;
   } | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<string[]>(["アクション"]);
+  const [strategy, setStrategy] = useState<Strategy>(EMPTY_STRATEGY);
+  const [blocklyState, setBlocklyState] = useState("");
+  const handleStrategyChange = useCallback((next: Strategy, state: string) => {
+    setStrategy(next);
+    setBlocklyState(state);
+  }, []);
 
   // Fetch session + match meta. We need the user id to distinguish self vs
   // opponent lock events, and the match meta to render room name / match
@@ -196,21 +161,6 @@ export default function CodingPage({
 
   const timerColor =
     timeLeft <= 30 ? "#dc2626" : timeLeft <= 60 ? "#f59e0b" : "#1f2330";
-
-  const categories = [
-    { name: "アクション", color: "#2563eb" },
-    { name: "制御", color: "#7c3aed" },
-    { name: "条件", color: "#16a34a" },
-    { name: "数値", color: "#f59e0b" },
-    { name: "ヘルプ", color: "#6b7280" },
-  ];
-
-  const actionBlocks = [
-    { label: "MOVE_FORWARD", color: "#2563eb" },
-    { label: "SHOOT_FORWARD", color: "#ef4444" },
-    { label: "SCAN", color: "#0891b2" },
-    { label: "WAIT", color: "#6b7280" },
-  ];
 
   const tabs = [
     { key: "status", label: "自機ステータス" },
@@ -350,341 +300,9 @@ export default function CodingPage({
 
       {/* Main 3-pane layout */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* Left Pane: Toolbox */}
-        <div
-          style={{
-            width: 220,
-            flexShrink: 0,
-            background: "#1f2330",
-            borderRight: "1px solid #374151",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          {/* Search */}
-          <div style={{ padding: "12px 10px 8px" }}>
-            <input
-              type="text"
-              placeholder="🔍 ブロックを検索..."
-              style={{
-                width: "100%",
-                background: "#374151",
-                border: "1px solid #4b5563",
-                borderRadius: 8,
-                padding: "7px 10px",
-                fontSize: 12,
-                color: "#e5e7eb",
-                outline: "none",
-                fontFamily: "inherit",
-              }}
-            />
-          </div>
-
-          {/* Pinned / 推奨 */}
-          <div style={{ padding: "0 10px 8px" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", letterSpacing: "0.08em", marginBottom: 6, textTransform: "uppercase" }}>
-              📌 推奨
-            </div>
-            {[
-              { label: "MOVE_FORWARD", color: "#2563eb" },
-              { label: "SCAN", color: "#0891b2" },
-            ].map((b) => (
-              <div
-                key={b.label}
-                style={{
-                  background: b.color,
-                  borderRadius: 6,
-                  padding: "5px 10px",
-                  marginBottom: 4,
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#fff",
-                  fontFamily: "JetBrains Mono, monospace",
-                  cursor: "grab",
-                  boxShadow: "inset 0 -2px 0 rgba(0,0,0,.25)",
-                }}
-              >
-                {b.label}
-              </div>
-            ))}
-          </div>
-
-          {/* Divider */}
-          <div style={{ borderTop: "1px solid #374151", marginBottom: 4 }} />
-
-          {/* Categories */}
-          <div style={{ flex: 1, overflow: "auto", padding: "4px 0" }}>
-            {categories.map((cat) => {
-              const isExpanded = expandedCategories.includes(cat.name);
-              return (
-                <div key={cat.name}>
-                  <button
-                    onClick={() =>
-                      setExpandedCategories((prev) =>
-                        isExpanded
-                          ? prev.filter((c) => c !== cat.name)
-                          : [...prev, cat.name]
-                      )
-                    }
-                    style={{
-                      width: "100%",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      padding: "8px 10px",
-                      background: isExpanded ? "rgba(255,255,255,.06)" : "transparent",
-                      border: "none",
-                      color: "#e5e7eb",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      cursor: "pointer",
-                      textAlign: "left",
-                    }}
-                  >
-                    <span
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: 3,
-                        background: cat.color,
-                        flexShrink: 0,
-                      }}
-                    />
-                    {cat.name}
-                    <span style={{ marginLeft: "auto", fontSize: 10, color: "#6b7280" }}>
-                      {isExpanded ? "▲" : "▼"}
-                    </span>
-                  </button>
-                  {isExpanded && cat.name === "アクション" && (
-                    <div style={{ padding: "4px 10px 8px" }}>
-                      {actionBlocks.map((b) => (
-                        <div
-                          key={b.label}
-                          style={{
-                            background: b.color,
-                            borderRadius: 6,
-                            padding: "5px 10px",
-                            marginBottom: 4,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: "#fff",
-                            fontFamily: "JetBrains Mono, monospace",
-                            cursor: "grab",
-                            boxShadow: "inset 0 -2px 0 rgba(0,0,0,.25)",
-                          }}
-                        >
-                          {b.label}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Center Pane: Workspace */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          {/* Unsupported block warning */}
-          <div
-            style={{
-              background: "#fef9c3",
-              borderBottom: "1px solid #fde047",
-              padding: "8px 16px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              fontSize: 12,
-              color: "#854d0e",
-              flexShrink: 0,
-            }}
-          >
-            <span>⚠️</span>
-            <span>
-              サポートされていないブロックが含まれています。確定前に確認してください。
-            </span>
-          </div>
-
-          {/* Workspace area */}
-          <div
-            style={{
-              flex: 1,
-              background: "var(--bg)",
-              backgroundImage:
-                "radial-gradient(circle, #c5bfad 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
-              position: "relative",
-              overflow: "hidden",
-            }}
-          >
-            {/* fallbackActions region */}
-            <div
-              style={{
-                position: "absolute",
-                top: 20,
-                left: 24,
-                right: 24,
-                border: "2px dashed #d1c9b0",
-                borderRadius: 10,
-                padding: "12px 16px",
-                background: "rgba(246,244,238,0.8)",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#92400e",
-                  fontFamily: "JetBrains Mono, monospace",
-                  marginBottom: 8,
-                  letterSpacing: "0.06em",
-                }}
-              >
-                📦 fallbackActions
-              </div>
-              <BlockMock label="WAIT" color="#6b7280" />
-            </div>
-
-            {/* Mock blocks - IF/THEN/ELSE */}
-            <div
-              style={{
-                position: "absolute",
-                top: 120,
-                left: 40,
-              }}
-            >
-              {/* IF block */}
-              <div
-                style={{
-                  background: "#7c3aed",
-                  borderRadius: "8px 8px 0 0",
-                  padding: "8px 14px",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#fff",
-                  fontFamily: "JetBrains Mono, monospace",
-                  boxShadow: "inset 0 -2px 0 rgba(0,0,0,.25)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  minWidth: 200,
-                }}
-              >
-                <span>IF</span>
-                <span
-                  style={{
-                    background: "#16a34a",
-                    borderRadius: 5,
-                    padding: "2px 10px",
-                    fontSize: 11,
-                  }}
-                >
-                  SCAN_DETECTED = true
-                </span>
-              </div>
-
-              {/* THEN content */}
-              <div
-                style={{
-                  borderLeft: "4px solid #7c3aed",
-                  marginLeft: 12,
-                  paddingLeft: 8,
-                  paddingTop: 4,
-                  paddingBottom: 4,
-                }}
-              >
-                <BlockMock label="SHOOT_FORWARD" color="#ef4444" />
-              </div>
-
-              {/* ELSE */}
-              <div
-                style={{
-                  background: "#5b21b6",
-                  padding: "4px 14px",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "#ddd6fe",
-                  fontFamily: "JetBrains Mono, monospace",
-                }}
-              >
-                ELSE
-              </div>
-              <div
-                style={{
-                  borderLeft: "4px solid #7c3aed",
-                  marginLeft: 12,
-                  paddingLeft: 8,
-                  paddingTop: 4,
-                  paddingBottom: 4,
-                }}
-              >
-                <BlockMock label="MOVE_FORWARD" color="#2563eb" />
-              </div>
-
-              {/* END IF */}
-              <div
-                style={{
-                  background: "#7c3aed",
-                  borderRadius: "0 0 8px 8px",
-                  padding: "4px 14px",
-                  fontSize: 10,
-                  fontWeight: 700,
-                  color: "#ddd6fe",
-                  fontFamily: "JetBrains Mono, monospace",
-                  minWidth: 200,
-                }}
-              >
-                END IF
-              </div>
-            </div>
-
-            {/* Second rule */}
-            <div style={{ position: "absolute", top: 300, left: 40 }}>
-              <BlockMock label="SCAN" color="#0891b2" />
-            </div>
-
-            {/* Zoom / trash toolbar */}
-            <div
-              style={{
-                position: "absolute",
-                bottom: 16,
-                right: 16,
-                display: "flex",
-                flexDirection: "column",
-                gap: 4,
-              }}
-            >
-              {["＋", "－", "⊡", "🗑"].map((icon) => (
-                <button
-                  key={icon}
-                  style={{
-                    width: 36,
-                    height: 36,
-                    background: "var(--surface)",
-                    border: "1px solid var(--line)",
-                    borderRadius: 8,
-                    fontSize: 14,
-                    display: "grid",
-                    placeItems: "center",
-                    cursor: "pointer",
-                    boxShadow: "var(--shadow-sm)",
-                  }}
-                >
-                  {icon}
-                </button>
-              ))}
-            </div>
-          </div>
+        {/* Workspace: Blockly renders its own toolbox + canvas here. */}
+        <div style={{ flex: 1, minWidth: 0, position: "relative" }}>
+          <BlocklyEditor onChange={handleStrategyChange} />
         </div>
 
         {/* Right Pane: Tabs */}
@@ -992,7 +610,7 @@ export default function CodingPage({
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>JSON プレビュー</div>
                 <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
-                  読み取り専用 — StrategyRule
+                  ブロックから自動生成 (読み取り専用)
                 </div>
                 <pre
                   style={{
@@ -1008,7 +626,7 @@ export default function CodingPage({
                     userSelect: "text",
                   }}
                 >
-                  {JSON.stringify(MOCK_STRATEGY_JSON, null, 2)}
+                  {JSON.stringify(strategy, null, 2)}
                 </pre>
               </div>
             )}
@@ -1135,7 +753,7 @@ export default function CodingPage({
               </button>
               <button
                 onClick={() => {
-                  lockCoding(matchId, MOCK_STRATEGY_JSON);
+                  lockCoding(matchId, strategy, blocklyState || undefined);
                   setLocked(true);
                   setShowConfirmModal(false);
                   setWaitingForOpponent(true);
