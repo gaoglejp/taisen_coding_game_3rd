@@ -13,39 +13,34 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #26 — feat(admin): wire round-robin (head-to-head) view to real match data
+- **PR**: #27 — chore(watch): drop the dev-only state-gallery showcase
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **`RoundRobinView` on `src/app/admin/rooms/[roomId]/matches/page.tsx`
-  wired** (was hardcoded players/matrix/summary):
-  - Builds the roster from the loaded match list, a head-to-head matrix,
-    and a per-player W/L/D summary in a single `useMemo` over `matches`.
-    Cells map status → `W/L/D` (FINISHED, from the row player's
-    perspective), `live` (BATTLING/CODING), or `pending` (no match yet /
-    WAITING). Each decisive/live cell links to the real `/watch/:matchId`.
-  - Players are ordered by wins → win-rate → name; the summary's 👑 marks
-    the top finisher. Added an empty state and made the summary grid +
-    header count adapt to the actual roster size (was fixed at 6).
-  - Required adding `p1Id` / `p2Id` to the page's `Match` row type (set in
-    `toMatchRow`) so the matrix can key on player identity, not names.
-- **`TournamentView` intentionally left on mock.** A faithful bracket needs
-  match-to-match advancement linkage (which slot a winner feeds) that the
-  schema doesn't model — `Match.round` only groups matches into rounds. So
-  the bracket tree can't be reconstructed without a schema change; flagged
-  below as a decision.
+- **Removed the "// state variations" gallery** from
+  `src/app/watch/[matchId]/page.tsx` — a dev-only showcase of six mock
+  watch states (公開 / 限定 / 403 / Live↔Replay / 遅延 / 終了) that isn't
+  production UI. Deleted the `<section>` plus its five exclusively-used
+  helpers (`StateCard`, `MiniPill`, `MiniBoard`, `miniCtaStyle`,
+  `warnBoxStyle`); ~341 lines gone, no other references.
+- **Left as-is (need real sources, not cleanup):** the header **viewer
+  count** is still a hardcoded mock (`viewerCount: 14`) — a real value
+  needs Socket.io presence tracking; the **commentary feed** is an honest
+  self-describing placeholder ("本番では実況・先生のメモが流れます。") with no
+  backing commentary system. Both are features, not mock-removal, so they
+  stay until those sources exist.
 - `tsc` / `lint` / `build` clean; 27 tests still pass.
-- **Not verified in a browser** (headless container): data wiring, types,
-  and build are verified; the rendered matrix needs a manual pass.
+- **Not verified in a browser** (headless container).
 
 ### Next 1–3 PRs (recommended order)
 
 1. **Manual browser pass** on the data-wired-but-unviewed pages: Blockly
    editor (#23), standings (#24), create-match modal (#25), round-robin
-   view (#26).
+   view (#26), and a glance that the watch page still renders after the
+   gallery removal (#27).
 2. **Tournament bracket — decide the data model.** To wire `TournamentView`
    faithfully, add bracket-linkage to the schema (e.g. `Match.parentMatchId`
    / `nextMatchSlot`) so winners advance into known slots; otherwise descope
@@ -62,8 +57,9 @@ When you push, do these three things in `docs/STATUS.md`:
   endpoint).
 - Item / barrier / obstacle support in the simulator (extends
   `TurnSnapshot` additively per decision #9 in `docs/HANDOFF.md`).
-- Watch page UI cleanup (drop state-gallery, replace placeholder
-  commentary / viewer count). Flagged in #9's status block.
+- Watch page: state-gallery dropped (PR #27). Still placeholder and
+  awaiting real sources — the viewer count (needs Socket.io presence) and
+  the commentary feed (needs a commentary system).
 - Email confirmation on signup (HANDOFF section 4 item 4).
 
 ### Open questions / handoff notes
@@ -89,6 +85,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #26** (merged) — feat(admin): wired `RoundRobinView` (head-to-head
+  matrix + W/L/D summary) to real match data; `TournamentView` left on mock
+  pending bracket-linkage schema.
 - **PR #25** (merged) — feat(admin): wired the matches-page create-match
   modal to a real member picker + per-mode `POST …/matches` (roster fetch,
   search/add/remove chips, preview counts); dropped the unbacked 備考 field.
