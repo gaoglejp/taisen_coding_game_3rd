@@ -13,48 +13,60 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #22 — feat(admin): match-cancel endpoint + wire matches-page cancel modal
+- **PR**: #23 — feat(coding): real Blockly strategy editor + workspace→JSON serializer
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **New route `POST /api/admin/rooms/:id/matches/:matchId/cancel`**
-  (`src/app/api/admin/rooms/[id]/matches/[matchId]/cancel/route.ts`).
-  `isAdmin`-gated; ROOM_ADMIN must own the room (same check as the matches
-  LIST/POST route). Validates the match belongs to the room and is not
-  already FINISHED/CANCELED (→ 409). Accepts `{ reason }` (one of
-  `NO_SHOW | CANCELED | DISCONNECT | LEAVE`, default `CANCELED`), sets
-  `status = CANCELED`, `endReason = reason`, `endedAt = now()`, and logs
-  the `MATCH_CANCEL` audit action (target `Match`, `targetRoomId` = room).
-- **`src/app/admin/rooms/[roomId]/matches/page.tsx` cancel modal wired.**
-  The confirm modal (match-id re-type gate) now `POST`s
-  `{ reason: cancelReason }` to the new route. The `CancelReason` union
-  already matches the `MatchEndReason` enum 1:1, so it is sent as-is. On
-  success the row is updated optimistically (status → CANCELED, 終了理由 ←
-  the returned `endReason`) — no refetch, so the existing mount effect is
-  untouched. Added `cancelling` busy state, a 処理中… label, and an inline
-  error box. Removed the stale `// bind: POST /admin/api/...` comment.
-- This **closes out the admin write-action surface** (members, system
-  rooms, system users, and now match-cancel are all wired). The create-
-  match modal on the same page is still mock-only (its player-picker is
-  hardcoded) — left for a follow-up since it needs a member-search UI.
+- **Added the `blockly` dependency (v12.5.1)** and wired the real editor
+  into the coding page — this is the Milestone A critical-path blocker.
+  Players now build and submit their **own** strategies instead of a
+  shared `MOCK_STRATEGY_JSON` stub.
+- **`src/lib/strategy-blocks.ts`** (new) defines a 3-block language and the
+  serializer:
+  - `tank_rule` — a conditions statement-stack + one action dropdown.
+  - `tank_condition` — condition type (`scan_detected | damaged | moved`)
+    × `true/false`.
+  - `tank_fallback` — one action dropdown.
+  - `workspaceToStrategy(workspace)` walks top-level rule stacks (workspace
+    order = priority, first match wins), AND-s each rule's conditions, takes
+    the first action, and uses the first `tank_fallback` for
+    `fallbackActions`. Block field values **are** the simulator's enum
+    strings, so there's no translation layer. Output matches the `Strategy`
+    type in `match-simulator.ts` exactly.
+  - Ships `STRATEGY_TOOLBOX` + a `DEFAULT_WORKSPACE_STATE` starter
+    (scan→shoot, else advance, fallback wait — mirrors the old stub).
+- **`src/components/coding/BlocklyEditor.tsx`** (new) — client component
+  that injects Blockly, loads the seed, and calls `onChange(strategy,
+  stateJson)` on every (non-UI) edit. Loaded from the coding page via
+  `next/dynamic({ ssr: false })` since Blockly is DOM-only.
+- **`src/app/match/[matchId]/coding/page.tsx`** — replaced the hand-drawn
+  mock toolbox + workspace panes with the `BlocklyEditor`. The JSON tab now
+  shows the **live** serialized strategy; the lock button submits it via
+  `lockCoding(matchId, strategy, blocklyState)`. Removed `MOCK_STRATEGY_JSON`,
+  `BlockMock`, and the mock category/palette state.
+- **Tests**: `src/lib/strategy-blocks.test.ts` (jsdom env) covers the
+  default workspace, the empty-workspace WAIT fallback, and multi-condition
+  AND + rule order. Full suite: 27 passing. `tsc` / `lint` / `build` clean.
+- **Not verified in a browser** — this container has no display, so the
+  Blockly canvas drag-drop UX, toolbox flyout, and layout/height still need
+  a manual pass. The serializer logic itself is unit-tested.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
-   critical-path blocker). Needs a product call first: real Blockly
-   integration vs. a lightweight rule-builder. Highest-leverage piece
-   for actual gameplay once decided.
+1. **Manual browser pass on the Blockly editor** + any UX polish (canvas
+   height/resize, toolbox styling vs. the dark prototype palette, locked/
+   read-only behaviour after submit). The component injects with a grid +
+   trashcan + zoom controls; confirm it renders and serializes live.
 2. **Enriched standings endpoint + room standings page** (ROADMAP
    Milestone D). Add per-player avg-damage / avg-turns / recent-form
    (from `replayData`) to `/api/admin/rooms/:id/standings`, then wire the
    standings page that was deferred in PR #18.
-3. **Create-match modal real player-picker** (matches page). The cancel
-   action is now wired, but the create modal still uses a hardcoded chip
-   list; it needs a member-search backed by `/api/admin/rooms/:id/members`
-   before its `POST …/matches` can be wired for MANUAL/RANDOM/etc.
+3. **Coding `lastTurn` tab real data** (Milestone A). Surface prior-turn
+   perception from the simulator or add `/api/match/:id/lastTurn`; the tab
+   still renders `MOCK_LAST_TURN`.
 
 ### Deferred / out of scope right now
 
@@ -90,6 +102,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #22** (merged) — feat(admin): match-cancel endpoint
+  (`POST /api/admin/rooms/:id/matches/:matchId/cancel`) + wired the
+  matches-page cancel modal. Closed out the admin write-action surface.
 - **PR #21** (merged) — feat(admin): wire system rooms + users page write
   actions. Rooms: create / soft-delete / archive↔restore. Users:
   invite / disable / force-password-reset, with invite & reset links
