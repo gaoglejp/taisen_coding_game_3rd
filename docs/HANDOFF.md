@@ -220,9 +220,11 @@ These are the calls the previous session made that the next session should
    `lastTurn` tab data;
    the watch page's obstacles / items / timeline-events / commentary /
    state-gallery; the rooms page's "your schedule" + announcements; and the
-   matches-page **bracket / round-robin** views (the create-match modal is
-   now wired — PR #25 — to a real member picker + `POST …/matches`). The
-   system **users** (PR #14),
+   matches-page **tournament bracket** view (`TournamentView`) — it needs
+   match-to-match advancement linkage the schema lacks, so it's blocked on
+   a schema call. The create-match modal (PR #25) and the **round-robin /
+   head-to-head** view (PR #26, `RoundRobinView`) are now wired to real
+   match data. The system **users** (PR #14),
    **rooms** (PR #15), **audit** (PR #16) pages and the room
    **overview** (PR #16) + **members** (PR #17) + **matches LIST** (PR #18)
    + **settings** (PR #19) + **standings** (PR #24, enriched endpoint with

@@ -13,6 +13,8 @@ type Match = {
   round: string;
   p1: Side;
   p2: Side;
+  p1Id: string | null;
+  p2Id: string | null;
   due: string;
   status: MatchStatus;
   winner: "P1" | "P2" | null;
@@ -69,6 +71,8 @@ function toMatchRow(m: ApiMatch): Match {
     round: m.round != null ? `R${m.round}` : "—",
     p1: toSide(m.player1),
     p2: toSide(m.player2),
+    p1Id: m.player1Id,
+    p2Id: m.player2Id,
     due: fmtDate(m.codingDeadlineAt),
     status: m.status,
     winner:
@@ -472,7 +476,7 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
           {viewMode === "TOURNAMENT" && <TournamentView />}
 
           {/* Round-robin view */}
-          {viewMode === "ROUND_ROBIN" && <RoundRobinView />}
+          {viewMode === "ROUND_ROBIN" && <RoundRobinView matches={matches} />}
 
           {/* State gallery */}
           <StateGallery />
@@ -949,32 +953,92 @@ function BracketMatch({
   );
 }
 
-function RoundRobinView() {
-  const players = [
-    { i: "HC", n: "HanaCoder" },
-    { i: "MI", n: "misora" },
-    { i: "TR", n: "たろう_06" },
-    { i: "TN", n: "tanu_55" },
-    { i: "KN", n: "kuroneko" },
-    { i: "K9", n: "K-9bot" },
-  ];
+function RoundRobinView({ matches }: { matches: Match[] }) {
   type Cell = "self" | "W" | "L" | "D" | "live" | "pending";
-  const matrix: Cell[][] = [
-    ["self", "W", "L", "W", "W", "live"],
-    ["L", "self", "W", "D", "W", "pending"],
-    ["W", "L", "self", "W", "L", "W"],
-    ["L", "D", "L", "self", "W", "L"],
-    ["L", "L", "W", "L", "self", "pending"],
-    ["live", "pending", "L", "W", "pending", "self"],
-  ];
-  const summary = [
-    { nm: "HanaCoder", w: 3, l: 1, d: 0, pct: "75%", first: true },
-    { nm: "misora", w: 2, l: 1, d: 1, pct: "62%" },
-    { nm: "たろう_06", w: 3, l: 2, d: 0, pct: "60%" },
-    { nm: "K-9bot", w: 1, l: 1, d: 0, pct: "50%" },
-    { nm: "tanu_55", w: 1, l: 3, d: 1, pct: "25%" },
-    { nm: "kuroneko", w: 1, l: 3, d: 0, pct: "25%" },
-  ];
+
+  const { players, matrix, summary } = useMemo(() => {
+    const roster = new Map<string, { id: string; i: string; n: string }>();
+    for (const m of matches) {
+      if (m.p1Id && m.p1) roster.set(m.p1Id, { id: m.p1Id, i: m.p1.i, n: m.p1.n });
+      if (m.p2Id && m.p2) roster.set(m.p2Id, { id: m.p2Id, i: m.p2.i, n: m.p2.n });
+    }
+
+    const stat = new Map<string, { w: number; l: number; d: number }>();
+    const ensure = (id: string) => {
+      let s = stat.get(id);
+      if (!s) {
+        s = { w: 0, l: 0, d: 0 };
+        stat.set(id, s);
+      }
+      return s;
+    };
+    for (const m of matches) {
+      if (m.status !== "FINISHED" || !m.p1Id || !m.p2Id) continue;
+      const s1 = ensure(m.p1Id);
+      const s2 = ensure(m.p2Id);
+      if (m.winner === "P1") {
+        s1.w++;
+        s2.l++;
+      } else if (m.winner === "P2") {
+        s2.w++;
+        s1.l++;
+      } else {
+        s1.d++;
+        s2.d++;
+      }
+    }
+
+    const winRate = (id: string) => {
+      const s = stat.get(id) ?? { w: 0, l: 0, d: 0 };
+      const played = s.w + s.l + s.d;
+      return played ? s.w / played : 0;
+    };
+    const players = [...roster.values()].sort((a, b) => {
+      const sa = stat.get(a.id) ?? { w: 0, l: 0, d: 0 };
+      const sb = stat.get(b.id) ?? { w: 0, l: 0, d: 0 };
+      return sb.w - sa.w || winRate(b.id) - winRate(a.id) || a.n.localeCompare(b.n);
+    });
+
+    // matches are sorted by matchNumber desc, so find() returns the latest head-to-head.
+    const between = (a: string, b: string) =>
+      matches.find(
+        (m) => (m.p1Id === a && m.p2Id === b) || (m.p1Id === b && m.p2Id === a)
+      );
+
+    const matrix: { cell: Cell; matchId: string | null }[][] = players.map((row) =>
+      players.map((col) => {
+        if (row.id === col.id) return { cell: "self" as Cell, matchId: null };
+        const m = between(row.id, col.id);
+        if (!m) return { cell: "pending" as Cell, matchId: null };
+        if (m.status === "FINISHED") {
+          if (m.winner === null) return { cell: "D" as Cell, matchId: m.id };
+          const rowWon =
+            (m.winner === "P1" && m.p1Id === row.id) ||
+            (m.winner === "P2" && m.p2Id === row.id);
+          return { cell: (rowWon ? "W" : "L") as Cell, matchId: m.id };
+        }
+        if (m.status === "BATTLING" || m.status === "CODING")
+          return { cell: "live" as Cell, matchId: m.id };
+        return { cell: "pending" as Cell, matchId: null };
+      })
+    );
+
+    const summary = players.map((p, idx) => {
+      const s = stat.get(p.id) ?? { w: 0, l: 0, d: 0 };
+      const played = s.w + s.l + s.d;
+      return {
+        id: p.id,
+        nm: p.n,
+        w: s.w,
+        l: s.l,
+        d: s.d,
+        pct: played ? `${Math.round((s.w / played) * 100)}%` : "—",
+        first: idx === 0 && s.w > 0,
+      };
+    });
+
+    return { players, matrix, summary };
+  }, [matches]);
 
   const cellBgMap: Record<string, { bg: string; color: string; label: string }> = {
     W: { bg: "#ecfdf5", color: "#15803d", label: "W" },
@@ -984,12 +1048,25 @@ function RoundRobinView() {
     pending: { bg: "transparent", color: "#d8d3c2", label: "–" },
   };
 
+  if (players.length === 0) {
+    return (
+      <section style={altViewCardStyle} aria-label="総当たり表">
+        <header style={altViewHeadStyle}>
+          <h2 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>総当たり表</h2>
+        </header>
+        <div style={{ padding: 32, textAlign: "center", fontSize: 13, color: "var(--ink-soft)" }}>
+          総当たりに表示できるマッチがありません
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section style={altViewCardStyle} aria-label="総当たり表">
       <header style={altViewHeadStyle}>
         <h2 style={{ margin: 0, fontSize: 13, fontWeight: 700, display: "flex", alignItems: "baseline", gap: 8, color: "var(--ink)" }}>
           総当たり表
-          <small style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--ink-soft)", fontWeight: 500 }}>{"// view: ROUND_ROBIN — 6 名"}</small>
+          <small style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--ink-soft)", fontWeight: 500 }}>{`// view: ROUND_ROBIN — ${players.length} 名`}</small>
         </h2>
         <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 11, color: "var(--ink-soft)" }}>セルをクリックで観戦</span>
       </header>
@@ -1000,7 +1077,7 @@ function RoundRobinView() {
               <tr>
                 <th style={matrixThStyle} />
                 {players.map((p) => (
-                  <th key={p.i} style={{ ...matrixThStyle, background: "var(--bg)", fontWeight: 600, color: "var(--ink)", fontSize: 11.5 }}>
+                  <th key={p.id} style={{ ...matrixThStyle, background: "var(--bg)", fontWeight: 600, color: "var(--ink)", fontSize: 11.5 }}>
                     <div style={matrixAvMiniStyle}>{p.i}</div>
                     <div>{p.n}</div>
                   </th>
@@ -1009,50 +1086,53 @@ function RoundRobinView() {
             </thead>
             <tbody>
               {players.map((p, ri) => (
-                <tr key={p.i}>
+                <tr key={p.id}>
                   <th style={matrixThRowStyle}>
                     <div style={{ ...matrixAvMiniStyle, display: "inline-grid", verticalAlign: "middle", margin: "0 6px 0 0" }}>{p.i}</div>
                     {p.n}
                   </th>
                   {matrix[ri].map((c, ci) => {
-                    if (c === "self") {
+                    if (c.cell === "self") {
                       return <td key={ci} style={{ ...matrixTdStyle, background: "repeating-linear-gradient(45deg, var(--bg), var(--bg) 3px, var(--bg-2, #efece3) 3px, var(--bg-2, #efece3) 6px)" }} />;
                     }
-                    const cfg = cellBgMap[c];
+                    const cfg = cellBgMap[c.cell];
+                    const cellStyle: React.CSSProperties = {
+                      display: "grid",
+                      placeItems: "center",
+                      width: "100%",
+                      height: 50,
+                      textDecoration: "none",
+                      color: cfg.color,
+                      fontFamily: "JetBrains Mono, monospace",
+                      fontWeight: 700,
+                      fontSize: c.cell === "pending" ? 11 : 14,
+                      position: "relative",
+                    };
+                    const liveDot = c.cell === "live" && (
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: 4,
+                          right: 4,
+                          width: 6,
+                          height: 6,
+                          borderRadius: "50%",
+                          background: "var(--accent, #f59e0b)",
+                          animation: "matchPulse 1.6s ease-in-out infinite",
+                        }}
+                        aria-hidden
+                      />
+                    );
                     return (
                       <td key={ci} style={{ ...matrixTdStyle, background: cfg.bg, padding: 0 }}>
-                        <a
-                          href={`#w-${ri}-${ci}`}
-                          style={{
-                            display: "grid",
-                            placeItems: "center",
-                            width: "100%",
-                            height: 50,
-                            textDecoration: "none",
-                            color: cfg.color,
-                            fontFamily: "JetBrains Mono, monospace",
-                            fontWeight: 700,
-                            fontSize: c === "pending" ? 11 : 14,
-                            position: "relative",
-                          }}
-                        >
-                          {cfg.label}
-                          {c === "live" && (
-                            <span
-                              style={{
-                                position: "absolute",
-                                top: 4,
-                                right: 4,
-                                width: 6,
-                                height: 6,
-                                borderRadius: "50%",
-                                background: "var(--accent, #f59e0b)",
-                                animation: "matchPulse 1.6s ease-in-out infinite",
-                              }}
-                              aria-hidden
-                            />
-                          )}
-                        </a>
+                        {c.matchId ? (
+                          <a href={`/watch/${c.matchId}`} style={cellStyle}>
+                            {cfg.label}
+                            {liveDot}
+                          </a>
+                        ) : (
+                          <div style={cellStyle}>{cfg.label}</div>
+                        )}
                       </td>
                     );
                   })}
@@ -1062,10 +1142,10 @@ function RoundRobinView() {
           </table>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 8, marginTop: 14 }} aria-label="プレイヤー集計">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, marginTop: 14 }} aria-label="プレイヤー集計">
           {summary.map((s) => (
             <div
-              key={s.nm}
+              key={s.id}
               style={{
                 background: s.first ? "var(--accent-soft, #fef3c7)" : "var(--bg)",
                 border: s.first ? "1px solid #fbd9a5" : "1px solid var(--line)",
