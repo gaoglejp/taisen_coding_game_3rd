@@ -62,6 +62,33 @@ function fmtDate(iso: string | null): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toISOString().slice(0, 10);
 }
 
+function toMatchRow(m: ApiMatch): Match {
+  return {
+    id: m.id,
+    label: `#${m.matchNumber}`,
+    round: m.round != null ? `R${m.round}` : "—",
+    p1: toSide(m.player1),
+    p2: toSide(m.player2),
+    due: fmtDate(m.codingDeadlineAt),
+    status: m.status,
+    winner:
+      m.winnerId && m.winnerId === m.player1Id
+        ? "P1"
+        : m.winnerId && m.winnerId === m.player2Id
+          ? "P2"
+          : null,
+    reason: m.endReason ? END_REASON_LABEL[m.endReason] ?? m.endReason : "—",
+  };
+}
+
+interface Member {
+  id: string;
+  username: string;
+  displayName: string | null;
+}
+
+type PublicWatchChoice = "default" | "private" | "public";
+
 type ViewMode = "LIST" | "TOURNAMENT" | "ROUND_ROBIN";
 type CreateMode = "MANUAL" | "RANDOM" | "ROUND_ROBIN" | "TOURNAMENT";
 type CancelReason = "NO_SHOW" | "CANCELED" | "DISCONNECT" | "LEAVE";
@@ -93,6 +120,15 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
   const [matches, setMatches] = useState<Match[]>([]);
   const [error, setError] = useState<string | null>(null);
 
+  // Create-modal state
+  const [members, setMembers] = useState<Member[]>([]);
+  const [memberSearch, setMemberSearch] = useState("");
+  const [selectedPlayerIds, setSelectedPlayerIds] = useState<string[]>([]);
+  const [startDeadline, setStartDeadline] = useState("");
+  const [publicWatch, setPublicWatch] = useState<PublicWatchChoice>("default");
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     fetch(`/api/admin/rooms/${roomId}/matches`)
@@ -106,22 +142,7 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
         const data = await res.json();
         setRoomName(data.room?.name ?? "");
         setRoomNumber(data.room?.roomNumber ?? "");
-        const rows: Match[] = (data.matches as ApiMatch[]).map((m) => ({
-          id: m.id,
-          label: `#${m.matchNumber}`,
-          round: m.round != null ? `R${m.round}` : "—",
-          p1: toSide(m.player1),
-          p2: toSide(m.player2),
-          due: fmtDate(m.codingDeadlineAt),
-          status: m.status,
-          winner:
-            m.winnerId && m.winnerId === m.player1Id
-              ? "P1"
-              : m.winnerId && m.winnerId === m.player2Id
-                ? "P2"
-                : null,
-          reason: m.endReason ? END_REASON_LABEL[m.endReason] ?? m.endReason : "—",
-        }));
+        const rows: Match[] = (data.matches as ApiMatch[]).map(toMatchRow);
         setMatches(rows);
         setError(null);
       })
@@ -153,6 +174,123 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
       return true;
     });
   }, [matches, statusFilter, search]);
+
+  // Load the room roster the first time the create modal opens.
+  useEffect(() => {
+    if (!showCreate || members.length > 0) return;
+    const controller = new AbortController();
+    fetch(`/api/admin/rooms/${roomId}/members?status=ACTIVE`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) return;
+        const data = await res.json();
+        const roster: Member[] = (data.members ?? [])
+          .map((m: { user?: Member }) => m.user)
+          .filter((u: Member | undefined): u is Member => !!u);
+        setMembers(roster);
+      })
+      .catch(() => {
+        /* leave roster empty; the modal shows the empty hint */
+      });
+    return () => controller.abort();
+  }, [showCreate, roomId, members.length]);
+
+  const reloadMatches = async () => {
+    const res = await fetch(`/api/admin/rooms/${roomId}/matches`);
+    if (!res.ok) return;
+    const data = await res.json();
+    setMatches((data.matches as ApiMatch[]).map(toMatchRow));
+  };
+
+  const openCreate = () => {
+    setSelectedPlayerIds([]);
+    setMemberSearch("");
+    setStartDeadline("");
+    setPublicWatch("default");
+    setCreateError(null);
+    setShowCreate(true);
+  };
+
+  const selectedPlayers = selectedPlayerIds
+    .map((id) => members.find((m) => m.id === id))
+    .filter((m): m is Member => !!m);
+
+  const addPlayer = (id: string) => {
+    setSelectedPlayerIds((prev) => {
+      if (prev.includes(id)) return prev;
+      if (createMode === "MANUAL" && prev.length >= 2) return prev;
+      return [...prev, id];
+    });
+    setMemberSearch("");
+  };
+  const removePlayer = (id: string) => setSelectedPlayerIds((prev) => prev.filter((x) => x !== id));
+
+  const memberLabel = (m: Member) => m.displayName ?? m.username;
+  const memberInitials = (m: Member) => memberLabel(m).slice(0, 2).toUpperCase();
+  const suggestions = memberSearch.trim()
+    ? members
+        .filter((m) => !selectedPlayerIds.includes(m.id))
+        .filter((m) => {
+          const q = memberSearch.toLowerCase();
+          return m.username.toLowerCase().includes(q) || (m.displayName ?? "").toLowerCase().includes(q);
+        })
+        .slice(0, 8)
+    : [];
+
+  // How many matches the current mode + selection will generate.
+  const previewCount = (() => {
+    const n = selectedPlayerIds.length;
+    if (createMode === "MANUAL") return n === 2 ? 1 : 0;
+    if (createMode === "ROUND_ROBIN") return n >= 2 ? (n * (n - 1)) / 2 : 0;
+    // RANDOM + TOURNAMENT both produce one round of pairings.
+    return n >= 2 ? Math.floor(n / 2) : 0;
+  })();
+
+  const createValid =
+    createMode === "MANUAL" ? selectedPlayerIds.length === 2 : selectedPlayerIds.length >= 2;
+
+  const handleCreate = async () => {
+    if (!createValid) {
+      setCreateError(
+        createMode === "MANUAL" ? "プレイヤーを2名選択してください" : "プレイヤーを2名以上選択してください"
+      );
+      return;
+    }
+    setCreating(true);
+    setCreateError(null);
+    const isPublicWatch = publicWatch === "private" ? false : true;
+    let payload: Record<string, unknown>;
+    if (createMode === "MANUAL") {
+      payload = {
+        mode: "MANUAL",
+        player1Id: selectedPlayerIds[0],
+        player2Id: selectedPlayerIds[1],
+        isPublicWatch,
+        ...(startDeadline ? { startDeadline } : {}),
+      };
+    } else if (createMode === "RANDOM") {
+      payload = { mode: "RANDOM", playerIds: selectedPlayerIds, count: previewCount, isPublicWatch };
+    } else {
+      payload = { mode: createMode, playerIds: selectedPlayerIds, isPublicWatch };
+    }
+    try {
+      const res = await fetch(`/api/admin/rooms/${roomId}/matches`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setCreateError(data?.error ?? "マッチを作成できませんでした");
+        return;
+      }
+      await reloadMatches();
+      setShowCreate(false);
+    } catch {
+      setCreateError("マッチを作成できませんでした");
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const handleCancel = async () => {
     if (!cancelTarget) return;
@@ -242,7 +380,7 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
                 <span style={glyphStyle}>⊞</span>総当たり
               </button>
             </div>
-            <button onClick={() => setShowCreate(true)} style={primaryRoomBtnStyle}>＋ マッチカードを作成</button>
+            <button onClick={openCreate} style={primaryRoomBtnStyle}>＋ マッチカードを作成</button>
           </section>
 
           {/* List view */}
@@ -342,7 +480,6 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
       </div>
 
       {/* Create modal */}
-      {/* bind: POST /admin/api/rooms/:id/matches (mode=MANUAL|RANDOM|ROUND_ROBIN|TOURNAMENT) */}
       {showCreate && (
         <ModalOverlay onClose={() => setShowCreate(false)}>
           <div style={{ width: 640, background: "#fff", borderRadius: 14, overflow: "hidden", border: "1px solid var(--line)" }}>
@@ -373,66 +510,102 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
                 })}
               </div>
 
-              <div style={{ marginBottom: 14 }}>
-                <label style={fieldLabelStyle}>対象プレイヤー (6 名選択中)</label>
+              <div style={{ marginBottom: 14, position: "relative" }}>
+                <label style={fieldLabelStyle}>対象プレイヤー ({selectedPlayerIds.length} 名選択中)</label>
                 <div style={chipInputStyle}>
-                  {[
-                    { i: "HC", n: "HanaCoder" },
-                    { i: "MI", n: "misora.dev" },
-                    { i: "TR", n: "たろう_06" },
-                    { i: "TN", n: "tanu_55" },
-                    { i: "KN", n: "kuroneko" },
-                    { i: "K9", n: "K-9bot" },
-                  ].map((p) => (
-                    <span key={p.i} style={playerChipStyle}>
-                      <span style={playerChipAvStyle}>{p.i}</span>
-                      {p.n}
-                      <span style={{ color: "var(--p1-ink, #1e3a8a)", cursor: "pointer", fontSize: 11, padding: "0 4px" }}>×</span>
+                  {selectedPlayers.map((p) => (
+                    <span key={p.id} style={playerChipStyle}>
+                      <span style={playerChipAvStyle}>{memberInitials(p)}</span>
+                      {memberLabel(p)}
+                      <span
+                        onClick={() => removePlayer(p.id)}
+                        style={{ color: "var(--p1-ink, #1e3a8a)", cursor: "pointer", fontSize: 11, padding: "0 4px" }}
+                      >
+                        ×
+                      </span>
                     </span>
                   ))}
-                  <input type="text" placeholder="ユーザー名で追加…" style={{ flex: 1, border: "none", background: "transparent", font: "inherit", fontSize: 12, outline: "none", minWidth: 100, padding: 4 }} />
+                  <input
+                    type="text"
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    placeholder={members.length === 0 ? "メンバーがいません" : "ユーザー名で追加…"}
+                    disabled={members.length === 0}
+                    style={{ flex: 1, border: "none", background: "transparent", font: "inherit", fontSize: 12, outline: "none", minWidth: 100, padding: 4 }}
+                  />
                 </div>
+                {suggestions.length > 0 && (
+                  <div style={suggestionBoxStyle}>
+                    {suggestions.map((m) => (
+                      <div key={m.id} onClick={() => addPlayer(m.id)} style={suggestionRowStyle}>
+                        <span style={playerChipAvStyle}>{memberInitials(m)}</span>
+                        <span style={{ fontSize: 12, color: "var(--ink)", fontWeight: 600 }}>{memberLabel(m)}</span>
+                        <span style={{ fontSize: 11, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>@{m.username}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                 <div>
-                  <label style={fieldLabelStyle}>開始期限</label>
-                  <input type="text" defaultValue="2026-05-25 23:59" style={fieldInputStyle} />
+                  <label style={fieldLabelStyle}>開始期限{createMode !== "MANUAL" && " (手動のみ)"}</label>
+                  <input
+                    type="text"
+                    value={startDeadline}
+                    onChange={(e) => setStartDeadline(e.target.value)}
+                    placeholder="2026-05-25 23:59"
+                    disabled={createMode !== "MANUAL"}
+                    style={{ ...fieldInputStyle, opacity: createMode !== "MANUAL" ? 0.5 : 1 }}
+                  />
                 </div>
                 <div>
                   <label style={fieldLabelStyle}>自動公開観戦</label>
-                  <select style={fieldInputStyle}>
-                    <option>自動公開 (ルーム既定)</option>
-                    <option>このバッチのみ非公開</option>
-                    <option>このバッチのみ公開</option>
+                  <select
+                    value={publicWatch}
+                    onChange={(e) => setPublicWatch(e.target.value as PublicWatchChoice)}
+                    style={fieldInputStyle}
+                  >
+                    <option value="default">自動公開 (ルーム既定)</option>
+                    <option value="private">このバッチのみ非公開</option>
+                    <option value="public">このバッチのみ公開</option>
                   </select>
                 </div>
-              </div>
-
-              <div style={{ marginBottom: 14 }}>
-                <label style={fieldLabelStyle}>備考 (任意)</label>
-                <input type="text" placeholder="例: 第 2 週リーグ戦" style={fieldInputStyle} />
               </div>
 
               <div style={{ ...sectionLabelStyle, marginTop: 14 }}>{"// プレビュー"}</div>
               <div style={previewBoxStyle}>
                 <div>
                   <div style={previewKStyle}>生成件数</div>
-                  <div style={previewVStyle}>15<small style={previewSmallStyle}>試合</small></div>
+                  <div style={previewVStyle}>{previewCount}<small style={previewSmallStyle}>試合</small></div>
                 </div>
                 <div>
                   <div style={previewKStyle}>所要時間目安</div>
-                  <div style={previewVStyle}>約 75<small style={previewSmallStyle}>分</small></div>
+                  <div style={previewVStyle}>約 {previewCount * 5}<small style={previewSmallStyle}>分</small></div>
                 </div>
                 <div>
                   <div style={previewKStyle}>公開設定</div>
-                  <div style={{ ...previewVStyle, fontSize: 13 }}>公開 (既定)</div>
+                  <div style={{ ...previewVStyle, fontSize: 13 }}>
+                    {publicWatch === "private" ? "非公開" : publicWatch === "public" ? "公開" : "公開 (既定)"}
+                  </div>
                 </div>
               </div>
+
+              {createError && (
+                <div style={{ marginTop: 14, background: "#fef2f2", border: "1px solid #fbb6b6", borderRadius: 8, padding: "10px 14px", fontSize: 12.5, color: "#dc2626" }}>
+                  {createError}
+                </div>
+              )}
             </div>
             <div style={modalFootStyle}>
-              <button onClick={() => setShowCreate(false)} style={btnGhostModalStyle}>キャンセル</button>
-              <button onClick={() => setShowCreate(false)} style={primaryRoomBtnStyle}>15 試合を発行</button>
+              <button onClick={() => setShowCreate(false)} disabled={creating} style={btnGhostModalStyle}>キャンセル</button>
+              <button
+                onClick={handleCreate}
+                disabled={creating || !createValid}
+                style={{ ...primaryRoomBtnStyle, opacity: creating || !createValid ? 0.5 : 1, cursor: creating || !createValid ? "not-allowed" : "pointer" }}
+              >
+                {creating ? "発行中…" : `${previewCount} 試合を発行`}
+              </button>
             </div>
           </div>
         </ModalOverlay>
@@ -1615,6 +1788,29 @@ const playerChipStyle: React.CSSProperties = {
   padding: "2px 4px",
   fontSize: 11.5,
   fontWeight: 600,
+};
+
+const suggestionBoxStyle: React.CSSProperties = {
+  position: "absolute",
+  left: 0,
+  right: 0,
+  zIndex: 10,
+  marginTop: 4,
+  background: "#fff",
+  border: "1px solid #d8d3c2",
+  borderRadius: 8,
+  boxShadow: "0 8px 24px rgba(31,35,48,.12)",
+  maxHeight: 220,
+  overflowY: "auto",
+};
+
+const suggestionRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  padding: "7px 10px",
+  cursor: "pointer",
+  borderBottom: "1px solid var(--line)",
 };
 
 const playerChipAvStyle: React.CSSProperties = {
