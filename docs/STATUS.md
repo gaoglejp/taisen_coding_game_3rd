@@ -13,55 +13,52 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #24 — feat(admin): enrich standings endpoint + wire room standings page
+- **PR**: #25 — feat(admin): wire create-match modal to a real member picker + POST
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **`/api/admin/rooms/:id/standings` enriched** (additive — existing
-  consumers unaffected; the room overview/members pages use the *player*
-  endpoint `/api/rooms/:n/standings`, not this one):
-  - Per player, now also returns `avgDamageDealt`, `avgDamageTaken`,
-    `avgTurns`, `recent` (last 5 W/L/D, most-recent-first), and
-    `recentMatches` (last 8 `{ matchNumber, opponentName, result,
-    endReason, turns }`). Damage is summed from `replayData.turns` —
-    per-turn `damaged` is damage *taken*, so a player's dealt damage is the
-    opponent's `damaged` summed (mirrors `result/route.ts`).
-  - Adds `room: { id, name, roomNumber }` and a `summary` block:
-    `totalMatches`, `avgTurns`, `avgWinRate`, `firstDamageWinRate`
-    (% of decisive matches the first-hit dealer won), and
-    `endReasonCounts` for the donut.
-- **`src/app/admin/rooms/[roomId]/standings/page.tsx` wired** to it
-  (was fully mock): fetches on mount and whenever the period filter
-  changes (全期間 / 直近7日 / 直近30日 / 任意期間 → `from`/`to`). The
-  ranking table, win-rate bars, recent-form dots, the detail drawer
-  (per-player stats + real 直近マッチ list), the KPI tiles, the end-reason
-  donut, and the sidenav room name are all live now. Loading/error/empty
-  states added; selection is by id so it survives refetches.
-  - **Dropped the fabricated period-over-period delta badges** (+8, −2.1…)
-    — they need historical comparison we don't store, so showing them as
-    real would be misleading. Relabeled the 4th KPI from the undefined
-    "FirstDamage取得率" to "先制ダメージ勝率" to match what's actually
-    computed.
-- `tsc` / `lint` / `build` clean; 27 tests still pass (no route-handler
-  tests added, consistent with the repo).
-- **Not verified in a browser** (no display here) — the data wiring,
-  types, and build are verified, but the rendered table/donut/drawer need
-  a manual pass.
+- **`src/app/admin/rooms/[roomId]/matches/page.tsx` create-match modal
+  wired** (was fully mock — hardcoded chips + a no-op button):
+  - Opening the modal fetches the room roster (`GET
+    /api/admin/rooms/:id/members?status=ACTIVE`, map `.user`). The
+    "対象プレイヤー" box now shows real selected chips (× to remove) and the
+    text input filters the roster into a suggestion dropdown (click to add).
+  - On 発行, builds the per-mode payload and `POST`s
+    `/api/admin/rooms/:id/matches`: MANUAL → `{ player1Id, player2Id,
+    startDeadline?, isPublicWatch }` (exactly 2 players); RANDOM →
+    `{ playerIds, count, isPublicWatch }` (count = ⌊n/2⌋); ROUND_ROBIN /
+    TOURNAMENT → `{ playerIds, isPublicWatch }`. On success it reloads the
+    match list and closes.
+  - 自動公開観戦 select → `isPublicWatch` (非公開→false, else true); 開始期限
+    is bound and only enabled/sent for MANUAL (the endpoint only reads it
+    there). The プレビュー 生成件数 / 所要時間 / 公開設定 are now derived from
+    the live selection + mode. Submit is disabled until the selection is
+    valid (2 for MANUAL, ≥2 otherwise) with a 発行中… state + inline error.
+  - Removed the 備考 field — the create endpoint has no note param, so a
+    silently-discarded input was worse than dropping it. Extracted a
+    `toMatchRow` mapper reused by the mount fetch and the post-create reload.
+- `tsc` / `lint` / `build` clean; 27 tests still pass.
+- **Not verified in a browser** (headless container): data wiring, types,
+  and build are verified, but the modal/suggestions/submit need a manual
+  pass.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Manual browser pass** on the Blockly editor (PR #23) and this
-   standings page (PR #24) — both are data/build-verified but not visually
-   confirmed in this headless container.
+1. **Manual browser pass** on the recently-wired pages that can't be
+   visually confirmed in this headless container: the Blockly editor
+   (PR #23), the standings page (PR #24), and this create-match modal
+   (PR #25). All are data/build-verified only.
 2. **Coding `lastTurn` tab real data** (Milestone A). Surface prior-turn
    perception from the simulator or add `/api/match/:id/lastTurn`; the tab
-   still renders `MOCK_LAST_TURN`.
-3. **Create-match modal real player-picker** (matches page) — still uses a
-   hardcoded chip list; needs a member-search backed by
-   `/api/admin/rooms/:id/members` before its `POST …/matches` can be wired.
+   still renders `MOCK_LAST_TURN`. **Needs a product call** on the source
+   (the match simulates in one shot, so "last turn" during coding is
+   undefined without a turn-by-turn loop).
+3. **Bracket / round-robin views** on the matches page are still mock
+   (`TournamentView` / `RoundRobinView` render hardcoded data); wire them
+   from the real match list, or descope to post-v0.2.
 
 ### Deferred / out of scope right now
 
@@ -97,6 +94,10 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #24** (merged) — feat(admin): enriched `/api/admin/rooms/:id/standings`
+  (per-player avg dmg dealt/taken, avg turns, recent form, recentMatches +
+  room meta + summary/end-reason counts) and wired the room standings page
+  (table, drawer, KPIs, donut, period filter); dropped fabricated deltas.
 - **PR #23** (merged) — feat(coding): real Blockly (v12) strategy editor +
   `strategy-blocks.ts` workspace→`Strategy` serializer; coding page submits
   the live strategy instead of a stub. Milestone A blocker cleared.
