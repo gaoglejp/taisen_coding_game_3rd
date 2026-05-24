@@ -1,43 +1,79 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
 
-const MOCK_STANDINGS = [
-  { id: "p1", username: "tanaka_k", displayName: "田中 健二", matches: 12, w: 9, l: 2, d: 1, winRate: 75.0, avgDmgGiven: 48.2, avgDmgTaken: 22.1, avgTurns: 142, recent: ["W","W","L","W","W"] },
-  { id: "p2", username: "kobayashi_y", displayName: "小林 陽一", matches: 10, w: 7, l: 2, d: 1, winRate: 70.0, avgDmgGiven: 45.8, avgDmgTaken: 26.3, avgTurns: 151, recent: ["W","L","W","W","W"] },
-  { id: "p3", username: "suzuki_h", displayName: "鈴木 花子", matches: 11, w: 6, l: 5, d: 0, winRate: 54.5, avgDmgGiven: 38.4, avgDmgTaken: 35.7, avgTurns: 162, recent: ["L","W","W","L","W"] },
-  { id: "p4", username: "ito_m", displayName: "伊藤 みか", matches: 10, w: 5, l: 4, d: 1, winRate: 50.0, avgDmgGiven: 36.9, avgDmgTaken: 38.1, avgTurns: 168, recent: ["W","D","L","W","L"] },
-  { id: "p5", username: "watanabe_r", displayName: "渡辺 涼", matches: 11, w: 5, l: 6, d: 0, winRate: 45.5, avgDmgGiven: 33.2, avgDmgTaken: 41.5, avgTurns: 175, recent: ["L","W","L","L","W"] },
-  { id: "p6", username: "yoshida_t", displayName: "吉田 達也", matches: 9, w: 3, l: 5, d: 1, winRate: 33.3, avgDmgGiven: 28.7, avgDmgTaken: 47.8, avgTurns: 181, recent: ["L","L","W","L","D"] },
-  { id: "p7", username: "nakamura_s", displayName: "中村 俊介", matches: 6, w: 2, l: 3, d: 1, winRate: 33.3, avgDmgGiven: 25.4, avgDmgTaken: 49.2, avgTurns: 185, recent: ["W","L","D","L","L"] },
-  { id: "p8", username: "kato_n", displayName: "加藤 奈々", matches: 3, w: 1, l: 2, d: 0, winRate: 33.3, avgDmgGiven: 22.1, avgDmgTaken: 52.0, avgTurns: 190, recent: ["W","L","L"] },
-];
+interface ApiStanding {
+  rank: number;
+  userId: string;
+  username: string;
+  displayName: string | null;
+  wins: number;
+  losses: number;
+  draws: number;
+  played: number;
+  winRate: number; // ratio 0–1
+  points: number;
+  avgDamageDealt: number;
+  avgDamageTaken: number;
+  avgTurns: number;
+  recent: ("W" | "L" | "D")[];
+  recentMatches: {
+    matchNumber: number;
+    opponentName: string;
+    result: string;
+    endReason: string | null;
+    turns: number;
+  }[];
+}
 
-const KPI_DATA = {
-  totalMatches: 47,
-  avgTurns: 164.3,
-  avgWinRate: 49.4,
-  firstDamageRate: 61.2,
-  deltas: { totalMatches: "+8", avgTurns: "-2.1", avgWinRate: "+1.2", firstDamageRate: "+3.4" },
+interface ApiSummary {
+  totalMatches: number;
+  avgTurns: number;
+  avgWinRate: number;
+  firstDamageWinRate: number;
+  endReasonCounts: Record<string, number>;
+}
+
+interface RecentMatch {
+  matchNo: number;
+  vs: string;
+  result: string;
+  endReason: string;
+  turns: number;
+}
+
+interface StandingRow {
+  id: string;
+  username: string;
+  displayName: string;
+  matches: number;
+  w: number;
+  l: number;
+  d: number;
+  winRate: number; // percentage 0–100
+  avgDmgGiven: number;
+  avgDmgTaken: number;
+  avgTurns: number;
+  recent: string[];
+  recentMatches: RecentMatch[];
+}
+
+const END_REASON_STYLE: Record<string, { label: string; color: string }> = {
+  HP_ZERO: { label: "HP0", color: "#dc2626" },
+  TIMEOUT: { label: "TIMEOUT", color: "#d97706" },
+  DISCONNECT: { label: "DISCONNECT", color: "#7c3aed" },
+  NO_SHOW: { label: "NO_SHOW", color: "#6b7280" },
+  LEAVE: { label: "LEAVE", color: "#0891b2" },
+  CANCELED: { label: "CANCELED", color: "#9ca3af" },
 };
 
-const DONUT_DATA = [
-  { label: "HP0", value: 28, color: "#dc2626" },
-  { label: "TIMEOUT", value: 14, color: "#d97706" },
-  { label: "DISCONNECT", value: 5, color: "#7c3aed" },
-];
-
-const RECENT_MATCHES_SAMPLE = [
-  { matchNo: 41, vs: "suzuki_h", result: "W", endReason: "HP_ZERO", turns: 138 },
-  { matchNo: 39, vs: "watanabe_r", result: "W", endReason: "HP_ZERO", turns: 145 },
-  { matchNo: 37, vs: "yoshida_t", result: "L", endReason: "TIMEOUT", turns: 200 },
-  { matchNo: 35, vs: "kobayashi_y", result: "W", endReason: "HP_ZERO", turns: 132 },
-  { matchNo: 33, vs: "ito_m", result: "W", endReason: "HP_ZERO", turns: 141 },
-];
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+}
 
 export default function RoomStandingsPage() {
   const params = useParams();
@@ -55,16 +91,87 @@ export default function RoomStandingsPage() {
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [rankingPublic, setRankingPublic] = useState(true);
-  const [selectedPlayer, setSelectedPlayer] = useState<typeof MOCK_STANDINGS[0] | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const [standings, setStandings] = useState<StandingRow[]>([]);
+  const [summary, setSummary] = useState<ApiSummary | null>(null);
+  const [roomName, setRoomName] = useState("");
+  const [roomNumber, setRoomNumber] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const PERIODS = ["全期間", "直近7日", "直近30日", "任意期間"];
 
-  const total = DONUT_DATA.reduce((s, d) => s + d.value, 0);
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (period === "直近7日") params.set("from", isoDaysAgo(7));
+    else if (period === "直近30日") params.set("from", isoDaysAgo(30));
+    else if (period === "任意期間") {
+      if (customStart) params.set("from", new Date(customStart).toISOString());
+      if (customEnd) params.set("to", new Date(customEnd).toISOString());
+    }
+    const qs = params.toString();
+    const controller = new AbortController();
+    fetch(`/api/admin/rooms/${roomId}/standings${qs ? `?${qs}` : ""}`, { signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          const d = await res.json().catch(() => null);
+          setError(d?.error ?? "成績を取得できませんでした");
+          setStandings([]);
+          setSummary(null);
+          return;
+        }
+        const data = await res.json();
+        setRoomName(data.room?.name ?? "");
+        setRoomNumber(data.room?.roomNumber ?? "");
+        setSummary(data.summary ?? null);
+        const rows: StandingRow[] = (data.standings as ApiStanding[]).map((s) => ({
+          id: s.userId,
+          username: s.username,
+          displayName: s.displayName ?? s.username,
+          matches: s.played,
+          w: s.wins,
+          l: s.losses,
+          d: s.draws,
+          winRate: Math.round(s.winRate * 1000) / 10,
+          avgDmgGiven: s.avgDamageDealt,
+          avgDmgTaken: s.avgDamageTaken,
+          avgTurns: s.avgTurns,
+          recent: s.recent,
+          recentMatches: s.recentMatches.map((m) => ({
+            matchNo: m.matchNumber,
+            vs: m.opponentName,
+            result: m.result,
+            endReason: m.endReason ?? "—",
+            turns: m.turns,
+          })),
+        }));
+        setStandings(rows);
+        setError(null);
+      })
+      .catch((e) => {
+        if ((e as Error).name !== "AbortError") setError("成績を取得できませんでした");
+      })
+      .finally(() => setLoading(false));
+    return () => controller.abort();
+  }, [roomId, period, customStart, customEnd]);
+
+  const selectedPlayer = standings.find((s) => s.id === selectedId) ?? null;
+
+  const donutData = summary
+    ? Object.entries(summary.endReasonCounts).map(([reason, value]) => ({
+        label: END_REASON_STYLE[reason]?.label ?? reason,
+        value,
+        color: END_REASON_STYLE[reason]?.color ?? "#6b7280",
+      }))
+    : [];
+
+  const total = donutData.reduce((s, d) => s + d.value, 0);
   const r = 50;
   const cx = 70;
   const cy = 70;
-  const donutSegments = DONUT_DATA.map((d, idx) => {
-    const prevSum = DONUT_DATA.slice(0, idx).reduce((s, x) => s + x.value, 0);
+  const donutSegments = donutData.map((d, idx) => {
+    const prevSum = donutData.slice(0, idx).reduce((s, x) => s + x.value, 0);
     const startAngle = (prevSum / total) * 2 * Math.PI - Math.PI / 2;
     const endAngle = ((prevSum + d.value) / total) * 2 * Math.PI - Math.PI / 2;
     const x1 = cx + r * Math.cos(startAngle);
@@ -85,7 +192,7 @@ export default function RoomStandingsPage() {
       <TopbarAdmin username="suzuki_h" displayName="鈴木 花子" role="ROOM_ADMIN" />
       <ScopeBanner variant="room" />
       <div style={{ display: "flex" }}>
-        <AdminSidenav items={ROOM_NAV} scope="room" roomName="春季トーナメント2024" roomNumber="R-2402" />
+        <AdminSidenav items={ROOM_NAV} scope="room" roomName={roomName} roomNumber={roomNumber} />
         <main style={{ flex: 1, padding: "32px", position: "relative" }}>
           {/* Header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
@@ -122,22 +229,16 @@ export default function RoomStandingsPage() {
           {/* KPI tiles */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px", marginBottom: "24px" }}>
             {[
-              { label: "総試合数", value: KPI_DATA.totalMatches, unit: "試合", delta: KPI_DATA.deltas.totalMatches },
-              { label: "平均ターン数", value: KPI_DATA.avgTurns, unit: "T", delta: KPI_DATA.deltas.avgTurns },
-              { label: "平均勝率", value: `${KPI_DATA.avgWinRate}%`, unit: "", delta: KPI_DATA.deltas.avgWinRate },
-              { label: "FirstDamage取得率", value: `${KPI_DATA.firstDamageRate}%`, unit: "", delta: KPI_DATA.deltas.firstDamageRate },
+              { label: "総試合数", value: summary?.totalMatches ?? 0, unit: "試合" },
+              { label: "平均ターン数", value: summary?.avgTurns ?? 0, unit: "T" },
+              { label: "平均勝率", value: `${summary?.avgWinRate ?? 0}%`, unit: "" },
+              { label: "先制ダメージ勝率", value: `${summary?.firstDamageWinRate ?? 0}%`, unit: "" },
             ].map((kpi) => (
               <div key={kpi.label} style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: "18px 20px" }}>
                 <div style={{ fontSize: 12, color: "var(--ink-soft)", fontWeight: 600, marginBottom: 8 }}>{kpi.label}</div>
                 <div style={{ display: "flex", alignItems: "baseline", gap: "8px", flexWrap: "wrap" }}>
                   <span style={{ fontSize: 26, fontWeight: 800, color: "var(--room-admin-accent)" }}>{kpi.value}</span>
                   <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>{kpi.unit}</span>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700,
-                    color: kpi.delta.startsWith("+") ? "#15803d" : "#dc2626",
-                    background: kpi.delta.startsWith("+") ? "#dcfce7" : "#fee2e2",
-                    borderRadius: 999, padding: "1px 7px"
-                  }}>{kpi.delta}</span>
                 </div>
               </div>
             ))}
@@ -156,13 +257,20 @@ export default function RoomStandingsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {MOCK_STANDINGS.map((player, i) => {
+                    {(loading || error || standings.length === 0) && (
+                      <tr>
+                        <td colSpan={9} style={{ padding: "32px 16px", textAlign: "center", fontSize: 13, color: error ? "#dc2626" : "var(--ink-soft)" }}>
+                          {error ? error : loading ? "読み込み中…" : "対象期間の成績データはありません"}
+                        </td>
+                      </tr>
+                    )}
+                    {!loading && !error && standings.map((player, i) => {
                       const rank = i + 1;
-                      const isSelected = selectedPlayer?.id === player.id;
+                      const isSelected = selectedId === player.id;
                       return (
                         <tr
                           key={player.id}
-                          onClick={() => setSelectedPlayer(isSelected ? null : player)}
+                          onClick={() => setSelectedId(isSelected ? null : player.id)}
                           style={{ borderBottom: "1px solid var(--line)", height: 52, cursor: "pointer", background: isSelected ? "rgba(8,145,178,0.04)" : "transparent" }}
                         >
                           <td style={{ padding: "0 16px", fontSize: 16, fontWeight: 800, color: rank === 1 ? "#d97706" : rank <= 3 ? "#4b5563" : "var(--ink-soft)" }}>
@@ -266,7 +374,7 @@ export default function RoomStandingsPage() {
                     <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)" }}>{selectedPlayer.displayName}</div>
                     <div style={{ fontSize: 12, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>@{selectedPlayer.username}</div>
                   </div>
-                  <button onClick={() => setSelectedPlayer(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--ink-soft)" }}>✕</button>
+                  <button onClick={() => setSelectedId(null)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "var(--ink-soft)" }}>✕</button>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "16px" }}>
                   {[
@@ -283,8 +391,11 @@ export default function RoomStandingsPage() {
                 </div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", marginBottom: "8px", letterSpacing: "0.05em" }}>直近マッチ</div>
                 <div style={{ display: "flex", flexDirection: "column" }}>
-                  {RECENT_MATCHES_SAMPLE.map((m, i) => (
-                    <div key={m.matchNo} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: i < RECENT_MATCHES_SAMPLE.length - 1 ? "1px solid var(--line)" : "none" }}>
+                  {selectedPlayer.recentMatches.length === 0 && (
+                    <div style={{ fontSize: 12, color: "var(--ink-soft)", padding: "8px 0" }}>マッチ履歴はありません</div>
+                  )}
+                  {selectedPlayer.recentMatches.map((m, i) => (
+                    <div key={m.matchNo} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 0", borderBottom: i < selectedPlayer.recentMatches.length - 1 ? "1px solid var(--line)" : "none" }}>
                       <span style={{
                         width: 20, height: 20, borderRadius: "50%",
                         background: m.result === "W" ? "#dcfce7" : m.result === "L" ? "#fee2e2" : "#fef3c7",

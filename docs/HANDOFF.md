@@ -219,13 +219,14 @@ These are the calls the previous session made that the next session should
    (PR #23, see decision #10). Still on mocks: the coding page's
    `lastTurn` tab data;
    the watch page's obstacles / items / timeline-events / commentary /
-   state-gallery; the rooms page's "your schedule" + announcements; the
+   state-gallery; the rooms page's "your schedule" + announcements; and the
    matches-page **bracket / round-robin** views and its **create-match**
-   modal (hardcoded player chips); and the remaining admin **room
-   standings** page. The system **users** (PR #14), **rooms** (PR #15),
-   **audit** (PR #16) pages and the room **overview** (PR #16) +
-   **members** (PR #17) + **matches LIST** (PR #18) + **settings**
-   (PR #19) pages are wired to `/api/admin/*`. **Admin write actions are
+   modal (hardcoded player chips). The system **users** (PR #14),
+   **rooms** (PR #15), **audit** (PR #16) pages and the room
+   **overview** (PR #16) + **members** (PR #17) + **matches LIST** (PR #18)
+   + **settings** (PR #19) + **standings** (PR #24, enriched endpoint with
+   avg dmg / turns / recent form + summary) pages are wired to
+   `/api/admin/*`. **Admin write actions are
    now fully wired**: room members issue/reissue/disable (PR #20), system
    rooms create/delete/archive·restore + system users
    invite/disable/reset (PR #21), and match-cancel (PR #22). Note: room
