@@ -35,7 +35,7 @@ spectator paths. Concretely:
 3. **Spectate** — a third party can watch a match live with the delayed
    board, player panels, and result. ⏳ *Live data wired; UI cleanup pending.*
 4. **Room hub** — a student opens a room and sees its real matches, standings,
-   and announcements. ⏳ *Hero done; lists pending.*
+   and announcements. ⏳ *Schedule block still pending; announcements API wired in PR #28.*
 5. **Admin operations** — a room admin manages members, issues codes, schedules
    matches, and reviews the audit log against real data. ⏳ *Pages exist on
    mocks; APIs largely exist.*
@@ -90,9 +90,9 @@ scaffolding is gone.
 | Standings (top 5) | ✅ | PR #12 — wired to `/api/rooms/:n/standings` |
 | "Your record" | ✅ | PR #12 — derived from standings (my entry) |
 | "Your schedule" | ⬜ | Still mock; needs a schedule source **(TBD)** |
-| Announcements | ⬜ | `Announcement` model exists; no API yet |
+| Announcements | ✅ | PR #28 — `/api/rooms/:roomNumber/announcements` + room page wiring + admin CRUD surface |
 
-**C is done when** the schedule has a source and announcements have an API.
+**C is done when** the schedule has a source (announcements API is done).
 
 ### Milestone D — Admin operations
 

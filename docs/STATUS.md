@@ -13,78 +13,41 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #27 — chore(watch): drop the dev-only state-gallery showcase
-- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
+- **PR**: #28 — feat(announcements): room announcements vertical slice (admin CRUD + learner API/UI wiring)
+- **Branch**: `codex/v0.2-announcements`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Removed the "// state variations" gallery** from
-  `src/app/watch/[matchId]/page.tsx` — a dev-only showcase of six mock
-  watch states (公開 / 限定 / 403 / Live↔Replay / 遅延 / 終了) that isn't
-  production UI. Deleted the `<section>` plus its five exclusively-used
-  helpers (`StateCard`, `MiniPill`, `MiniBoard`, `miniCtaStyle`,
-  `warnBoxStyle`); ~341 lines gone, no other references.
-- **Left as-is (need real sources, not cleanup):** the header **viewer
-  count** is still a hardcoded mock (`viewerCount: 14`) — a real value
-  needs Socket.io presence tracking; the **commentary feed** is an honest
-  self-describing placeholder ("本番では実況・先生のメモが流れます。") with no
-  backing commentary system. Both are features, not mock-removal, so they
-  stay until those sources exist.
-- `tsc` / `lint` / `build` clean; 27 tests still pass.
-- **Not verified in a browser** (headless container).
+- Added admin announcements APIs: `GET/POST /api/admin/rooms/:id/announcements` and `PATCH/DELETE /api/admin/rooms/:id/announcements/:announcementId` with admin/self-room authorization, pinned-first ordering, and author name enrichment.
+- Added learner API `GET /api/rooms/:roomNumber/announcements` with the same access policy as room top endpoint and pinned-first ordering.
+- Added admin page `src/app/admin/rooms/[roomId]/announcements/page.tsx` (list/create/pin-toggle/delete, loading/empty/error/busy states).
+- Added "お知らせ" item to all room-admin `ROOM_NAV` copies (overview/members/matches/standings/settings).
+- Rewired learner room page announcements block from mock constant to real API fetch; left "あなたの予定" schedule mock untouched (out of scope).
+- `tsc` / `lint` / `test` / `build` all succeeded in container. Browser verification is still not possible in this environment.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Manual browser pass** on the data-wired-but-unviewed pages: Blockly
-   editor (#23), standings (#24), create-match modal (#25), round-robin
-   view (#26), and a glance that the watch page still renders after the
-   gallery removal (#27).
-2. **Tournament bracket — decide the data model.** To wire `TournamentView`
-   faithfully, add bracket-linkage to the schema (e.g. `Match.parentMatchId`
-   / `nextMatchSlot`) so winners advance into known slots; otherwise descope
-   the bracket tree to post-v0.2 and show a simpler round-grouped list.
-   **Needs a product/schema call.**
-3. **Coding `lastTurn` tab real data** (Milestone A) — still `MOCK_LAST_TURN`.
-   **Needs a product call**: the match simulates in one shot, so "last turn"
-   during coding is undefined without a turn-by-turn loop.
+1. Manual browser pass for announcements UX (admin create/pin/delete and learner room rendering) in a real browser.
+2. Decide and implement data source for room "あなたの予定" schedule block (still mock by design).
+3. Decide tournament bracket schema linkage (`parentMatchId`/slot model) or descope bracket tree from v0.2.
 
 ### Deferred / out of scope right now
 
-- Admin pages mock removal (same mechanical pattern, lower visibility).
-- Real-time room ranking on the result page (needs an aggregation
-  endpoint).
-- Item / barrier / obstacle support in the simulator (extends
-  `TurnSnapshot` additively per decision #9 in `docs/HANDOFF.md`).
-- Watch page: state-gallery dropped (PR #27). Still placeholder and
-  awaiting real sources — the viewer count (needs Socket.io presence) and
-  the commentary feed (needs a commentary system).
-- Email confirmation on signup (HANDOFF section 4 item 4).
+- Announcement read/unread state, push/mail notifications.
+- Schedule block real data source is still undecided (product call needed).
 
 ### Open questions / handoff notes
 
-- **`docs/ROADMAP.md` is a draft pending product review.** Its
-  milestones and "definition of done" are inferred from the prototypes
-  + schema, not a written spec. Scope lines marked **(TBD)** need a
-  product decision: whether obstacles/items/AP, live commentary, 2FA,
-  and email confirmation are in v0.2 or post-v0.2. Resolve those before
-  building the affected items.
-- The rooms page's "あなたの予定" schedule and announcements still need
-  backing data. Announcements would need a new endpoint over the
-  existing `Announcement` model; the schedule needs a defined source
-  (upcoming matches? coding deadlines?) — **TBD**.
-- The simulator tests intentionally don't exercise an HP_ZERO win —
-  no in-bounds starting alignments hit with the current six action
-  types. Add coverage once AP / obstacles / items land.
-- If Codex picks up work next: please update this file's "Latest" block
-  when you push, even if the change is small. Keeping the rolling log
-  current is what makes the cross-agent handoff usable.
+- This PR intentionally logs announcement writes via existing `ROOM_UPDATE` audit action (no `AuditAction` enum migration in this slice).
+- `src/app/admin/rooms/[roomId]/matches/page.tsx` was only touched for the one-line ROOM_NAV addition, to reduce parallel-work conflict risk with Claude.
 
 ---
 
 ## History
 
+- **PR**: #27 (open) — chore(watch): drop the dev-only state-gallery showcase
 - **PR #26** (merged) — feat(admin): wired `RoundRobinView` (head-to-head
   matrix + W/L/D summary) to real match data; `TournamentView` left on mock
   pending bracket-linkage schema.
