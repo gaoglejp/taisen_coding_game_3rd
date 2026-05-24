@@ -57,6 +57,14 @@ export default function SystemUsersPage() {
   const [disableConfirm, setDisableConfirm] = useState("");
   const [page, setPage] = useState(1);
   const [inviteForm, setInviteForm] = useState({ email: "", role: "ROOM_ADMIN", message: "" });
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteResult, setInviteResult] = useState<{ link: string; expiresAt: string } | null>(null);
+  const [disabling, setDisabling] = useState(false);
+  const [disableError, setDisableError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [resetResult, setResetResult] = useState<string | null>(null);
 
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [total, setTotal] = useState(0);
@@ -120,6 +128,98 @@ export default function SystemUsersPage() {
   const onStatus = (v: string) => {
     setStatusFilter(v);
     setPage(1);
+  };
+
+  const openInvite = () => {
+    setInviteForm({ email: "", role: "ROOM_ADMIN", message: "" });
+    setInviteError(null);
+    setInviteResult(null);
+    setShowInviteModal(true);
+  };
+
+  const handleInvite = async () => {
+    if (!inviteForm.email.trim()) {
+      setInviteError("メールアドレスを入力してください");
+      return;
+    }
+    setInviting(true);
+    setInviteError(null);
+    try {
+      const res = await fetch("/api/admin/users/invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: inviteForm.email.trim(),
+          role: inviteForm.role,
+          ...(inviteForm.message.trim() ? { message: inviteForm.message.trim() } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setInviteError(data?.error ?? "招待を作成できませんでした");
+        return;
+      }
+      setInviteResult({ link: data.inviteLink, expiresAt: data.expiresAt });
+      await load();
+    } catch {
+      setInviteError("招待を作成できませんでした");
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const openDisable = (id: string) => {
+    setDisableConfirm("");
+    setDisableError(null);
+    setShowDisableModal(id);
+  };
+
+  const handleDisable = async (id: string) => {
+    setDisabling(true);
+    setDisableError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "DISABLED" }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setDisableError(data?.error ?? "無効化できませんでした");
+        return;
+      }
+      setShowDisableModal(null);
+      await load();
+    } catch {
+      setDisableError("無効化できませんでした");
+    } finally {
+      setDisabling(false);
+    }
+  };
+
+  const openReset = (id: string) => {
+    setResetError(null);
+    setResetResult(null);
+    setShowResetModal(id);
+  };
+
+  const handleReset = async (id: string) => {
+    setResetting(true);
+    setResetError(null);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/force-password-reset`, { method: "POST" });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setResetError(data?.error ?? "リセットできませんでした");
+        return;
+      }
+      setResetResult(data.resetLink);
+      await load();
+    } catch {
+      setResetError("リセットできませんでした");
+    } finally {
+      setResetting(false);
+    }
   };
 
   const pageItems = users;
@@ -195,7 +295,7 @@ export default function SystemUsersPage() {
             </div>
             <div style={{ marginLeft: "auto" }}>
               <button
-                onClick={() => setShowInviteModal(true)}
+                onClick={openInvite}
                 style={{ background: "var(--admin-accent)", color: "#fff", border: "none", borderRadius: 8, padding: "9px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
               >
                 + アカウントを招待
@@ -266,8 +366,8 @@ export default function SystemUsersPage() {
                     <td style={{ padding: "0 16px" }}>
                       <div style={{ display: "flex", gap: "5px" }}>
                         <button style={actionBtnStyle("#1d4ed8", "rgba(29,78,216,0.08)")}>詳細</button>
-                        <button onClick={() => setShowResetModal(user.id)} style={actionBtnStyle("#d97706", "rgba(217,119,6,0.08)")}>ﾘｾｯﾄ</button>
-                        <button onClick={() => { setShowDisableModal(user.id); setDisableConfirm(""); }} style={actionBtnStyle("#dc2626", "rgba(220,38,38,0.08)")}>無効化</button>
+                        <button onClick={() => openReset(user.id)} style={actionBtnStyle("#d97706", "rgba(217,119,6,0.08)")}>ﾘｾｯﾄ</button>
+                        <button onClick={() => openDisable(user.id)} style={actionBtnStyle("#dc2626", "rgba(220,38,38,0.08)")}>無効化</button>
                       </div>
                     </td>
                   </tr>
@@ -293,47 +393,76 @@ export default function SystemUsersPage() {
       {showInviteModal && (
         <ModalOverlay onClose={() => setShowInviteModal(false)}>
           <div style={{ width: 480 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 20px" }}>アカウントを招待</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <FormField label="メールアドレス">
-                <input value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="user@example.com" style={inputStyle} />
-              </FormField>
-              <FormField label="役割">
-                <div style={{ display: "flex", gap: "10px" }}>
-                  {(["ROOM_ADMIN", "SYSTEM_ADMIN"] as const).map((role) => (
-                    <button
-                      key={role}
-                      onClick={() => setInviteForm({ ...inviteForm, role })}
-                      style={{
-                        flex: 1, padding: "12px",
-                        borderRadius: 10,
-                        border: `2px solid ${inviteForm.role === role ? "var(--admin-accent)" : "var(--line)"}`,
-                        background: inviteForm.role === role ? "rgba(124,58,237,0.06)" : "transparent",
-                        cursor: "pointer",
-                      }}
-                    >
-                      <div style={{ fontSize: 11, fontWeight: 700, color: inviteForm.role === role ? "var(--admin-accent)" : "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace", marginBottom: 4 }}>{role.replace("_", " ")}</div>
-                      <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
-                        {role === "ROOM_ADMIN" ? "ルームの管理が可能" : "システム全体の管理が可能"}
-                      </div>
-                    </button>
-                  ))}
+            {inviteResult ? (
+              <>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 8px" }}>招待リンクを発行しました</h2>
+                <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 16px" }}>
+                  メール送信は未対応です。以下のリンクを本人に共有してください。この画面を閉じると再表示できません。
+                </p>
+                <LinkResult link={inviteResult.link} />
+                <p style={{ fontSize: 12, color: "var(--ink-soft)", marginTop: 10 }}>
+                  有効期限: <strong style={{ fontFamily: "JetBrains Mono, monospace" }}>{fmtDateTime(inviteResult.expiresAt)}</strong>
+                </p>
+                <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
+                  <button onClick={() => setShowInviteModal(false)} style={{ ...submitBtnStyle, background: "var(--admin-accent)" }}>閉じる</button>
                 </div>
-              </FormField>
-              <FormField label="招待メッセージ（任意）">
-                <textarea
-                  value={inviteForm.message}
-                  onChange={(e) => setInviteForm({ ...inviteForm, message: e.target.value })}
-                  placeholder="招待の目的や説明を記入..."
-                  rows={3}
-                  style={{ ...inputStyle, resize: "vertical" }}
-                />
-              </FormField>
-            </div>
-            <div style={{ display: "flex", gap: "10px", marginTop: "24px", justifyContent: "flex-end" }}>
-              <button onClick={() => setShowInviteModal(false)} style={cancelBtnStyle}>キャンセル</button>
-              <button style={{ ...submitBtnStyle, background: "var(--admin-accent)" }}>招待メールを送信</button>
-            </div>
+              </>
+            ) : (
+              <>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 20px" }}>アカウントを招待</h2>
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  <FormField label="メールアドレス">
+                    <input value={inviteForm.email} onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })} placeholder="user@example.com" style={inputStyle} />
+                  </FormField>
+                  <FormField label="役割">
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      {(["ROOM_ADMIN", "SYSTEM_ADMIN"] as const).map((role) => (
+                        <button
+                          key={role}
+                          onClick={() => setInviteForm({ ...inviteForm, role })}
+                          style={{
+                            flex: 1, padding: "12px",
+                            borderRadius: 10,
+                            border: `2px solid ${inviteForm.role === role ? "var(--admin-accent)" : "var(--line)"}`,
+                            background: inviteForm.role === role ? "rgba(124,58,237,0.06)" : "transparent",
+                            cursor: "pointer",
+                          }}
+                        >
+                          <div style={{ fontSize: 11, fontWeight: 700, color: inviteForm.role === role ? "var(--admin-accent)" : "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace", marginBottom: 4 }}>{role.replace("_", " ")}</div>
+                          <div style={{ fontSize: 12, color: "var(--ink-soft)" }}>
+                            {role === "ROOM_ADMIN" ? "ルームの管理が可能" : "システム全体の管理が可能"}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </FormField>
+                  <FormField label="招待メッセージ（任意）">
+                    <textarea
+                      value={inviteForm.message}
+                      onChange={(e) => setInviteForm({ ...inviteForm, message: e.target.value })}
+                      placeholder="招待の目的や説明を記入..."
+                      rows={3}
+                      style={{ ...inputStyle, resize: "vertical" }}
+                    />
+                  </FormField>
+                </div>
+                {inviteError && (
+                  <div style={{ marginTop: "16px", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#991b1b" }}>
+                    {inviteError}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "10px", marginTop: "24px", justifyContent: "flex-end" }}>
+                  <button onClick={() => setShowInviteModal(false)} disabled={inviting} style={cancelBtnStyle}>キャンセル</button>
+                  <button
+                    onClick={handleInvite}
+                    disabled={inviting || !inviteForm.email.trim()}
+                    style={{ ...submitBtnStyle, background: "var(--admin-accent)", opacity: inviting || !inviteForm.email.trim() ? 0.5 : 1 }}
+                  >
+                    {inviting ? "送信中…" : "招待メールを送信"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </ModalOverlay>
       )}
@@ -350,9 +479,20 @@ export default function SystemUsersPage() {
               確認のため、ユーザー名 <strong style={{ fontFamily: "JetBrains Mono, monospace" }}>@{disableTarget.username}</strong> を入力してください。
             </p>
             <input value={disableConfirm} onChange={(e) => setDisableConfirm(e.target.value)} placeholder={disableTarget.username} style={{ ...inputStyle, fontFamily: "JetBrains Mono, monospace" }} />
+            {disableError && (
+              <div style={{ marginTop: "14px", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#991b1b" }}>
+                {disableError}
+              </div>
+            )}
             <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
-              <button onClick={() => setShowDisableModal(null)} style={cancelBtnStyle}>キャンセル</button>
-              <button disabled={disableConfirm !== disableTarget.username} style={{ ...submitBtnStyle, background: "#dc2626", opacity: disableConfirm !== disableTarget.username ? 0.4 : 1 }}>無効化する</button>
+              <button onClick={() => setShowDisableModal(null)} disabled={disabling} style={cancelBtnStyle}>キャンセル</button>
+              <button
+                onClick={() => handleDisable(disableTarget.id)}
+                disabled={disabling || disableConfirm !== disableTarget.username}
+                style={{ ...submitBtnStyle, background: "#dc2626", opacity: disabling || disableConfirm !== disableTarget.username ? 0.4 : 1 }}
+              >
+                {disabling ? "無効化中…" : "無効化する"}
+              </button>
             </div>
           </div>
         </ModalOverlay>
@@ -362,25 +502,51 @@ export default function SystemUsersPage() {
       {showResetModal && resetTarget && (
         <ModalOverlay onClose={() => setShowResetModal(null)}>
           <div style={{ width: 440 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 12px" }}>パスワードをリセット</h2>
-            <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, padding: "12px 16px", marginBottom: "16px", fontSize: 13, color: "#92400e" }}>
-              <strong>実行すること:</strong>
-              <ul style={{ margin: "8px 0 0", paddingLeft: 16 }}>
-                <li>現在のパスワードを無効化</li>
-                <li>パスワードリセットメールを送信</li>
-                <li>すべてのアクティブセッションを終了</li>
-              </ul>
-            </div>
-            <div style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.15)", borderRadius: 8, padding: "12px 16px", marginBottom: "16px", fontSize: 12, color: "#5b21b6" }}>
-              📋 この操作は監査ログに記録されます (USER_FORCE_PASSWORD_RESET)
-            </div>
-            <p style={{ fontSize: 14, color: "var(--ink)" }}>
-              対象: <strong style={{ fontFamily: "JetBrains Mono, monospace" }}>@{resetTarget.username}</strong> ({resetTarget.displayName})
-            </p>
-            <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
-              <button onClick={() => setShowResetModal(null)} style={cancelBtnStyle}>キャンセル</button>
-              <button style={{ ...submitBtnStyle, background: "#d97706" }}>リセットメールを送信</button>
-            </div>
+            {resetResult ? (
+              <>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 8px" }}>リセットリンクを発行しました</h2>
+                <p style={{ fontSize: 13, color: "var(--ink-soft)", margin: "0 0 16px" }}>
+                  メール送信は未対応です。以下のリンクを本人に共有してください。この画面を閉じると再表示できません。
+                </p>
+                <LinkResult link={resetResult} />
+                <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
+                  <button onClick={() => setShowResetModal(null)} style={{ ...submitBtnStyle, background: "#d97706" }}>閉じる</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 12px" }}>パスワードをリセット</h2>
+                <div style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 8, padding: "12px 16px", marginBottom: "16px", fontSize: 13, color: "#92400e" }}>
+                  <strong>実行すること:</strong>
+                  <ul style={{ margin: "8px 0 0", paddingLeft: 16 }}>
+                    <li>現在のパスワードを無効化</li>
+                    <li>パスワードリセットメールを送信</li>
+                    <li>すべてのアクティブセッションを終了</li>
+                  </ul>
+                </div>
+                <div style={{ background: "rgba(124,58,237,0.06)", border: "1px solid rgba(124,58,237,0.15)", borderRadius: 8, padding: "12px 16px", marginBottom: "16px", fontSize: 12, color: "#5b21b6" }}>
+                  📋 この操作は監査ログに記録されます (USER_FORCE_PASSWORD_RESET)
+                </div>
+                <p style={{ fontSize: 14, color: "var(--ink)" }}>
+                  対象: <strong style={{ fontFamily: "JetBrains Mono, monospace" }}>@{resetTarget.username}</strong> ({resetTarget.displayName})
+                </p>
+                {resetError && (
+                  <div style={{ marginTop: "14px", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#991b1b" }}>
+                    {resetError}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
+                  <button onClick={() => setShowResetModal(null)} disabled={resetting} style={cancelBtnStyle}>キャンセル</button>
+                  <button
+                    onClick={() => handleReset(resetTarget.id)}
+                    disabled={resetting}
+                    style={{ ...submitBtnStyle, background: "#d97706", opacity: resetting ? 0.5 : 1 }}
+                  >
+                    {resetting ? "処理中…" : "リセットメールを送信"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </ModalOverlay>
       )}
@@ -403,6 +569,32 @@ function FormField({ label, children }: { label: string; children: React.ReactNo
     <div>
       <label style={{ display: "block", fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", marginBottom: 6, letterSpacing: "0.04em" }}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+function LinkResult({ link }: { link: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard unavailable — user can still select the field manually
+    }
+  };
+  return (
+    <div style={{ display: "flex", gap: "8px", alignItems: "stretch" }}>
+      <input
+        readOnly
+        value={link}
+        onFocus={(e) => e.currentTarget.select()}
+        style={{ ...inputStyle, fontFamily: "JetBrains Mono, monospace", fontSize: 12 }}
+      />
+      <button onClick={copy} style={{ ...submitBtnStyle, background: copied ? "#15803d" : "var(--admin-accent)", whiteSpace: "nowrap" }}>
+        {copied ? "コピー済" : "コピー"}
+      </button>
     </div>
   );
 }

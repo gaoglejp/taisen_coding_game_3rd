@@ -51,6 +51,11 @@ export default function SystemRoomsPage() {
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [page, setPage] = useState(1);
   const [createForm, setCreateForm] = useState({ name: "", kind: "CLASSROOM", expiresAt: "", adminSearch: "" });
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [rowBusy, setRowBusy] = useState<string | null>(null);
 
   const [rooms, setRooms] = useState<AdminRoom[]>([]);
   const [total, setTotal] = useState(0);
@@ -94,10 +99,9 @@ export default function SystemRoomsPage() {
   );
 
   // Global status counts for the header pills — independent of the current
-  // search/kind/status filter, so fetched once on mount via limit=1 requests
-  // that only read pagination.total.
-  useEffect(() => {
-    let cancelled = false;
+  // search/kind/status filter, fetched via limit=1 requests that only read
+  // pagination.total. Re-run after mutations so the pills stay accurate.
+  const loadCounts = useCallback(async () => {
     const countFor = async (status?: string) => {
       const p = new URLSearchParams({ limit: "1" });
       if (status) p.set("status", status);
@@ -106,15 +110,19 @@ export default function SystemRoomsPage() {
       const data = await res.json();
       return data.pagination?.total ?? 0;
     };
-    Promise.all([countFor(), countFor("ACTIVE"), countFor("ARCHIVED"), countFor("DELETED")])
-      .then(([t, a, ar, d]) => {
-        if (!cancelled) setCounts({ total: t, active: a, archived: ar, deleted: d });
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    const [t, a, ar, d] = await Promise.all([
+      countFor(),
+      countFor("ACTIVE"),
+      countFor("ARCHIVED"),
+      countFor("DELETED"),
+    ]);
+    setCounts({ total: t, active: a, archived: ar, deleted: d });
   }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => loadCounts().catch(() => {}), 0);
+    return () => clearTimeout(t);
+  }, [loadCounts]);
 
   // Debounced list fetch (search-as-you-type).
   useEffect(() => {
@@ -137,6 +145,78 @@ export default function SystemRoomsPage() {
   const onStatus = (v: string) => {
     setStatusFilter(v);
     setPage(1);
+  };
+
+  const openCreate = () => {
+    setCreateForm({ name: "", kind: "CLASSROOM", expiresAt: "", adminSearch: "" });
+    setCreateError(null);
+    setShowCreateModal(true);
+  };
+
+  const handleCreate = async () => {
+    if (!createForm.name.trim()) {
+      setCreateError("ルーム名を入力してください");
+      return;
+    }
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const res = await fetch("/api/admin/rooms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: createForm.name.trim(),
+          kind: createForm.kind,
+          ...(createForm.expiresAt ? { expiresAt: createForm.expiresAt } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setCreateError(data?.error ?? "ルームを作成できませんでした");
+        return;
+      }
+      setShowCreateModal(false);
+      setPage(1);
+      await Promise.all([load(), loadCounts()]);
+    } catch {
+      setCreateError("ルームを作成できませんでした");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/admin/rooms/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setDeleteError(data?.error ?? "ルームを削除できませんでした");
+        return;
+      }
+      setShowDeleteModal(null);
+      await Promise.all([load(), loadCounts()]);
+    } catch {
+      setDeleteError("ルームを削除できませんでした");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleArchiveToggle = async (room: AdminRoom) => {
+    const restore = room.status === "ARCHIVED";
+    setRowBusy(room.id);
+    try {
+      const res = await fetch(`/api/admin/rooms/${room.id}/${restore ? "restore" : "archive"}`, {
+        method: "POST",
+      });
+      if (res.ok) await Promise.all([load(), loadCounts()]);
+    } catch {
+      // surfaced on next load; row stays unchanged
+    } finally {
+      setRowBusy(null);
+    }
   };
 
   const pageItems = rooms;
@@ -248,7 +328,7 @@ export default function SystemRoomsPage() {
             </div>
             <div style={{ marginLeft: "auto" }}>
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={openCreate}
                 style={{
                   background: "var(--admin-accent)",
                   color: "#fff",
@@ -355,9 +435,15 @@ export default function SystemRoomsPage() {
                         <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap" }}>
                           <button style={actionBtnStyle("#1d4ed8", "rgba(29,78,216,0.08)")}>詳細</button>
                           <button style={actionBtnStyle("#0891b2", "rgba(8,145,178,0.08)")}>任命</button>
-                          <button style={actionBtnStyle("#92400e", "rgba(245,158,11,0.08)")}>ｱｰｶｲﾌﾞ</button>
                           <button
-                            onClick={() => { setShowDeleteModal(room.id); setDeleteConfirm(""); }}
+                            onClick={() => handleArchiveToggle(room)}
+                            disabled={rowBusy === room.id}
+                            style={{ ...actionBtnStyle("#92400e", "rgba(245,158,11,0.08)"), opacity: rowBusy === room.id ? 0.5 : 1 }}
+                          >
+                            {room.status === "ARCHIVED" ? "復元" : "ｱｰｶｲﾌﾞ"}
+                          </button>
+                          <button
+                            onClick={() => { setShowDeleteModal(room.id); setDeleteConfirm(""); setDeleteError(null); }}
                             style={actionBtnStyle("#dc2626", "rgba(220,38,38,0.08)")}
                           >
                             削除
@@ -446,9 +532,20 @@ export default function SystemRoomsPage() {
                 />
               </FormField>
             </div>
+            {createError && (
+              <div style={{ marginTop: "16px", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#991b1b" }}>
+                {createError}
+              </div>
+            )}
             <div style={{ display: "flex", gap: "10px", marginTop: "24px", justifyContent: "flex-end" }}>
-              <button onClick={() => setShowCreateModal(false)} style={cancelBtnStyle}>キャンセル</button>
-              <button style={{ ...submitBtnStyle, background: "var(--admin-accent)" }}>作成する</button>
+              <button onClick={() => setShowCreateModal(false)} disabled={creating} style={cancelBtnStyle}>キャンセル</button>
+              <button
+                onClick={handleCreate}
+                disabled={creating || !createForm.name.trim()}
+                style={{ ...submitBtnStyle, background: "var(--admin-accent)", opacity: creating || !createForm.name.trim() ? 0.5 : 1 }}
+              >
+                {creating ? "作成中…" : "作成する"}
+              </button>
             </div>
           </div>
         </ModalOverlay>
@@ -474,17 +571,23 @@ export default function SystemRoomsPage() {
               placeholder={deleteTarget.roomNumber}
               style={{ ...inputStyle, fontFamily: "JetBrains Mono, monospace" }}
             />
+            {deleteError && (
+              <div style={{ marginTop: "16px", background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#991b1b" }}>
+                {deleteError}
+              </div>
+            )}
             <div style={{ display: "flex", gap: "10px", marginTop: "20px", justifyContent: "flex-end" }}>
-              <button onClick={() => setShowDeleteModal(null)} style={cancelBtnStyle}>キャンセル</button>
+              <button onClick={() => setShowDeleteModal(null)} disabled={deleting} style={cancelBtnStyle}>キャンセル</button>
               <button
-                disabled={deleteConfirm !== deleteTarget.roomNumber}
+                onClick={() => handleDelete(deleteTarget.id)}
+                disabled={deleting || deleteConfirm !== deleteTarget.roomNumber}
                 style={{
                   ...submitBtnStyle,
                   background: "#dc2626",
-                  opacity: deleteConfirm !== deleteTarget.roomNumber ? 0.4 : 1,
+                  opacity: deleting || deleteConfirm !== deleteTarget.roomNumber ? 0.4 : 1,
                 }}
               >
-                削除する
+                {deleting ? "削除中…" : "削除する"}
               </button>
             </div>
           </div>

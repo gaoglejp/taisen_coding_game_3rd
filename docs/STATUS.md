@@ -13,39 +13,61 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #20 — feat(admin): wire room member write actions (issue / reissue / disable)
+- **PR**: #21 — feat(admin): wire system rooms + users page write actions
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-23
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **`src/app/admin/rooms/[roomId]/members/page.tsx` write actions wired**
-  — first PR that performs real admin mutations:
-  - **発行 (issue)**: parses the CSV textarea (`username,display_name`
-    per line) and `POST`s `{ members, expiresAt }` to
-    `/api/admin/rooms/:id/members`. The returned issue codes populate the
-    one-time result modal (real codes, not mock), then the list reloads.
-  - **再発行 (reissue)**: `POST
-    /api/admin/rooms/:id/members/:mid/reissue`; shows the new code in the
-    result modal and reloads.
-  - **無効化 (disable)**: `PATCH /api/admin/rooms/:id/members/:mid` with
-    `{ status: "DISABLED" }` (gated behind the username re-type confirm),
+- **`src/app/admin/system/users/page.tsx` write actions wired**
+  (SYSTEM_ADMIN scope):
+  - **招待 (invite)**: the invite modal `POST`s `{ email, role, message? }`
+    to `/api/admin/users/invite`. There is no email infra, so the returned
+    `inviteLink` (+ `expiresAt`) is surfaced one-time in the modal via a new
+    `LinkResult` component (read-only field + copy button); the list reloads
+    behind it.
+  - **無効化 (disable)**: `PATCH /api/admin/users/:id` with
+    `{ status: "DISABLED" }`, gated behind the username re-type confirm,
+    then reloads. (API blocks disabling self.)
+  - **リセット (force reset)**: `POST /api/admin/users/:id/force-password-reset`;
+    the returned `resetLink` is shown one-time via `LinkResult`.
+  - Each modal got a busy/disabled submit + inline error; `openInvite` /
+    `openDisable` / `openReset` reset per-modal state on open. 詳細 button
+    stays inert (no detail route yet).
+- **`src/app/admin/system/rooms/page.tsx` write actions wired**
+  (SYSTEM_ADMIN scope):
+  - **作成 (create)**: the create modal `POST`s
+    `{ name, kind, expiresAt? }` to `/api/admin/rooms`, then resets to
+    page 1 and reloads the list + header count pills. Submit is disabled
+    until a name is entered and shows a 作成中… spinner; API errors render
+    inline in the modal.
+  - **削除 (delete)**: the confirm modal (room-number re-type gate)
+    `DELETE`s `/api/admin/rooms/:id` (soft delete → `DELETED`), then
+    reloads list + counts. Inline error + 削除中… spinner.
+  - **ｱｰｶｲﾌﾞ / 復元 (archive·restore)**: the per-row button now toggles on
+    `room.status` — `POST /api/admin/rooms/:id/archive` for ACTIVE rooms,
+    `…/restore` for ARCHIVED ones — with a per-row busy/disabled state,
     then reloads.
-  - Removed `MOCK_ISSUED_CODES`. Added `busy` (button spinners) and a
-    per-modal `actionError`. The `reload()` fetch was extracted to a
-    `useCallback` so mutations can refresh the table.
-- All three endpoints already allowed `ROOM_ADMIN` (own room), so this
-  works for both ROOM_ADMIN and SYSTEM_ADMIN with no API change.
+  - Extracted the header-count fetch into a `loadCounts` `useCallback`
+    (was a one-shot mount effect) so every mutation refreshes the pills.
+    Its mount call is deferred via `setTimeout(0)` to satisfy the new
+    `react-hooks/set-state-in-effect` lint rule, mirroring how the
+    existing debounced `load` effect already defers.
+  - The 詳細 / 任命 row buttons and the create modal's "管理者ユーザー検索"
+    field stay inert — they need a user-picker / detail route that isn't
+    built yet, so `initialAdminId` is not sent on create.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Remaining admin write actions** (ROADMAP Milestone D). Members are
-   done; wire the rooms-page create-room modal (`POST /api/admin/rooms`)
-   and the users-page invite/disable/reset modals
-   (`POST /api/admin/users/invite`, `PATCH /api/admin/users/:id`,
-   `POST .../force-password-reset`). **Match-cancel still needs a new
-   endpoint** (`MATCH_CANCEL` audit action exists, route doesn't).
+1. **Match-cancel endpoint + matches-page cancel modal** (ROADMAP
+   Milestone D — the last unwired admin write action). The `MATCH_CANCEL`
+   audit action exists but there is **no route**; add e.g.
+   `POST /api/admin/rooms/:id/matches/:matchId/cancel` (or a `PATCH` on
+   the match) that sets status → CANCELLED + logs audit, then wire the
+   cancel modal on `src/app/admin/rooms/[roomId]/matches/page.tsx`.
+   With members + system rooms + system users done, this closes out the
+   admin write-action surface.
 2. **Blockly → strategy JSON serializer** (ROADMAP Milestone A, the
    critical-path blocker). Needs a product call first: real Blockly
    integration vs. a lightweight rule-builder. Highest-leverage piece
@@ -89,6 +111,11 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #20** (merged) — feat(admin): wire room member write actions
+  (issue / reissue / disable) on
+  `src/app/admin/rooms/[roomId]/members/page.tsx`. First real admin
+  mutations; removed `MOCK_ISSUED_CODES`; works for ROOM_ADMIN +
+  SYSTEM_ADMIN.
 - **PR #19** (merged) — feat(admin): wire room settings page to
   `/api/admin/rooms/:id` (GET/PATCH + archive/restore/delete),
   SYSTEM_ADMIN-only per product decision. rulePreset round-trips but is
