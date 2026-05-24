@@ -85,6 +85,8 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
   const [createMode, setCreateMode] = useState<CreateMode>("ROUND_ROBIN");
   const [cancelReason, setCancelReason] = useState<CancelReason>("CANCELED");
   const [confirmText, setConfirmText] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const [roomName, setRoomName] = useState("");
   const [roomNumber, setRoomNumber] = useState("");
@@ -151,6 +153,38 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
       return true;
     });
   }, [matches, statusFilter, search]);
+
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const res = await fetch(`/api/admin/rooms/${roomId}/matches/${cancelTarget.id}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: cancelReason }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setCancelError(data?.error ?? "マッチをキャンセルできませんでした");
+        return;
+      }
+      const endReason: string = data?.match?.endReason ?? cancelReason;
+      const targetId = cancelTarget.id;
+      setMatches((prev) =>
+        prev.map((m) =>
+          m.id === targetId
+            ? { ...m, status: "CANCELED", reason: END_REASON_LABEL[endReason] ?? endReason }
+            : m
+        )
+      );
+      setCancelTarget(null);
+    } catch {
+      setCancelError("マッチをキャンセルできませんでした");
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
@@ -272,7 +306,7 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
                             <button style={actBtnStyle}>詳細</button>
                             {cancelAvailable ? (
                               <button
-                                onClick={() => { setCancelTarget(m); setCancelReason("CANCELED"); setConfirmText(""); }}
+                                onClick={() => { setCancelTarget(m); setCancelReason("CANCELED"); setConfirmText(""); setCancelError(null); }}
                                 style={actBtnDangerStyle}
                               >
                                 キャンセル
@@ -405,7 +439,6 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
       )}
 
       {/* Cancel modal */}
-      {/* bind: POST /admin/api/rooms/:id/matches/:matchId/cancel */}
       {cancelTarget && (
         <ModalOverlay onClose={() => setCancelTarget(null)}>
           <div style={{ width: 480, background: "#fff", borderRadius: 14, overflow: "hidden", border: "1px solid var(--line)" }}>
@@ -468,15 +501,20 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
                   }}
                 />
               </div>
+              {cancelError && (
+                <div style={{ background: "#fef2f2", border: "1px solid #fbb6b6", borderRadius: 8, padding: "10px 14px", fontSize: 12.5, color: "#dc2626", marginBottom: 4 }}>
+                  {cancelError}
+                </div>
+              )}
             </div>
             <div style={modalFootStyle}>
-              <button onClick={() => setCancelTarget(null)} style={btnGhostModalStyle}>戻る</button>
+              <button onClick={() => setCancelTarget(null)} disabled={cancelling} style={btnGhostModalStyle}>戻る</button>
               <button
-                disabled={confirmText !== cancelTarget.id}
-                onClick={() => setCancelTarget(null)}
-                style={{ ...btnDangerStyle, opacity: confirmText !== cancelTarget.id ? 0.4 : 1, cursor: confirmText !== cancelTarget.id ? "not-allowed" : "pointer", boxShadow: confirmText !== cancelTarget.id ? "none" : "0 1px 0 #991b1b" }}
+                disabled={confirmText !== cancelTarget.id || cancelling}
+                onClick={handleCancel}
+                style={{ ...btnDangerStyle, opacity: confirmText !== cancelTarget.id || cancelling ? 0.4 : 1, cursor: confirmText !== cancelTarget.id || cancelling ? "not-allowed" : "pointer", boxShadow: confirmText !== cancelTarget.id || cancelling ? "none" : "0 1px 0 #991b1b" }}
               >
-                キャンセルする
+                {cancelling ? "処理中…" : "キャンセルする"}
               </button>
             </div>
           </div>

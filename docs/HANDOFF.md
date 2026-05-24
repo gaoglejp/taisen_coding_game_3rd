@@ -77,7 +77,8 @@ All routes use `src/lib/db.ts` (Prisma client) and `src/lib/auth.ts`
 /api/admin/rooms/[id]/members           GET   POST
 /api/admin/rooms/[id]/members/[mid]     PATCH   DELETE
 /api/admin/rooms/[id]/members/[mid]/reissue   POST
-/api/admin/rooms/[id]/matches           GET
+/api/admin/rooms/[id]/matches           GET   POST
+/api/admin/rooms/[id]/matches/[matchId]/cancel   POST
 /api/admin/rooms/[id]/standings         GET
 ```
 
@@ -202,14 +203,17 @@ These are the calls the previous session made that the next session should
    isn't wired to a serializer); the coding page's `lastTurn` tab data;
    the watch page's obstacles / items / timeline-events / commentary /
    state-gallery; the rooms page's "your schedule" + announcements; the
-   admin account-action modals (invite / disable / reset); and the
-   remaining admin **room standings** page, the matches-page bracket
-   views, and the admin write-action modals. The system **users**
-   (PR #14), **rooms** (PR #15), **audit** (PR #16) pages and the room
-   **overview** (PR #16) + **members** (PR #17) + **matches LIST**
-   (PR #18) + **settings** (PR #19) pages are wired to `/api/admin/*`.
-   Note: room detail/settings is **SYSTEM_ADMIN-only** by product
-   decision (2026-05-23) — see ROADMAP §2 Milestone D.
+   matches-page **bracket / round-robin** views and its **create-match**
+   modal (hardcoded player chips); and the remaining admin **room
+   standings** page. The system **users** (PR #14), **rooms** (PR #15),
+   **audit** (PR #16) pages and the room **overview** (PR #16) +
+   **members** (PR #17) + **matches LIST** (PR #18) + **settings**
+   (PR #19) pages are wired to `/api/admin/*`. **Admin write actions are
+   now fully wired**: room members issue/reissue/disable (PR #20), system
+   rooms create/delete/archive·restore + system users
+   invite/disable/reset (PR #21), and match-cancel (PR #22). Note: room
+   detail/settings is **SYSTEM_ADMIN-only** by product decision
+   (2026-05-23) — see ROADMAP §2 Milestone D.
 4. **TODOs flagged in routes:**
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
      future `InviteCode` model (schema change required)
