@@ -13,52 +13,47 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #25 — feat(admin): wire create-match modal to a real member picker + POST
+- **PR**: #26 — feat(admin): wire round-robin (head-to-head) view to real match data
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **`src/app/admin/rooms/[roomId]/matches/page.tsx` create-match modal
-  wired** (was fully mock — hardcoded chips + a no-op button):
-  - Opening the modal fetches the room roster (`GET
-    /api/admin/rooms/:id/members?status=ACTIVE`, map `.user`). The
-    "対象プレイヤー" box now shows real selected chips (× to remove) and the
-    text input filters the roster into a suggestion dropdown (click to add).
-  - On 発行, builds the per-mode payload and `POST`s
-    `/api/admin/rooms/:id/matches`: MANUAL → `{ player1Id, player2Id,
-    startDeadline?, isPublicWatch }` (exactly 2 players); RANDOM →
-    `{ playerIds, count, isPublicWatch }` (count = ⌊n/2⌋); ROUND_ROBIN /
-    TOURNAMENT → `{ playerIds, isPublicWatch }`. On success it reloads the
-    match list and closes.
-  - 自動公開観戦 select → `isPublicWatch` (非公開→false, else true); 開始期限
-    is bound and only enabled/sent for MANUAL (the endpoint only reads it
-    there). The プレビュー 生成件数 / 所要時間 / 公開設定 are now derived from
-    the live selection + mode. Submit is disabled until the selection is
-    valid (2 for MANUAL, ≥2 otherwise) with a 発行中… state + inline error.
-  - Removed the 備考 field — the create endpoint has no note param, so a
-    silently-discarded input was worse than dropping it. Extracted a
-    `toMatchRow` mapper reused by the mount fetch and the post-create reload.
+- **`RoundRobinView` on `src/app/admin/rooms/[roomId]/matches/page.tsx`
+  wired** (was hardcoded players/matrix/summary):
+  - Builds the roster from the loaded match list, a head-to-head matrix,
+    and a per-player W/L/D summary in a single `useMemo` over `matches`.
+    Cells map status → `W/L/D` (FINISHED, from the row player's
+    perspective), `live` (BATTLING/CODING), or `pending` (no match yet /
+    WAITING). Each decisive/live cell links to the real `/watch/:matchId`.
+  - Players are ordered by wins → win-rate → name; the summary's 👑 marks
+    the top finisher. Added an empty state and made the summary grid +
+    header count adapt to the actual roster size (was fixed at 6).
+  - Required adding `p1Id` / `p2Id` to the page's `Match` row type (set in
+    `toMatchRow`) so the matrix can key on player identity, not names.
+- **`TournamentView` intentionally left on mock.** A faithful bracket needs
+  match-to-match advancement linkage (which slot a winner feeds) that the
+  schema doesn't model — `Match.round` only groups matches into rounds. So
+  the bracket tree can't be reconstructed without a schema change; flagged
+  below as a decision.
 - `tsc` / `lint` / `build` clean; 27 tests still pass.
 - **Not verified in a browser** (headless container): data wiring, types,
-  and build are verified, but the modal/suggestions/submit need a manual
-  pass.
+  and build are verified; the rendered matrix needs a manual pass.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Manual browser pass** on the recently-wired pages that can't be
-   visually confirmed in this headless container: the Blockly editor
-   (PR #23), the standings page (PR #24), and this create-match modal
-   (PR #25). All are data/build-verified only.
-2. **Coding `lastTurn` tab real data** (Milestone A). Surface prior-turn
-   perception from the simulator or add `/api/match/:id/lastTurn`; the tab
-   still renders `MOCK_LAST_TURN`. **Needs a product call** on the source
-   (the match simulates in one shot, so "last turn" during coding is
-   undefined without a turn-by-turn loop).
-3. **Bracket / round-robin views** on the matches page are still mock
-   (`TournamentView` / `RoundRobinView` render hardcoded data); wire them
-   from the real match list, or descope to post-v0.2.
+1. **Manual browser pass** on the data-wired-but-unviewed pages: Blockly
+   editor (#23), standings (#24), create-match modal (#25), round-robin
+   view (#26).
+2. **Tournament bracket — decide the data model.** To wire `TournamentView`
+   faithfully, add bracket-linkage to the schema (e.g. `Match.parentMatchId`
+   / `nextMatchSlot`) so winners advance into known slots; otherwise descope
+   the bracket tree to post-v0.2 and show a simpler round-grouped list.
+   **Needs a product/schema call.**
+3. **Coding `lastTurn` tab real data** (Milestone A) — still `MOCK_LAST_TURN`.
+   **Needs a product call**: the match simulates in one shot, so "last turn"
+   during coding is undefined without a turn-by-turn loop.
 
 ### Deferred / out of scope right now
 
@@ -94,6 +89,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #25** (merged) — feat(admin): wired the matches-page create-match
+  modal to a real member picker + per-mode `POST …/matches` (roster fetch,
+  search/add/remove chips, preview counts); dropped the unbacked 備考 field.
 - **PR #24** (merged) — feat(admin): enriched `/api/admin/rooms/:id/standings`
   (per-player avg dmg dealt/taken, avg turns, recent form, recentMatches +
   room meta + summary/end-reason counts) and wired the room standings page
