@@ -13,25 +13,46 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #28 — feat(announcements): room announcements vertical slice (admin CRUD + learner API/UI wiring)
-- **Branch**: `codex/v0.2-announcements`
+- **PR**: #32 — test(admin): route tests for matches POST + users PATCH
+- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- Added admin announcements APIs: `GET/POST /api/admin/rooms/:id/announcements` and `PATCH/DELETE /api/admin/rooms/:id/announcements/:announcementId` with admin/self-room authorization, pinned-first ordering, and author name enrichment.
-- Added learner API `GET /api/rooms/:roomNumber/announcements` with the same access policy as room top endpoint and pinned-first ordering.
-- Added admin page `src/app/admin/rooms/[roomId]/announcements/page.tsx` (list/create/pin-toggle/delete, loading/empty/error/busy states).
-- Added "お知らせ" item to all room-admin `ROOM_NAV` copies (overview/members/matches/standings/settings).
-- Rewired learner room page announcements block from mock constant to real API fetch; left "あなたの予定" schedule mock untouched (out of scope).
-- `tsc` / `lint` / `test` / `build` all succeeded in container. Browser verification is still not possible in this environment.
+- **More API route-handler tests** (building on the `@`-alias harness from
+  #30), covering the admin **write** surface:
+  - **matches `POST`** (9 cases): 401 / 403 non-admin / 403 ROOM_ADMIN
+    non-owner (short-circuits before room load) / 404 missing room / 400
+    unknown mode / MANUAL → 1 `match.create` + `MATCH_CREATE` audit / RANDOM
+    `<2` players → 400 / ROUND_ROBIN → n·(n-1)/2 creates / TOURNAMENT →
+    ⌊n/2⌋ first-round creates tagged `round: 1`.
+  - **users `PATCH`** (7 cases): 401 / 403 system-admin-only / 404 / 400
+    self-change guard / disable → `USER_DISABLE` / re-enable → `USER_ENABLE`
+    / no audit when only `displayName` changes.
+- `npm test` **53 passing** (was 37); `tsc` / `lint` / `build` clean.
+
+### Parallel work (Codex)
+
+- **Codex** is building the **room announcements feature** on branch
+  `codex/v0.2-announcements` — see `docs/CODEX_TASK_announcements.md`.
+  Scope: admin CRUD API + admin page + wiring the student rooms page's
+  お知らせ section (the `ANNOUNCEMENT` model already exists). The student
+  rooms page and each room page's `ROOM_NAV` are shared surfaces — rebase
+  carefully. Claude should avoid those if possible while Codex is active.
 
 ### Next 1–3 PRs (recommended order)
 
-1. Manual browser pass for announcements UX (admin create/pin/delete and learner room rendering) in a real browser.
-2. Decide and implement data source for room "あなたの予定" schedule block (still mock by design).
-3. Decide tournament bracket schema linkage (`parentMatchId`/slot model) or descope bracket tree from v0.2.
+1. **Manual browser pass** on the data-wired-but-unviewed pages: Blockly
+   editor (#23), standings (#24), create-match modal (#25), round-robin
+   (#26), watch page post-gallery (#27), tournament round list (#29).
+2. **Remaining route tests** if desired — members issue/reissue/disable,
+   users invite / force-password-reset, rooms create/delete/archive — to
+   complete the admin-write test surface.
+3. **Coding `lastTurn` tab real data** (Milestone A) — still `MOCK_LAST_TURN`.
+   **Needs a product call**: the match simulates in one shot, so "last turn"
+   during coding is undefined without a turn-by-turn loop. (Real bracket
+   *tree* remains an optional schema call — see PR #29 notes.)
 
 ### Deferred / out of scope right now
 
@@ -47,7 +68,14 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
-- **PR**: #27 (open) — chore(watch): drop the dev-only state-gallery showcase
+- **PR #30** (merged) — test(admin): first route-handler tests (match-cancel
+  7, standings 3) + a Vitest `@`→`src` alias so routes can be imported. 37 tests.
+- **PR #29** (merged) — feat(admin): wired `TournamentView` as a round-grouped
+  real-match list (per `Match.round` columns of `BracketMatch` cards); a true
+  bracket tree still needs match-advancement schema linkage.
+- **PR #27** (merged) — chore(watch): removed the dev-only state-variations
+  gallery (+ its 5 helpers, ~341 lines) from the watch page. Viewer
+  count / commentary left as placeholders pending real sources.
 - **PR #26** (merged) — feat(admin): wired `RoundRobinView` (head-to-head
   matrix + W/L/D summary) to real match data; `TournamentView` left on mock
   pending bracket-linkage schema.
