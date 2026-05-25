@@ -13,10 +13,10 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: TBD — fix(nav): audit and harden screen transitions
+- **PR**: #55 — fix(nav): audit and harden screen transitions
 - **Branch**: `codex/v0.2-nav-audit`
 - **Date**: 2026-05-25
-- **Status**: local verification green; PR pending
+- **Status**: open, awaiting CI
 
 ### What changed
 
