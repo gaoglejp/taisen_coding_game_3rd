@@ -217,17 +217,19 @@ These are the calls the previous session made that the next session should
    matches list, top-5 standings, and "your record" are wired to
    `/api/rooms/:n/matches` + `/standings` (PR #12). The coding page now
    submits a **real strategy payload** — Blockly is wired to a serializer
-   (PR #23, see decision #10). Still on mocks: the coding page's
-   `lastTurn` tab data;
-   the watch page's obstacles / items / commentary feed
-   (placeholder); viewer count + timeline events are now real-data via socket presence and turn/replay-derived ticks (PR TBD).
-   watch-page dev state-gallery was removed in PR #27. The rooms page's
-   "your schedule" is now API-derived via matches+me (PR #TBD, 暫定定義: own active matches by `codingDeadlineAt`); announcements are now API-wired (PR #28); and the
-   matches-page **tournament bracket** view (`TournamentView`) — it needs
-   match-to-match advancement linkage the schema lacks, so it's blocked on
-   a schema call. The create-match modal (PR #25) and the **round-robin /
-   head-to-head** view (PR #26, `RoundRobinView`) are now wired to real
-   match data. The system **users** (PR #14),
+   (PR #23, see decision #10). Still on mocks / placeholders: the coding
+   page's `lastTurn` tab; the watch page's obstacles / items / commentary
+   feed. The watch page's **viewer count + timeline** are now real-data
+   (socket presence + turn/replay-derived ticks, PR #34); the dev
+   state-gallery was removed (PR #27). The rooms page's **"your schedule"**
+   is API-derived from matches+me (PR #44, interim definition: own active
+   matches by `codingDeadlineAt`), and **announcements** are API-wired
+   (PR #28/#31). The matches-page **tournament view** (`TournamentView`) is a
+   round-grouped real-match list (PR #29) — a true bracket *tree* still needs
+   match-to-match advancement linkage the schema lacks. The create-match
+   modal (PR #25) and the **round-robin / head-to-head** view (PR #26,
+   `RoundRobinView`) are wired to real match data. The system **users**
+   (PR #14),
    **rooms** (PR #15), **audit** (PR #16) pages and the room
    **overview** (PR #16) + **members** (PR #17) + **matches LIST** (PR #18)
    + **settings** (PR #19) + **standings** (PR #24, enriched endpoint with
@@ -244,18 +246,23 @@ These are the calls the previous session made that the next session should
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **Test coverage is growing (128 cases).** Vitest is wired up (PR #10).
-   Unit tests: `src/lib/match-simulator.ts` (13, incl. `maxTurns` options wiring + `normalizeMaxTurns`),
-   `src/lib/auth.ts` (15,
-   PR #13), `src/lib/strategy-blocks.ts` (3, jsdom — Blockly→Strategy
-   serializer). Route-handler tests cover the admin + player read surfaces: cancel +
-   standings (PR #30), matches POST + users PATCH (PR #32), members
-   issue/disable/reissue + users invite/force-reset (PR #36), rooms
-   create/delete/archive·restore + the activity feed (PR #38) —
-   `vitest.config.ts` has an `@`→`src` alias so any route can be imported +
-   tested by mocking `@/lib/auth` / `@/lib/db` / `@/lib/audit`. Still
-   missing: Playwright end-to-end coverage of the pages.
-   Player read API route tests are now covered for `/api/rooms/:roomNumber`, `/matches`, `/standings`, `/api/me/stats`, `/api/me/matches` (PR #TBD).
+5. **Test coverage is growing (143 cases).** Vitest is wired up (PR #10).
+   Unit tests: `src/lib/match-simulator.ts` (incl. `maxTurns` options +
+   `normalizeMaxTurns`), `src/lib/auth.ts` (PR #13),
+   `src/lib/strategy-blocks.ts` (jsdom — Blockly→Strategy serializer),
+   `src/lib/coding-timer.ts` (PR #42), `src/lib/room-schedule.ts` (PR #44).
+   Route-handler tests now cover the **whole API surface** by mocking
+   `@/lib/auth` / `@/lib/db` / `@/lib/audit` (a `vitest.config.ts` `@`→`src`
+   alias makes routes importable):
+   - admin: cancel + standings (PR #30), matches POST + users PATCH (PR #32),
+     members issue/disable/reissue + users invite/force-reset (PR #36),
+     rooms create/delete/archive·restore + activity feed (PR #38);
+   - player read: `rooms/:n` + matches/standings, `me/stats`, `me/matches`
+     (PR #46);
+   - match read: `match/:id/{public,state,result,replay}` (PR #48).
+   Still missing: **Playwright end-to-end** coverage of the pages
+   (Scope-A brief in `docs/CODEX_TASK_e2e_smoke.md`; manual loop in
+   `docs/TESTPLAY.md`).
 6. **Ruleset simulation note updated.** PR #19 left `rulePreset` as
    round-trip but simulator-inert; PR #39 wires `rulePreset.maxTurns` into
    live `simulate(...)` runs (`coding_lock` → `runMatch`) with defensive JSON
