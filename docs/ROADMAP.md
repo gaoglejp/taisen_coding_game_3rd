@@ -73,10 +73,10 @@ simulation reflects them.
 | Watch page live board / panels | ✅ | PR #9 |
 | Watch header (room / players) | ✅ | PR #9 |
 | Obstacles / items on board | ⬜ | Depends on simulator modelling them (post-v0.2? **TBD**) |
-| Timeline event ticks | ✅ | PR TBD — derived from `turn_event` / replay turns (hit ticks + finish tick), includes empty state |
-| Viewer count (real) | ✅ | PR TBD — Socket.io presence via `join_match` + `disconnecting` room-size broadcast |
+| Timeline event ticks | ✅ | PR #34 — derived from `turn_event` / replay turns (hit ticks + finish tick), includes empty state |
+| Viewer count (real) | ✅ | PR #34 — Socket.io presence via `join_match` + `disconnecting` room-size broadcast |
 | Live commentary feed | ⬜ | No backing feature; likely **post-v0.2** |
-| Remove design-only "state gallery" | ⬜ | Bottom of watch page is a 6-card design showcase; shouldn't ship |
+| Remove design-only "state gallery" | ✅ | PR #27 — removed the 6-card showcase + its helpers from the watch page |
 
 **B is done when** the watch page shows only real data and the design-gallery
 scaffolding is gone.
@@ -102,7 +102,7 @@ scaffolding is gone.
 | System users page | ✅ | PR #14 — `/api/admin/users` (server filter + pagination) |
 | System rooms page | ✅ | PR #15 — `/api/admin/rooms` (server filter + pagination + status counts) |
 | System audit page | ✅ | PR #16 — `/api/admin/audit` (cursor pagination; category/type filtered client-side) |
-| Room overview page | ✅ | PR #16 + #TBD — `/api/admin/rooms/:id` + matches/standings + activity (`/api/admin/rooms/:id/activity`, AuditLog由来). |
+| Room overview page | ✅ | PR #16 + #37 — `/api/admin/rooms/:id` + matches/standings + activity (`/api/admin/rooms/:id/activity`, AuditLog由来). |
 | Room members page | ✅ | PR #17 — `/api/admin/rooms/:id/members` + standings for W/L/D |
 | Room matches page (LIST) | ✅ | PR #18 — `/api/admin/rooms/:id/matches`; bracket views still mock |
 | Room standings page | ✅ | PR #24 — enriched `/api/admin/rooms/:id/standings` (avg dmg dealt/taken, avg turns, recent form, summary + end-reason counts) + wired the page (table, drawer, KPIs, donut, period filter) |
