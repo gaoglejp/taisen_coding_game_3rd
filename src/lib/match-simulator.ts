@@ -91,6 +91,8 @@ export interface Strategy {
 export const GRID_SIZE = 10;
 export const MAX_TURNS = 20;
 export const INITIAL_HP = 100;
+const MIN_TURNS = 1;
+const MAX_TURNS_LIMIT = 200;
 const SHOOT_RANGE = 3;
 const SHOOT_DAMAGE = 15;
 const SCAN_RANGE = 3;
@@ -202,8 +204,10 @@ function logLine(
 
 export function simulate(
   strategy1: Strategy | null | undefined,
-  strategy2: Strategy | null | undefined
+  strategy2: Strategy | null | undefined,
+  options?: { maxTurns?: number }
 ): SimulationResult {
+  const maxTurns = normalizeMaxTurns(options?.maxTurns);
   const p1: PlayerState = { x: 0, y: 0, dir: "E", hp: INITIAL_HP };
   const p2: PlayerState = { x: GRID_SIZE - 1, y: GRID_SIZE - 1, dir: "W", hp: INITIAL_HP };
   let perception1: Perception = { scan_detected: false, damaged: 0, moved: false };
@@ -212,7 +216,7 @@ export function simulate(
   const turns: TurnSnapshot[] = [];
   let endReason: "HP_ZERO" | "TIMEOUT" = "TIMEOUT";
 
-  for (let turn = 1; turn <= MAX_TURNS; turn++) {
+  for (let turn = 1; turn <= maxTurns; turn++) {
     const action1 = chooseAction(strategy1, perception1);
     const action2 = chooseAction(strategy2, perception2);
 
@@ -307,4 +311,12 @@ export function simulate(
     finalHp: { p1: p1.hp, p2: p2.hp },
     totalTurns: turns.length,
   };
+}
+
+export function normalizeMaxTurns(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return MAX_TURNS;
+  const integer = Math.trunc(value);
+  if (integer < MIN_TURNS) return MIN_TURNS;
+  if (integer > MAX_TURNS_LIMIT) return MAX_TURNS_LIMIT;
+  return integer;
 }

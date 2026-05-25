@@ -39,14 +39,26 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function resolveMaxTurns(rulePreset: unknown): number | undefined {
+  if (!rulePreset || typeof rulePreset !== "object" || Array.isArray(rulePreset)) return undefined;
+  const maxTurns = (rulePreset as { maxTurns?: unknown }).maxTurns;
+  if (typeof maxTurns === "number" && Number.isFinite(maxTurns)) return maxTurns;
+  return undefined;
+}
+
 async function runMatch(
   matchId: string,
   player1Id: string | null,
   player2Id: string | null,
   strategy1: unknown,
-  strategy2: unknown
+  strategy2: unknown,
+  rulePreset?: unknown
 ): Promise<void> {
-  const result = simulate(strategy1 as Strategy, strategy2 as Strategy);
+  const maxTurns = resolveMaxTurns(rulePreset);
+  const result =
+    maxTurns === undefined
+      ? simulate(strategy1 as Strategy, strategy2 as Strategy)
+      : simulate(strategy1 as Strategy, strategy2 as Strategy, { maxTurns });
 
   for (const snapshot of result.turns) {
     // Emit before sleeping so a late-joining client doesn't desync; the
@@ -197,10 +209,18 @@ app.prepare().then(() => {
               player2Id: true,
               strategy1: true,
               strategy2: true,
+              room: { select: { rulePreset: true } },
             },
           });
           if (fresh) {
-            runMatch(matchId, fresh.player1Id, fresh.player2Id, fresh.strategy1, fresh.strategy2).catch(
+            runMatch(
+              matchId,
+              fresh.player1Id,
+              fresh.player2Id,
+              fresh.strategy1,
+              fresh.strategy2,
+              fresh.room?.rulePreset
+            ).catch(
               (err) => console.error(`Match ${matchId} simulation failed:`, err)
             );
           }

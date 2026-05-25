@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { simulate, MAX_TURNS, INITIAL_HP, type Strategy } from "./match-simulator";
+import { simulate, normalizeMaxTurns, MAX_TURNS, INITIAL_HP, type Strategy } from "./match-simulator";
 
 const waitOnly: Strategy = { fallbackActions: [{ type: "WAIT" }] };
 const alwaysMove: Strategy = { fallbackActions: [{ type: "MOVE_FORWARD" }] };
@@ -101,5 +101,32 @@ describe("simulate", () => {
       expect(snap.p1).toMatchObject({ hp: expect.any(Number), x: expect.any(Number), y: expect.any(Number) });
       expect(snap.logs).toHaveLength(2);
     });
+  });
+
+  it("uses custom maxTurns when provided", () => {
+    const result = simulate(waitOnly, waitOnly, { maxTurns: 3 });
+    expect(result.totalTurns).toBe(3);
+    expect(result.endReason).toBe("TIMEOUT");
+  });
+
+  it("keeps default maxTurns when option is omitted", () => {
+    const result = simulate(waitOnly, waitOnly);
+    expect(result.totalTurns).toBe(MAX_TURNS);
+  });
+});
+
+describe("normalizeMaxTurns", () => {
+  it("returns default MAX_TURNS for undefined, null, or non-finite values", () => {
+    expect(normalizeMaxTurns(undefined)).toBe(MAX_TURNS);
+    expect(normalizeMaxTurns(null)).toBe(MAX_TURNS);
+    expect(normalizeMaxTurns(Number.NaN)).toBe(MAX_TURNS);
+    expect(normalizeMaxTurns(Number.POSITIVE_INFINITY)).toBe(MAX_TURNS);
+  });
+
+  it("clamps to supported range and truncates decimals", () => {
+    expect(normalizeMaxTurns(0)).toBe(1);
+    expect(normalizeMaxTurns(-10)).toBe(1);
+    expect(normalizeMaxTurns(3.9)).toBe(3);
+    expect(normalizeMaxTurns(201)).toBe(200);
   });
 });
