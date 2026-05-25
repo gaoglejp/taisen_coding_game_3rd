@@ -13,40 +13,68 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #TBD — feat(watch): spectator real-data (viewer count + timeline)
-- **Branch**: `codex/v0.2-spectator-realdata`
+- **PR**: #36 — test(admin): member + account write-route tests
+- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- `server.ts` now emits `viewer_count` on `join_match` and recalculates counts on `disconnecting` for each `match:*` room (single-process presence tracking).
-- `src/app/watch/[matchId]/page.tsx` now subscribes to `viewer_count` and renders real viewer counts (fabricated delta removed).
-- Watch timeline no longer uses `TIMELINE_EVENTS` mock data; it derives hit ticks from `turn_event` / replay turns and appends a finish tick from `match_result`/replay result.
-- Finished matches now bootstrap timeline data from `GET /api/match/:id/replay` when needed, and timeline has an explicit empty state.
+- **Route-handler tests for the member + account write surface** (builds on
+  the `@`-alias harness from #30):
+  - **members `POST`** (7): auth/ownership, 404 room, 400 no displayName,
+    single issue (user + membership + `MEMBER_ISSUE`), bulk issue.
+  - **members `[mid]` `PATCH`** (5): auth/ownership, 404, disable →
+    `MEMBER_DISABLE`.
+  - **members `[mid]/reissue` `POST`** (3): auth, 404, fresh code +
+    `issueCodeUsed=false` + user→PENDING + `MEMBER_REISSUE`.
+  - **users `invite` `POST`** (5): 401 / 403 system-admin-only / 400 no
+    email / 409 existing email / success (PENDING user + invite link +
+    `USER_INVITE`).
+  - **users `[id]/force-password-reset` `POST`** (4): 401/403/404, success
+    (clears `passwordHash`, reset link, `USER_FORCE_PASSWORD_RESET`).
+- `npm test` **77 passing** (was 53); `tsc` / `lint` / `build` clean.
 
-### Parallel work (Claude)
+### Parallel work (Codex)
 
-- Claude branch is focused on route-handler test expansion and docs updates; conflict risk remains low in watch/server surfaces.
+- **Codex** is on the **room overview activity feed** (audit-derived) on
+  `codex/v0.2-room-activity` — see `docs/CODEX_TASK_room_activity.md`
+  (new `GET /api/admin/rooms/:id/activity` + overview page wiring). It does
+  not touch route bodies; this PR adds test files only — no overlap.
+- Merged Codex work: announcements (#31), spectator real-data (#34).
 
 ### Next 1–3 PRs (recommended order)
 
-1. Manual browser pass: verify 2-tab spectator join/leave updates `viewer_count` and hit events increase timeline in real time.
-2. If desired, add pure-function vitest coverage for timeline derivation and server-side room-count math helpers.
-3. Continue Milestone A/C leftovers (`coding` last-turn data source and room schedule source decision).
+1. **Manual browser pass** on the data-wired-but-unviewed pages (#23–#34):
+   Blockly editor, standings, create-match, round-robin/tournament views,
+   watch page (viewer count via 2 tabs + timeline).
+2. **Remaining admin-write route tests**: rooms create/delete/archive·restore
+   — to fully complete the admin-write test surface.
+3. **Decision-gated** items await product/schema calls: coding `lastTurn`
+   source, "your schedule" source, true bracket-tree linkage, 2FA/email.
 
 ### Deferred / out of scope right now
 
-- Commentary feed remains placeholder (post-v0.2).
-- Obstacles/items remain simulator-out-of-scope (post-v0.2).
+- Commentary feed (watch) — placeholder, post-v0.2 (no backing system).
+- Obstacles / items in the simulator — post-v0.2.
+- Coding `lastTurn` tab — needs a product call (one-shot simulation).
+- "Your schedule" (rooms page) — needs a defined source.
 
 ### Open questions / handoff notes
 
-- Browser behavior is not validated in this container; manual verification required on local dev server.
+- Browser behavior isn't validated in this headless container; the wired
+  pages need a manual pass on a local dev server.
+- `docs/ROADMAP.md` remains a draft pending product confirmation.
 
 ## History
 
-- **PR #32** (open) — test(admin): matches POST + users PATCH route tests; suite to 53; lint/type/build clean.
+- **PR #34** (merged) — feat(watch): spectator real-data — Socket.io
+  presence `viewer_count` (join/disconnecting) + timeline derived from
+  `turn_event`/replay; fabricated delta removed. (Codex)
+- **PR #32** (merged) — test(admin): matches POST + users PATCH route tests;
+  suite to 53.
+- **PR #31** (merged) — feat: room announcements (admin CRUD API + admin
+  page + student rooms-page wiring; `Announcement` model). (Codex)
 - **PR #30** (merged) — test(admin): first route-handler tests (match-cancel
   7, standings 3) + a Vitest `@`→`src` alias so routes can be imported. 37 tests.
 - **PR #29** (merged) — feat(admin): wired `TournamentView` as a round-grouped
