@@ -2,6 +2,8 @@
 
 - **PR**: #TBD — test(player): add route-handler tests for player read APIs
 - **Branch**: `codex/v0.2-player-route-tests`
+- **PR**: #TBD — test(match-api): add route-handler tests for `/api/match/[matchId]/*` read routes
+- **Branch**: `codex/v0.2-match-route-tests`
 - **Date**: 2026-05-25
 - **Status**: open, awaiting CI
 
@@ -34,6 +36,32 @@
 ## History
 
 - **PR #44** (merged) — feat(rooms): wire 「あなたの予定」 to real match data (暫定定義)。
+- `/api/match/[matchId]/public` / `state` / `result` / `replay` の route-handler テストを新規追加（計 15 ケース）。
+- 共通観点の 401（無セッション）/ 404（マッチ無し）を各対象で検証。
+- `state` / `replay` でアクセス制御（参加者・管理者・非許可ユーザー）を検証。
+- `result` で合成 `replayData.turns` を用いた集計（与ダメ=相手 `damaged` 合計、被ダメ、最終HP、命中率、firstDamage、HPタイムライン）を厳密に検証。
+
+### Parallel work (Claude)
+
+- Claude 側は別ブランチで実装作業継続中。本PRは route test 追加のみで実装本体は未変更。
+
+### Next 1–3 PRs (recommended order)
+
+1. Product/設計判断が必要な backlog（InviteCode / 2FA / メール確認 / coding `lastTurn`）の優先度整理。
+2. Playwright E2E 基盤（CI browser + DB レーン）検討。
+3. 依存整理（未使用 `next-auth` の削除）可否判断。
+
+### Deferred / out of scope right now
+
+- API 実装本体 (`route.ts`) の変更。
+- admin 系・room/me 系 route test の追加（既存で網羅済み）。
+
+### Open questions / handoff notes
+
+- なし（今回の追加は実装現状の挙動追従テスト）。
+
+## History
+- **#TBD — feat(rooms): wire 「あなたの予定」 to real match data (暫定定義)** — moved to history on 2026-05-25.
 - **#40 — feat(coding): wire countdown timer to `codingDeadlineAt`** — moved to history on 2026-05-25.
 - **PR #39** (open) — feat(simulator): room `rulePreset.maxTurns` now applies to live `simulate(...)` runs via `coding_lock`; added simulator option + normalization tests.
 - **PR #38** (open) — test(admin): rooms write routes + activity feed route tests; suite to 100, `tsc`/`lint`/`build` clean. (Claude)

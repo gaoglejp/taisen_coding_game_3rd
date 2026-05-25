@@ -248,7 +248,7 @@ These are the calls the previous session made that the next session should
    Unit tests: `src/lib/match-simulator.ts` (13, incl. `maxTurns` options wiring + `normalizeMaxTurns`),
    `src/lib/auth.ts` (15,
    PR #13), `src/lib/strategy-blocks.ts` (3, jsdom — Blockly→Strategy
-   serializer). Route-handler tests cover the admin surface: cancel +
+   serializer). Route-handler tests cover the admin + player read surfaces: cancel +
    standings (PR #30), matches POST + users PATCH (PR #32), members
    issue/disable/reissue + users invite/force-reset (PR #36), rooms
    create/delete/archive·restore + the activity feed (PR #38) —
