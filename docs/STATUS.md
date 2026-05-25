@@ -13,58 +13,44 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #38 — test(admin): rooms write routes + activity feed route tests
-- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
+- **PR**: #39 — feat(simulator): wire room `rulePreset.maxTurns` into match simulation
+- **Branch**: `codex/v0.2-ruleset-maxturns`
 - **Date**: 2026-05-25
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Completed the admin-write route test surface + tested the new activity
-  feed** (builds on the `@`-alias harness from #30):
-  - **rooms `POST`** (5): 401 / 403 system-admin-only / 400 name·kind / 400
-    invalid kind / create + `ROOM_CREATE`.
-  - **rooms `[id]` DELETE + PATCH** (7): auth / 404, soft-delete
-    (`DELETED` + `ROOM_DELETE`), field update (`ROOM_UPDATE`).
-  - **rooms `[id]/archive` POST** (5): auth / 404, archive → `ARCHIVED` +
-    `ROOM_ARCHIVE`, `/restore`-suffixed path → `ACTIVE` + `ROOM_RESTORE`.
-  - **rooms `[id]/activity` GET** (6, Codex's #37 endpoint): auth /
-    ROOM_ADMIN own-room / 404 / actor-name resolution / limit clamp to 50.
-- `npm test` **100 passing** (was 77); `tsc` / `lint` / `build` clean.
+- `simulate()` now accepts an optional third argument `options?: { maxTurns?: number }` (backward compatible), and uses `normalizeMaxTurns` to clamp/validate turn caps (`1..200`, default `MAX_TURNS=20`).
+- `server.ts` now reads `room.rulePreset` defensively at `coding_lock` start, resolves `maxTurns` only when numeric, and passes it into `simulate(...)`. Socket/boot wiring is unchanged.
+- Expanded simulator tests to cover custom `maxTurns`, default behavior when omitted, and pure-function tests for `normalizeMaxTurns` invalid/clamped inputs.
+- Scope note: only `maxTurns` is now active; other ruleset fields (`ap`, `obstacles`, `items`, etc.) remain post-v0.2.
 
-### Parallel work (Codex)
+### Parallel work (Claude)
 
-- Merged Codex work: announcements (#31), spectator real-data (#34), room
-  overview activity feed (#37). No Codex task currently in flight — next
-  brief to be prepared on request.
+- Claude PR #38 (admin route tests) remains the latest merged/open stream outside this branch.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Manual browser pass** on the data-wired-but-unviewed pages (#23–#37):
-   Blockly editor, standings, create-match, round-robin/tournament views,
-   watch page (viewer count via 2 tabs + timeline), room overview activity.
-2. **Decision-gated** items await product/schema calls: coding `lastTurn`
-   source, "your schedule" source, true bracket-tree linkage, 2FA / email
-   confirmation, `next-auth` dependency cleanup.
-3. Optional: Playwright E2E smoke once a browser-capable CI lane exists.
+1. Manual browser pass on already-wired pages (#23–#38) in a GUI-capable environment.
+2. Decision-gated items: coding `lastTurn` source, room "your schedule" source, true bracket-tree linkage, 2FA/email confirmation.
+3. Optional: Playwright smoke once browser-capable CI exists.
 
 ### Deferred / out of scope right now
 
-- Commentary feed (watch) — placeholder, post-v0.2 (no backing system).
-- Obstacles / items in the simulator — post-v0.2.
-- Coding `lastTurn` tab — needs a product call (one-shot simulation).
-- "Your schedule" (rooms page) — needs a defined source.
-- `RoomActivity` model producers remain unused; activity is unified on
-  `AuditLog` (per PR #37).
+- Commentary feed (watch) — placeholder, post-v0.2.
+- Obstacles/items/AP and other advanced ruleset knobs in simulator — post-v0.2 (only `maxTurns` wired now).
+- Coding `lastTurn` tab — product decision needed.
+- "Your schedule" (rooms page) — defined source needed.
+- `RoomActivity` model producers remain unused; activity is unified on `AuditLog` (per PR #37).
 
 ### Open questions / handoff notes
 
-- Browser behavior isn't validated in this headless container; the wired
-  pages need a manual pass on a local dev server.
+- Browser behavior isn't validated in this headless container; wired pages still need manual pass.
 - `docs/ROADMAP.md` remains a draft pending product confirmation.
 
 ## History
 
+- **PR #38** (open) — test(admin): rooms write routes + activity feed route tests; suite to 100, `tsc`/`lint`/`build` clean. (Claude)
 - **PR #37** (merged) — feat(admin): room overview activity feed from the
   audit log (`GET /api/admin/rooms/:id/activity`, own-room guard, limit
   clamp) + overview page wiring; `MOCK_ACTIVITIES` removed. (Codex)

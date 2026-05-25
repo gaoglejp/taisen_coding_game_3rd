@@ -58,6 +58,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started
 | Coding page header (room / opponent) | ✅ | PR #8 |
 | Lock strategy → `match_started` | ✅ | `server.ts` `coding_lock` handler |
 | Turn simulator (server-side) | ✅ | PR #5, `src/lib/match-simulator.ts` |
+| Room `rulePreset.maxTurns` reflected in live simulation | ✅ | PR #39 — `coding_lock` → `runMatch` now passes validated `maxTurns` to `simulate` |
 | Battle replay (live `turn_event`) | ✅ | PR #5 |
 | Result screen (real stats) | ✅ | PR #7 |
 | **Blockly → strategy JSON serializer** | ✅ | PR #23 — real Blockly (v12) editor + `src/lib/strategy-blocks.ts` serializer; coding page submits the live workspace as `Strategy` JSON. Players now run their own strategies. Canvas UX needs manual browser verification. |
@@ -135,7 +136,7 @@ scope is **TBD**.
 
 ---
 
-## 3. Current snapshot (2026-05-23)
+## 3. Current snapshot (2026-05-25)
 
 - **Merged**: PR #4 (CI), #5 (simulator), #6 (stats aggregation), #7 (result
   page + shared docs), #8 (coding header), #9 (watch page), #10 (Vitest),

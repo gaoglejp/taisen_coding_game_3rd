@@ -244,8 +244,9 @@ These are the calls the previous session made that the next session should
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **Test coverage is growing (100 cases).** Vitest is wired up (PR #10).
-   Unit tests: `src/lib/match-simulator.ts` (9), `src/lib/auth.ts` (15,
+5. **Test coverage is growing (104 cases).** Vitest is wired up (PR #10).
+   Unit tests: `src/lib/match-simulator.ts` (13, incl. `maxTurns` options wiring + `normalizeMaxTurns`),
+   `src/lib/auth.ts` (15,
    PR #13), `src/lib/strategy-blocks.ts` (3, jsdom — Blockly→Strategy
    serializer). Route-handler tests cover the admin surface: cancel +
    standings (PR #30), matches POST + users PATCH (PR #32), members
@@ -254,7 +255,12 @@ These are the calls the previous session made that the next session should
    `vitest.config.ts` has an `@`→`src` alias so any route can be imported +
    tested by mocking `@/lib/auth` / `@/lib/db` / `@/lib/audit`. Still
    missing: Playwright end-to-end coverage of the pages.
-6. ~~CI is not set up.~~ **Done.** `.github/workflows/ci.yml` runs lint,
+6. **Ruleset simulation note updated.** PR #19 left `rulePreset` as
+   round-trip but simulator-inert; PR #39 wires `rulePreset.maxTurns` into
+   live `simulate(...)` runs (`coding_lock` → `runMatch`) with defensive JSON
+   parsing. Other ruleset fields (`ap`, `obstacles`, `items`) remain
+   intentionally post-v0.2.
+7. ~~CI is not set up.~~ **Done.** `.github/workflows/ci.yml` runs lint,
    `tsc --noEmit`, and `next build` on every PR (PR #4).
 
 ## 5. How to run
