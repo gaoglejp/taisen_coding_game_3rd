@@ -13,20 +13,32 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #48 — test(match-api): route-handler tests for `/api/match/[matchId]/*` read routes
-- **Branch**: `codex/v0.2-match-route-tests`
+- **PR**: #51 — test(e2e): Playwright Scope-A smoke foundation
+- **Branch**: `codex/v0.2-e2e-smoke`
 - **Date**: 2026-05-25
-- **Status**: merged
+- **Status**: open
 
 ### What changed
 
-- Added route-handler tests for `/api/match/[matchId]/{public,state,result,replay}`:
-  401 (no session) / 404 (no match) on each, access control on `state` /
-  `replay` (participant / admin / disallowed), and `result` replay
-  aggregation (damage dealt = opponent `damaged` summed, taken, final HP,
-  hit rate, first-damage, HP timeline) from synthetic `replayData.turns`.
-- `npm test` **143 passing**; `tsc` / `lint` / `build` clean. This completes
-  handler-level test coverage of the API surface (admin + player + match).
+- Added Playwright E2E Scope A: `@playwright/test`, `playwright.config.ts`
+  (testDir `e2e`, chromium only, `baseURL=http://localhost:3000`,
+  production `npm run start` webServer), `npm run test:e2e`, and
+  `e2e/smoke.spec.ts`.
+- Smoke coverage: `/login` UI login for `sysadmin` / `teacher01` /
+  `taro_student` / `hanako_student` → role-aware dashboard; unauthenticated
+  `/dashboard` redirects to `/login`; `taro_student` can open seeded
+  `/rooms/ROOM-2026-0001`.
+- Added Next 16 `src/proxy.ts` for optimistic protected-page redirects.
+  Fixed two auth/E2E blockers found by the smoke: production localhost cookies
+  are only `secure` for HTTPS app URLs, and logout links no longer prefetch the
+  destructive `/api/auth/logout` route.
+- CI now has an additional `e2e` job with `postgres:16`, Playwright Chromium
+  install, `db:push`, `db:seed`, `build`, `npx playwright test`, and failure
+  artifacts for report/traces.
+- Local verification: `docker compose up -d postgres`, `npm run db:push`,
+  `npm run db:seed`, `npm run build`, `npm run test:e2e` **6 passed**,
+  `npm test` **143 passing**, `npx tsc --noEmit` clean, `npm run lint` clean
+  with the 4 pre-existing warnings noted below.
 
 ### Parallel work (Codex)
 
@@ -34,15 +46,13 @@ When you push, do these three things in `docs/STATUS.md`:
   room activity feed (#37), `rulePreset.maxTurns` → simulator (#40), coding
   countdown → `codingDeadlineAt` (#42), rooms "your schedule" (#44), player
   read-API tests (#46), match read-API tests (#48).
-- **Queued (brief written, not yet implemented):** Playwright E2E smoke
-  (Scope A) — see `docs/CODEX_TASK_e2e_smoke.md`. Final manual verification
-  is Claude/人間 via `docs/TESTPLAY.md`.
+- Current Codex work: Playwright E2E smoke Scope A. Final manual verification
+  remains Claude/人間 via `docs/TESTPLAY.md`.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Playwright E2E smoke (Scope A)** — login/landing smoke + a CI lane with
-   a Postgres service (`docs/CODEX_TASK_e2e_smoke.md`). Then **Scope B**
-   (full coding→lock→battle→result flow).
+1. **Playwright E2E Scope B** — two browser contexts for
+   taro/hanako coding→lock→battle→result, plus watch viewer-count smoke.
 2. **Manual test-play pass** by the spec owner using `docs/TESTPLAY.md`
    (the wired loop has never been run end-to-end in a browser).
 3. **Decision-gated** backlog (only if product/schema calls are made):
@@ -61,13 +71,16 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ### Open questions / handoff notes
 
-- The wired v0.2 loop is unit-tested but **not yet browser-verified
-  end-to-end**; that is the priority (E2E + manual `docs/TESTPLAY.md` pass).
+- Scope A browser smoke is automated and locally green. The full wired v0.2
+  loop still needs **Scope B E2E** and the manual `docs/TESTPLAY.md` pass.
 - `docs/ROADMAP.md` remains a draft pending product confirmation.
 - `npm run lint` carries 4 pre-existing warnings (unrelated to recent diffs).
 
 ## History
 
+- **PR #48** (merged) — test(match-api): route-handler tests for
+  `/api/match/[matchId]/{public,state,result,replay}`; suite to 143 and
+  handler-level API coverage complete. (Codex)
 - **PR #46** (merged) — test(player): route-handler tests for player read
   APIs (`rooms/:n` + matches/standings, `me/stats` aggregation, `me/matches`);
   suite 112 → 128. (Codex)

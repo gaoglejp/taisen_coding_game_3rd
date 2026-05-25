@@ -246,7 +246,7 @@ These are the calls the previous session made that the next session should
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **Test coverage is growing (143 cases).** Vitest is wired up (PR #10).
+5. **Test coverage is growing (143 unit/route cases + Scope-A E2E smoke).** Vitest is wired up (PR #10).
    Unit tests: `src/lib/match-simulator.ts` (incl. `maxTurns` options +
    `normalizeMaxTurns`), `src/lib/auth.ts` (PR #13),
    `src/lib/strategy-blocks.ts` (jsdom — Blockly→Strategy serializer),
@@ -260,9 +260,11 @@ These are the calls the previous session made that the next session should
    - player read: `rooms/:n` + matches/standings, `me/stats`, `me/matches`
      (PR #46);
    - match read: `match/:id/{public,state,result,replay}` (PR #48).
-   Still missing: **Playwright end-to-end** coverage of the pages
-   (Scope-A brief in `docs/CODEX_TASK_e2e_smoke.md`; manual loop in
-   `docs/TESTPLAY.md`).
+   Playwright E2E Scope A is now wired under `e2e/**/*.spec.ts` with
+   `playwright.config.ts`: seed-account login → dashboard role smoke,
+   unauthenticated protected-page redirect to `/login`, and seeded student
+   room-page smoke. Scope B (two browser contexts for coding→lock→battle→
+   result + watch viewer count) remains the next E2E task.
 6. **Ruleset simulation note updated.** PR #19 left `rulePreset` as
    round-trip but simulator-inert; PR #39 wires `rulePreset.maxTurns` into
    live `simulate(...)` runs (`coding_lock` → `runMatch`) with defensive JSON
@@ -280,6 +282,21 @@ npm install                          # postinstall runs `prisma generate`
 npm run db:push && npm run db:seed
 npm run dev                          # http://localhost:3000
 ```
+
+Playwright smoke (Scope A) runs against a production build and requires the
+same Postgres seed data:
+
+```bash
+docker compose up -d postgres
+cp -n .env.example .env
+npm run db:push && npm run db:seed
+npm run build
+npx playwright install --with-deps chromium
+npm run test:e2e
+```
+
+`playwright.config.ts` starts `npm run start` via `webServer` on
+`http://localhost:3000` and reuses an already-running local server outside CI.
 
 Without `.env`, `prisma db push` fails with
 `Error: The datasource.url property is required in your Prisma config file`
