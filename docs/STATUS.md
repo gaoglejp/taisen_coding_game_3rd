@@ -13,38 +13,39 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #TBD — feat(watch): spectator real-data (viewer count + timeline)
-- **Branch**: `codex/v0.2-spectator-realdata`
-- **Date**: 2026-05-24
+- **PR**: #TBD — feat(admin): room overview activity feed real-data
+- **Branch**: `codex/v0.2-room-activity`
+- **Date**: 2026-05-25
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- `server.ts` now emits `viewer_count` on `join_match` and recalculates counts on `disconnecting` for each `match:*` room (single-process presence tracking).
-- `src/app/watch/[matchId]/page.tsx` now subscribes to `viewer_count` and renders real viewer counts (fabricated delta removed).
-- Watch timeline no longer uses `TIMELINE_EVENTS` mock data; it derives hit ticks from `turn_event` / replay turns and appends a finish tick from `match_result`/replay result.
-- Finished matches now bootstrap timeline data from `GET /api/match/:id/replay` when needed, and timeline has an explicit empty state.
+- Added `GET /api/admin/rooms/:id/activity` with `isAdmin` + own-room guard for `ROOM_ADMIN`, room existence check, `limit` (default 12 / max 50), AuditLog query, and actor display-name resolution.
+- Wired `src/app/admin/rooms/[roomId]/page.tsx` activity panel to real API data and removed `MOCK_ACTIVITIES`.
+- Activity UI now formats time from `createdAt` (`HH:MM` for today, `M/D` otherwise), expands action icon mapping for audit actions, and shows an empty state when no events exist.
 
 ### Parallel work (Claude)
 
-- Claude branch is focused on route-handler test expansion and docs updates; conflict risk remains low in watch/server surfaces.
+- Claude branch remains focused on route-handler test expansion and docs updates; no overlap with `server.ts` or member/user route bodies.
 
 ### Next 1–3 PRs (recommended order)
 
-1. Manual browser pass: verify 2-tab spectator join/leave updates `viewer_count` and hit events increase timeline in real time.
-2. If desired, add pure-function vitest coverage for timeline derivation and server-side room-count math helpers.
-3. Continue Milestone A/C leftovers (`coding` last-turn data source and room schedule source decision).
+1. Add route-handler tests for `/api/admin/rooms/:id/activity` (401/403/404/room-admin own-room/limit clamp).
+2. Optionally add pure-function vitest for activity time formatting + icon mapping.
+3. Continue remaining Milestone C/A gaps (`room schedule` source decision and coding `lastTurn` source).
 
 ### Deferred / out of scope right now
 
-- Commentary feed remains placeholder (post-v0.2).
-- Obstacles/items remain simulator-out-of-scope (post-v0.2).
+- `RoomActivity` model producers remain unused; activity is intentionally unified on `AuditLog`.
+- Match start/end timeline-style events are not fabricated when absent in audit logs.
 
 ### Open questions / handoff notes
 
 - Browser behavior is not validated in this container; manual verification required on local dev server.
 
 ## History
+
+- **PR #34** (merged) — feat(watch): spectator real-data (viewer count + timeline).
 
 - **PR #32** (open) — test(admin): matches POST + users PATCH route tests; suite to 53; lint/type/build clean.
 - **PR #30** (merged) — test(admin): first route-handler tests (match-cancel

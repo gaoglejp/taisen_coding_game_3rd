@@ -41,21 +41,30 @@ const RULE_DEFAULTS = {
   codingTimeLimitSec: 300,
 };
 
-// Activity timeline has no API yet (RoomActivity model exists but isn't
-// exposed) — kept as a mock with this note. See docs/ROADMAP.md Milestone D.
-const MOCK_ACTIVITIES = [
-  { id: "a1", type: "MATCH_START", message: "マッチ #42 が開始されました", time: "14:22", relatedId: "m1" },
-  { id: "a2", type: "MEMBER_JOIN", message: "watanabe_r がルームに参加しました", time: "13:50", relatedId: null },
-  { id: "a3", type: "MATCH_END", message: "マッチ #41 が終了 (勝者: tanaka_k)", time: "13:45", relatedId: null },
-  { id: "a4", type: "MATCH_START", message: "マッチ #43 が開始されました", time: "11:30", relatedId: "m2" },
-  { id: "a5", type: "MEMBER_JOIN", message: "ito_m がルームに参加しました", time: "10:00", relatedId: null },
-];
+interface ActivityItem {
+  id: string;
+  action: string;
+  summary: string | null;
+  actorName: string;
+  targetType: string | null;
+  targetId: string | null;
+  createdAt: string;
+}
 
 const ACTIVITY_ICON: Record<string, string> = {
-  MATCH_START: "⚔",
-  MATCH_END: "🏁",
-  MEMBER_JOIN: "👤",
+  MATCH_CREATE: "⚔",
+  MATCH_CANCEL: "🚫",
   MEMBER_ISSUE: "🔑",
+  MEMBER_REISSUE: "🔁",
+  MEMBER_DISABLE: "🚷",
+  ROOM_CREATE: "🆕",
+  ROOM_UPDATE: "📢",
+  ROOM_ARCHIVE: "📦",
+  ROOM_RESTORE: "♻️",
+  ROOM_DELETE: "🗑",
+  USER_INVITE: "✉️",
+  USER_DISABLE: "⛔",
+  USER_FORCE_PASSWORD_RESET: "🔐",
 };
 
 const KIND_CONFIG: Record<string, { label: string; bg: string; color: string }> = {
@@ -77,6 +86,18 @@ function elapsedMin(iso: string | null): string {
   return `${Math.floor(ms / 60000)}分`;
 }
 
+function formatActivityTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) return d.toLocaleTimeString("ja-JP", { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
 function nameOf(p: { username: string; displayName: string | null } | null): string {
   return p?.displayName ?? p?.username ?? "募集中";
 }
@@ -86,6 +107,7 @@ export default function RoomOverviewPage({ params }: { params: Promise<{ roomId:
   const [room, setRoom] = useState<RoomData | null>(null);
   const [activeMatches, setActiveMatches] = useState<ActiveMatch[]>([]);
   const [avgWinRate, setAvgWinRate] = useState<number | null>(null);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -103,14 +125,19 @@ export default function RoomOverviewPage({ params }: { params: Promise<{ roomId:
         setRoom(r);
         // Active matches + standings come from the player endpoints (admins
         // are privileged on them), keyed by roomNumber rather than id.
-        const [matchesRes, standingsRes] = await Promise.allSettled([
+        const [matchesRes, standingsRes, activityRes] = await Promise.allSettled([
           fetch(`/api/rooms/${r.roomNumber}/matches`),
           fetch(`/api/rooms/${r.roomNumber}/standings`),
+          fetch(`/api/admin/rooms/${roomId}/activity`),
         ]);
         if (cancelled) return;
         if (matchesRes.status === "fulfilled" && matchesRes.value.ok) {
           const d = await matchesRes.value.json();
           setActiveMatches(d.matches ?? []);
+        }
+        if (activityRes.status === "fulfilled" && activityRes.value.ok) {
+          const d = await activityRes.value.json();
+          setActivities(d.activities ?? []);
         }
         if (standingsRes.status === "fulfilled" && standingsRes.value.ok) {
           const d = await standingsRes.value.json();
@@ -302,17 +329,19 @@ export default function RoomOverviewPage({ params }: { params: Promise<{ roomId:
             <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: "20px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
               <h2 style={{ fontSize: 15, fontWeight: 700, margin: "0 0 16px", color: "var(--ink)" }}>アクティビティ</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: "0" }}>
-                {MOCK_ACTIVITIES.map((act, i) => (
-                  <div key={act.id} style={{ display: "flex", gap: "12px", paddingBottom: i < MOCK_ACTIVITIES.length - 1 ? "16px" : 0, position: "relative" }}>
-                    {i < MOCK_ACTIVITIES.length - 1 && (
+                {activities.length === 0 ? (
+                  <div style={{ color: "var(--ink-soft)", fontSize: 13 }}>アクティビティはまだありません</div>
+                ) : activities.map((act, i) => (
+                  <div key={act.id} style={{ display: "flex", gap: "12px", paddingBottom: i < activities.length - 1 ? "16px" : 0, position: "relative" }}>
+                    {i < activities.length - 1 && (
                       <div style={{ position: "absolute", left: 15, top: 28, bottom: 0, width: 1, background: "var(--line)" }} />
                     )}
                     <div style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(8,145,178,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, flexShrink: 0, zIndex: 1 }}>
-                      {ACTIVITY_ICON[act.type] ?? "•"}
+                      {ACTIVITY_ICON[act.action] ?? "📝"}
                     </div>
                     <div style={{ flex: 1, paddingTop: 4 }}>
-                      <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.4 }}>{act.message}</div>
-                      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 3, fontFamily: "JetBrains Mono, monospace" }}>{act.time}</div>
+                      <div style={{ fontSize: 13, color: "var(--ink)", lineHeight: 1.4 }}>{act.summary ?? `${act.actorName} が ${act.action} を実行`}</div>
+                      <div style={{ fontSize: 11, color: "var(--ink-soft)", marginTop: 3, fontFamily: "JetBrains Mono, monospace" }}>{formatActivityTime(act.createdAt)}</div>
                     </div>
                   </div>
                 ))}
