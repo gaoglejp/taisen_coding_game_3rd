@@ -1,5 +1,7 @@
 ## Latest
 
+- **PR**: #TBD — test(player): add route-handler tests for player read APIs
+- **Branch**: `codex/v0.2-player-route-tests`
 - **PR**: #TBD — test(match-api): add route-handler tests for `/api/match/[matchId]/*` read routes
 - **Branch**: `codex/v0.2-match-route-tests`
 - **Date**: 2026-05-25
@@ -7,6 +9,33 @@
 
 ### What changed
 
+- プレイヤー向け read API の新規ルートテスト 5 ファイルを追加（`/api/rooms/:roomNumber`, `/matches`, `/standings`, `/api/me/stats`, `/api/me/matches`）。
+- rooms 系で 401 / 404(DELETED) / 403(非メンバー) / 200(メンバー・公開・管理者) のアクセス制御分岐を固定。
+- `/api/me/stats` は合成 `replayData.turns` を使って勝敗・平均ターン・与被ダメ・先制ダメ率・sparkline の集計を検証。
+- `/api/me/matches` は limit クランプ（上限 50）とレスポンス整形（opponent/result）を検証。
+
+### Parallel work (Claude)
+
+- Claude 側の管理系ルートテストとは対象分離（`/api/admin/*` 非対象）で競合なし。
+
+### Next 1–3 PRs (recommended order)
+
+1. 任意追加: `/api/match/[matchId]/{public,state,result,replay}` の read API テスト拡充。
+2. route tests の共通ヘルパ（session/db mock）抽出を検討。
+3. Playwright E2E の最小スモーク導入検討（post-v0.2 でも可）。
+
+### Deferred / out of scope right now
+
+- 実装本体（route.ts）変更。
+- 管理系 `/api/admin/*` テスト追加。
+
+### Open questions / handoff notes
+
+- `npm run lint` は既存 warning 4 件が継続（今回差分起因なし）。
+
+## History
+
+- **PR #44** (merged) — feat(rooms): wire 「あなたの予定」 to real match data (暫定定義)。
 - `/api/match/[matchId]/public` / `state` / `result` / `replay` の route-handler テストを新規追加（計 15 ケース）。
 - 共通観点の 401（無セッション）/ 404（マッチ無し）を各対象で検証。
 - `state` / `replay` でアクセス制御（参加者・管理者・非許可ユーザー）を検証。
