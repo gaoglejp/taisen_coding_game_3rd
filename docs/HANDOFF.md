@@ -178,6 +178,17 @@ These are the calls the previous session made that the next session should
    jsdom env). The socket `coding_lock` handler still accepts an unused
    `blocklyXml`; we now pass the workspace's JSON serialization there for
    future resume/persistence (it is not yet stored).
+11. **`src/proxy.ts` is the Next 16 edge auth guard (optimistic).** It
+   redirects session-cookie-less requests to `/login` for `/dashboard`,
+   `/rooms`, `/match`, `/admin` (PR #51). It only checks cookie *presence* —
+   real validation stays in `getSession` per route/page. **`/watch` is
+   deliberately excluded from the matcher**: public spectating is anonymous
+   (`/api/match/:id/public` is "no auth required", gated by `isPublicWatch` /
+   `watchingPublic`), so do not add `/watch/:path*` back to the matcher.
+   Related PR #51 auth fixes: the session cookie is `secure` only when the
+   app URL is HTTPS (so prod-over-HTTP localhost login works), and the logout
+   `<Link>`s use `prefetch={false}` (prefetch was silently hitting the
+   destructive `/api/auth/logout`).
 
 ## 4. Known unfinished work (in priority order)
 
