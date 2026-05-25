@@ -102,7 +102,7 @@ scaffolding is gone.
 | System users page | ✅ | PR #14 — `/api/admin/users` (server filter + pagination) |
 | System rooms page | ✅ | PR #15 — `/api/admin/rooms` (server filter + pagination + status counts) |
 | System audit page | ✅ | PR #16 — `/api/admin/audit` (cursor pagination; category/type filtered client-side) |
-| Room overview page | ✅ | PR #16 — `/api/admin/rooms/:id` + matches/standings (today-matches & activity still mock) |
+| Room overview page | ✅ | PR #16 + #TBD — `/api/admin/rooms/:id` + matches/standings + activity (`/api/admin/rooms/:id/activity`, AuditLog由来). |
 | Room members page | ✅ | PR #17 — `/api/admin/rooms/:id/members` + standings for W/L/D |
 | Room matches page (LIST) | ✅ | PR #18 — `/api/admin/rooms/:id/matches`; bracket views still mock |
 | Room standings page | ✅ | PR #24 — enriched `/api/admin/rooms/:id/standings` (avg dmg dealt/taken, avg turns, recent form, summary + end-reason counts) + wired the page (table, drawer, KPIs, donut, period filter) |

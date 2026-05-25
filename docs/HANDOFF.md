@@ -80,6 +80,7 @@ All routes use `src/lib/db.ts` (Prisma client) and `src/lib/auth.ts`
 /api/admin/rooms/[id]/matches           GET   POST
 /api/admin/rooms/[id]/matches/[matchId]/cancel   POST
 /api/admin/rooms/[id]/standings         GET
+/api/admin/rooms/[id]/activity          GET
 ```
 
 Note: the spec talked about `/admin/api/*` as a separate namespace; we collapsed
@@ -231,7 +232,8 @@ These are the calls the previous session made that the next session should
    **overview** (PR #16) + **members** (PR #17) + **matches LIST** (PR #18)
    + **settings** (PR #19) + **standings** (PR #24, enriched endpoint with
    avg dmg / turns / recent form + summary) pages are wired to
-   `/api/admin/*`. **Admin write actions are
+   `/api/admin/*`. Room overview activity feed is now real-data via
+   `/api/admin/rooms/:id/activity` (AuditLog-based). **Admin write actions are
    now fully wired**: room members issue/reissue/disable (PR #20), system
    rooms create/delete/archive·restore + system users
    invite/disable/reset (PR #21), and match-cancel (PR #22). Note: room

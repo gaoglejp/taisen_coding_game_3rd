@@ -13,6 +13,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
+- **PR**: #TBD — feat(admin): room overview activity feed real-data
+- **Branch**: `codex/v0.2-room-activity`
+- **Date**: 2026-05-25
 - **PR**: #36 — test(admin): member + account write-route tests
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-24
@@ -20,6 +23,24 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ### What changed
 
+- Added `GET /api/admin/rooms/:id/activity` with `isAdmin` + own-room guard for `ROOM_ADMIN`, room existence check, `limit` (default 12 / max 50), AuditLog query, and actor display-name resolution.
+- Wired `src/app/admin/rooms/[roomId]/page.tsx` activity panel to real API data and removed `MOCK_ACTIVITIES`.
+- Activity UI now formats time from `createdAt` (`HH:MM` for today, `M/D` otherwise), expands action icon mapping for audit actions, and shows an empty state when no events exist.
+
+### Parallel work (Claude)
+
+- Claude branch remains focused on route-handler test expansion and docs updates; no overlap with `server.ts` or member/user route bodies.
+
+### Next 1–3 PRs (recommended order)
+
+1. Add route-handler tests for `/api/admin/rooms/:id/activity` (401/403/404/room-admin own-room/limit clamp).
+2. Optionally add pure-function vitest for activity time formatting + icon mapping.
+3. Continue remaining Milestone C/A gaps (`room schedule` source decision and coding `lastTurn` source).
+
+### Deferred / out of scope right now
+
+- `RoomActivity` model producers remain unused; activity is intentionally unified on `AuditLog`.
+- Match start/end timeline-style events are not fabricated when absent in audit logs.
 - **Route-handler tests for the member + account write surface** (builds on
   the `@`-alias harness from #30):
   - **members `POST`** (7): auth/ownership, 404 room, 400 no displayName,
@@ -68,6 +89,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #34** (merged) — feat(watch): spectator real-data (viewer count + timeline).
+
+- **PR #32** (open) — test(admin): matches POST + users PATCH route tests; suite to 53; lint/type/build clean.
 - **PR #34** (merged) — feat(watch): spectator real-data — Socket.io
   presence `viewer_count` (join/disconnecting) + timeline derived from
   `turn_event`/replay; fabricated delta removed. (Codex)
