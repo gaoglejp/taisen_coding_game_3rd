@@ -13,39 +13,30 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #53 — fix(rooms): add the missing `/rooms` index (dashboard CTA 404)
-- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
+- **PR**: #55 — fix(nav): audit and harden screen transitions
+- **Branch**: `codex/v0.2-nav-audit`
 - **Date**: 2026-05-25
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Bug (found in test play):** the dashboard's "⚔ 対戦ルームに入る" CTA and
-  the empty-state "ルームを探す" link both pointed at `/rooms`, but only
-  `/rooms/[roomNumber]` existed → **404**. (The per-room cards already linked
-  correctly.)
-- **Fix:** added `src/app/rooms/page.tsx` — a room-picker index that lists the
-  user's visible rooms (`/api/rooms/visible`) with `入室する` links to each
-  `/rooms/[roomNumber]`; loading / empty states; `TopbarPaper` chrome. No
-  prototype existed for this index, so it's intentionally minimal and
-  style-consistent (mirrors the dashboard room card).
-- **Note:** the dashboard's `🧩 練習する` → `/practice` is a *separate* dead
-  link (practice mode is unimplemented / out of scope) — flagged, not fixed
-  here.
-- `tsc` / `lint` / `build` clean (`/rooms` route registered); 143 tests
-  unaffected.
-
-### Parallel work (Codex)
-
-- Merged Codex work: announcements (#31), spectator real-data (#34), room
-  activity feed (#37), `rulePreset.maxTurns` → simulator (#40), coding
-  countdown → `codingDeadlineAt` (#42), rooms "your schedule" (#44), player
-  read-API tests (#46), match read-API tests (#48), Playwright E2E Scope-A
-  smoke (#51).
-- **Next Codex task ready:** Playwright E2E **Scope B** — two browser contexts
-  for taro/hanako coding→lock→battle→result + watch viewer-count (the
-  follow-up flagged in `docs/CODEX_TASK_e2e_smoke.md`). Final manual
-  verification remains Claude/人間 via `docs/TESTPLAY.md`.
+- Added `docs/NAV_AUDIT.md` with the `src/app` + `src/components` navigation
+  matrix: 6 broken route/auth landings found, 6 fixed, 0 要判断. Dynamic
+  parameters were checked for roomNumber / roomId / matchId consistency.
+- Fixed known 404s: `/admin/system` now redirects to `/admin/system/rooms`;
+  `/admin` is role-aware; `/admin/system/settings` and `/practice` are minimal
+  準備中 pages using existing chrome.
+- Fixed one additional dead route: dashboard recent-match replay links now use
+  `/watch/[matchId]` instead of nonexistent `/replay/[id]`.
+- Fixed the ROOM_ADMIN `/admin` landing auth path by allowing assigned room
+  admins to GET `/api/admin/rooms/[id]` for overview display; PATCH/DELETE
+  remain SYSTEM_ADMIN-only.
+- Added `e2e/navigation.spec.ts`: dashboard→rooms→room→coding, practice,
+  replay→watch, system-admin sidenav, `/admin` role redirects, and error-page
+  admin buttons.
+- Local verification: `db:push`, `db:seed`, `tsc`, `lint`, Vitest 146,
+  `build`, and Playwright 10 all green. `lint` still has 4 pre-existing
+  warnings.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -76,6 +67,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #53** (open at handoff) — fix(rooms): added the missing `/rooms` index
+  so dashboard CTA/empty-state links no longer 404; flagged `/practice` for the
+  nav audit follow-up. (Claude)
 - **PR #52** (merged) — fix(proxy): keep `/watch` anonymous — removed it from
   the `proxy.ts` matcher (public spectating is `no-auth`); recorded proxy.ts +
   #51 auth fixes as HANDOFF decision #11. (Claude)

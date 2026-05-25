@@ -30,14 +30,19 @@ into the client yet (the server side scaffold exists). See section 4.
 | `/login`                                  | `project/login.html`                      |
 | `/signup`                                 | `project/signup.html`                     |
 | `/dashboard`                              | `project/dashboard.html`                  |
+| `/rooms`                                  | Minimal room-picker index (no prototype)  |
 | `/rooms/[roomNumber]`                     | `project/room-top.html`                   |
+| `/practice`                               | Minimal準備中 placeholder (no prototype) |
 | `/match/[matchId]/coding`                 | `project/match-coding.html`               |
 | `/match/[matchId]/battle`                 | `project/match-battle.html`               |
 | `/match/[matchId]/result`                 | `project/match-result.html`               |
 | `/watch/[matchId]`                        | `project/match-watch.html`                |
+| `/admin`                                  | Role-aware redirect landing               |
+| `/admin/system`                           | Redirect to `/admin/system/rooms`         |
 | `/admin/system/rooms`                     | `project/admin-system-rooms.html`         |
 | `/admin/system/users`                     | `project/admin-system-users.html`         |
 | `/admin/system/audit`                     | `project/admin-system-audit.html`         |
+| `/admin/system/settings`                  | Minimal準備中 placeholder (no prototype) |
 | `/admin/rooms/[roomId]`                   | `project/admin-room-overview.html`        |
 | `/admin/rooms/[roomId]/members`           | `project/admin-room-members.html`         |
 | `/admin/rooms/[roomId]/matches`           | `project/admin-room-matches.html`         |
@@ -189,6 +194,14 @@ These are the calls the previous session made that the next session should
    app URL is HTTPS (so prod-over-HTTP localhost login works), and the logout
    `<Link>`s use `prefetch={false}` (prefetch was silently hitting the
    destructive `/api/auth/logout`).
+12. **Navigation landing routes stay thin.** The nav audit added
+   `docs/NAV_AUDIT.md` and keeps contentless landings as redirects:
+   `/admin/system` → `/admin/system/rooms`, `/admin` → role-aware admin or
+   dashboard destination. Feature routes without a v0.2 implementation
+   (`/admin/system/settings`, `/practice`) use minimal準備中 pages with existing
+   chrome rather than inventing product UI or removing visible nav affordances.
+   Dashboard replay links use `/watch/[matchId]`; there is no `/replay/[id]`
+   page.
 
 ## 4. Known unfinished work (in priority order)
 
@@ -250,14 +263,15 @@ These are the calls the previous session made that the next session should
    now fully wired**: room members issue/reissue/disable (PR #20), system
    rooms create/delete/archive·restore + system users
    invite/disable/reset (PR #21), and match-cancel (PR #22). Note: room
-   detail/settings is **SYSTEM_ADMIN-only** by product decision
-   (2026-05-23) — see ROADMAP §2 Milestone D.
+   settings writes remain **SYSTEM_ADMIN-only** by product decision
+   (2026-05-23) — see ROADMAP §2 Milestone D. The room overview GET permits
+   assigned `ROOM_ADMIN` so `/admin` can land on the assigned room overview.
 4. **TODOs flagged in routes:**
    - `src/app/api/auth/signup/route.ts:61` — validate invite codes against a
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **Test coverage is growing (143 unit/route cases + Scope-A E2E smoke).** Vitest is wired up (PR #10).
+5. **Test coverage is growing (146 unit/route cases + Scope-A/Nav E2E smoke).** Vitest is wired up (PR #10).
    Unit tests: `src/lib/match-simulator.ts` (incl. `maxTurns` options +
    `normalizeMaxTurns`), `src/lib/auth.ts` (PR #13),
    `src/lib/strategy-blocks.ts` (jsdom — Blockly→Strategy serializer),
@@ -274,8 +288,11 @@ These are the calls the previous session made that the next session should
    Playwright E2E Scope A is now wired under `e2e/**/*.spec.ts` with
    `playwright.config.ts`: seed-account login → dashboard role smoke,
    unauthenticated protected-page redirect to `/login`, and seeded student
-   room-page smoke. Scope B (two browser contexts for coding→lock→battle→
-   result + watch viewer count) remains the next E2E task.
+   room-page smoke. The nav smoke additionally clicks dashboard→rooms→room→
+   coding, `/practice`, dashboard replay→watch, system-admin sidenav entries,
+   `/admin` role redirects, and error-page admin buttons to prevent 404
+   regressions. Scope B (two browser contexts for coding→lock→battle→result +
+   watch viewer count) remains the next E2E task.
 6. **Ruleset simulation note updated.** PR #19 left `rulePreset` as
    round-trip but simulator-inert; PR #39 wires `rulePreset.maxTurns` into
    live `simulate(...)` runs (`coding_lock` → `runMatch`) with defensive JSON
@@ -294,8 +311,8 @@ npm run db:push && npm run db:seed
 npm run dev                          # http://localhost:3000
 ```
 
-Playwright smoke (Scope A) runs against a production build and requires the
-same Postgres seed data:
+Playwright smoke (Scope A + navigation) runs against a production build and
+requires the same Postgres seed data:
 
 ```bash
 docker compose up -d postgres
