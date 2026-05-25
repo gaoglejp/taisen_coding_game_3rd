@@ -113,11 +113,14 @@ scaffolding is gone.
 | Member write actions (issue / reissue / disable) | ✅ | PR #20 — members page wired to existing POST/PATCH endpoints |
 | Other write actions (room create / account invite·disable·reset / cancel-match) | ✅ | PR #21 (system rooms create/delete/archive + users invite/disable/reset) + PR #22 (new match-cancel endpoint + matches-page modal) |
 
-**Decision (2026-05-23):** Room **detail/settings** (`GET`/`PATCH`/`archive`/
-`restore`/`DELETE /api/admin/rooms/:id`) stays **SYSTEM_ADMIN-only** for now.
-May open to ROOM_ADMIN later, but not in v0.2. Member-composition and
-match-card management *are* already ROOM_ADMIN-capable (their endpoints use
-the `isAdmin` + own-room guard).
+**Decision (2026-05-23, amended 2026-05-25):** Room detail/settings
+**writes** (`PATCH`/`archive`/`restore`/`DELETE /api/admin/rooms/:id`) stay
+**SYSTEM_ADMIN-only** for now. **`GET /api/admin/rooms/:id` was relaxed
+(PR #55) to also allow an assigned ROOM_ADMIN to read *their own* room** (own-room
+guard), so the `/admin` landing + room overview work for room admins; this
+matches the other room sub-resources (members/matches/standings/activity),
+which were already `isAdmin` + own-room. Full settings management may open to
+ROOM_ADMIN later, but not in v0.2.
 
 **D is done when** an admin can manage a room without seeing any mock data.
 
