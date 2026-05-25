@@ -13,66 +13,40 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #TBD — feat(admin): room overview activity feed real-data
-- **Branch**: `codex/v0.2-room-activity`
-- **Date**: 2026-05-25
-- **PR**: #36 — test(admin): member + account write-route tests
+- **PR**: #38 — test(admin): rooms write routes + activity feed route tests
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
-- **Date**: 2026-05-24
+- **Date**: 2026-05-25
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- Added `GET /api/admin/rooms/:id/activity` with `isAdmin` + own-room guard for `ROOM_ADMIN`, room existence check, `limit` (default 12 / max 50), AuditLog query, and actor display-name resolution.
-- Wired `src/app/admin/rooms/[roomId]/page.tsx` activity panel to real API data and removed `MOCK_ACTIVITIES`.
-- Activity UI now formats time from `createdAt` (`HH:MM` for today, `M/D` otherwise), expands action icon mapping for audit actions, and shows an empty state when no events exist.
-
-### Parallel work (Claude)
-
-- Claude branch remains focused on route-handler test expansion and docs updates; no overlap with `server.ts` or member/user route bodies.
-
-### Next 1–3 PRs (recommended order)
-
-1. Add route-handler tests for `/api/admin/rooms/:id/activity` (401/403/404/room-admin own-room/limit clamp).
-2. Optionally add pure-function vitest for activity time formatting + icon mapping.
-3. Continue remaining Milestone C/A gaps (`room schedule` source decision and coding `lastTurn` source).
-
-### Deferred / out of scope right now
-
-- `RoomActivity` model producers remain unused; activity is intentionally unified on `AuditLog`.
-- Match start/end timeline-style events are not fabricated when absent in audit logs.
-- **Route-handler tests for the member + account write surface** (builds on
-  the `@`-alias harness from #30):
-  - **members `POST`** (7): auth/ownership, 404 room, 400 no displayName,
-    single issue (user + membership + `MEMBER_ISSUE`), bulk issue.
-  - **members `[mid]` `PATCH`** (5): auth/ownership, 404, disable →
-    `MEMBER_DISABLE`.
-  - **members `[mid]/reissue` `POST`** (3): auth, 404, fresh code +
-    `issueCodeUsed=false` + user→PENDING + `MEMBER_REISSUE`.
-  - **users `invite` `POST`** (5): 401 / 403 system-admin-only / 400 no
-    email / 409 existing email / success (PENDING user + invite link +
-    `USER_INVITE`).
-  - **users `[id]/force-password-reset` `POST`** (4): 401/403/404, success
-    (clears `passwordHash`, reset link, `USER_FORCE_PASSWORD_RESET`).
-- `npm test` **77 passing** (was 53); `tsc` / `lint` / `build` clean.
+- **Completed the admin-write route test surface + tested the new activity
+  feed** (builds on the `@`-alias harness from #30):
+  - **rooms `POST`** (5): 401 / 403 system-admin-only / 400 name·kind / 400
+    invalid kind / create + `ROOM_CREATE`.
+  - **rooms `[id]` DELETE + PATCH** (7): auth / 404, soft-delete
+    (`DELETED` + `ROOM_DELETE`), field update (`ROOM_UPDATE`).
+  - **rooms `[id]/archive` POST** (5): auth / 404, archive → `ARCHIVED` +
+    `ROOM_ARCHIVE`, `/restore`-suffixed path → `ACTIVE` + `ROOM_RESTORE`.
+  - **rooms `[id]/activity` GET** (6, Codex's #37 endpoint): auth /
+    ROOM_ADMIN own-room / 404 / actor-name resolution / limit clamp to 50.
+- `npm test` **100 passing** (was 77); `tsc` / `lint` / `build` clean.
 
 ### Parallel work (Codex)
 
-- **Codex** is on the **room overview activity feed** (audit-derived) on
-  `codex/v0.2-room-activity` — see `docs/CODEX_TASK_room_activity.md`
-  (new `GET /api/admin/rooms/:id/activity` + overview page wiring). It does
-  not touch route bodies; this PR adds test files only — no overlap.
-- Merged Codex work: announcements (#31), spectator real-data (#34).
+- Merged Codex work: announcements (#31), spectator real-data (#34), room
+  overview activity feed (#37). No Codex task currently in flight — next
+  brief to be prepared on request.
 
 ### Next 1–3 PRs (recommended order)
 
-1. **Manual browser pass** on the data-wired-but-unviewed pages (#23–#34):
+1. **Manual browser pass** on the data-wired-but-unviewed pages (#23–#37):
    Blockly editor, standings, create-match, round-robin/tournament views,
-   watch page (viewer count via 2 tabs + timeline).
-2. **Remaining admin-write route tests**: rooms create/delete/archive·restore
-   — to fully complete the admin-write test surface.
-3. **Decision-gated** items await product/schema calls: coding `lastTurn`
-   source, "your schedule" source, true bracket-tree linkage, 2FA/email.
+   watch page (viewer count via 2 tabs + timeline), room overview activity.
+2. **Decision-gated** items await product/schema calls: coding `lastTurn`
+   source, "your schedule" source, true bracket-tree linkage, 2FA / email
+   confirmation, `next-auth` dependency cleanup.
+3. Optional: Playwright E2E smoke once a browser-capable CI lane exists.
 
 ### Deferred / out of scope right now
 
@@ -80,6 +54,8 @@ When you push, do these three things in `docs/STATUS.md`:
 - Obstacles / items in the simulator — post-v0.2.
 - Coding `lastTurn` tab — needs a product call (one-shot simulation).
 - "Your schedule" (rooms page) — needs a defined source.
+- `RoomActivity` model producers remain unused; activity is unified on
+  `AuditLog` (per PR #37).
 
 ### Open questions / handoff notes
 
@@ -89,9 +65,11 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
-- **PR #34** (merged) — feat(watch): spectator real-data (viewer count + timeline).
-
-- **PR #32** (open) — test(admin): matches POST + users PATCH route tests; suite to 53; lint/type/build clean.
+- **PR #37** (merged) — feat(admin): room overview activity feed from the
+  audit log (`GET /api/admin/rooms/:id/activity`, own-room guard, limit
+  clamp) + overview page wiring; `MOCK_ACTIVITIES` removed. (Codex)
+- **PR #36** (merged) — test(admin): member + account write-route tests
+  (members issue/disable/reissue, users invite/force-reset); suite to 77.
 - **PR #34** (merged) — feat(watch): spectator real-data — Socket.io
   presence `viewer_count` (join/disconnecting) + timeline derived from
   `turn_event`/replay; fabricated delta removed. (Codex)

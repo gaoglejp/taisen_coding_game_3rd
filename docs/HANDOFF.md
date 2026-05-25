@@ -244,17 +244,16 @@ These are the calls the previous session made that the next session should
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **Test coverage is growing (77 cases).** Vitest is wired up (PR #10).
+5. **Test coverage is growing (100 cases).** Vitest is wired up (PR #10).
    Unit tests: `src/lib/match-simulator.ts` (9), `src/lib/auth.ts` (15,
    PR #13), `src/lib/strategy-blocks.ts` (3, jsdom — Blockly→Strategy
-   serializer). Route-handler tests: `matches/[matchId]/cancel` (7) +
-   `standings` (3) (PR #30), `matches` POST (9) + `users/[id]` PATCH (7)
-   (PR #32), members POST (7) + member PATCH (5) + reissue (3) + users
-   invite (5) + force-password-reset (4) (PR #36) — `vitest.config.ts`
-   has an `@`→`src` alias so any route can be imported + tested by mocking
-   `@/lib/auth` / `@/lib/db` / `@/lib/audit`. Still missing: route tests for
-   rooms create/delete/archive·restore, the new room activity feed, and
-   Playwright end-to-end coverage of the pages.
+   serializer). Route-handler tests cover the admin surface: cancel +
+   standings (PR #30), matches POST + users PATCH (PR #32), members
+   issue/disable/reissue + users invite/force-reset (PR #36), rooms
+   create/delete/archive·restore + the activity feed (PR #38) —
+   `vitest.config.ts` has an `@`→`src` alias so any route can be imported +
+   tested by mocking `@/lib/auth` / `@/lib/db` / `@/lib/audit`. Still
+   missing: Playwright end-to-end coverage of the pages.
 6. ~~CI is not set up.~~ **Done.** `.github/workflows/ci.yml` runs lint,
    `tsc --noEmit`, and `next build` on every PR (PR #4).
 
