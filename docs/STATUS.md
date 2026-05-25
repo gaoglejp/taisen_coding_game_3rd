@@ -1,40 +1,39 @@
 ## Latest
 
-- **PR**: #TBD — feat(rooms): wire 「あなたの予定」 to real match data (暫定定義)
-- **Branch**: `codex/v0.2-rooms-schedule`
+- **PR**: #TBD — test(player): add route-handler tests for player read APIs
+- **Branch**: `codex/v0.2-player-route-tests`
 - **Date**: 2026-05-25
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- `src/app/rooms/[roomNumber]/page.tsx` の「あなたの予定」をモックから実データ化。既存取得済みの `matches` + `meId` だけで導出し、新規 API/fetch は追加なし。
-- 暫定定義を実装: 「このルームで自分が参加している WAITING/CODING/BATTLING のマッチ」を予定として表示し、`codingDeadlineAt` 昇順（null/invalid は末尾、同順は `matchNumber`）で並べ替え。
-- 予定行に `#matchNumber` / 対戦相手名（未定は「募集中」）/ status バッジ / 期限（null は「期限なし」）/ リンク（WAITING・CODING→`/match/:id/coding`, BATTLING→`/watch/:id`）を反映。
-- 純関数 `selectMySchedule(matches, meId)` を `src/lib/room-schedule.ts` に追加し、Vitest で抽出・並び順・null `meId` をテスト。
+- プレイヤー向け read API の新規ルートテスト 5 ファイルを追加（`/api/rooms/:roomNumber`, `/matches`, `/standings`, `/api/me/stats`, `/api/me/matches`）。
+- rooms 系で 401 / 404(DELETED) / 403(非メンバー) / 200(メンバー・公開・管理者) のアクセス制御分岐を固定。
+- `/api/me/stats` は合成 `replayData.turns` を使って勝敗・平均ターン・与被ダメ・先制ダメ率・sparkline の集計を検証。
+- `/api/me/matches` は limit クランプ（上限 50）とレスポンス整形（opponent/result）を検証。
 
 ### Parallel work (Claude)
 
-- Claude 側は route-handler テスト中心のため、今回の rooms ページ実装とは競合なし（想定）。
+- Claude 側の管理系ルートテストとは対象分離（`/api/admin/*` 非対象）で競合なし。
 
 ### Next 1–3 PRs (recommended order)
 
-1. ブラウザ実機で rooms ページの予定カード表示確認（このコンテナでは未実施）。
-2. Product 確認: 「あなたの予定」の正式定義（汎用スケジュール源の有無、終了済み履歴の扱い）。
-3. Decision-gated: coding `lastTurn` source, true bracket-tree linkage, 2FA/email confirmation.
+1. 任意追加: `/api/match/[matchId]/{public,state,result,replay}` の read API テスト拡充。
+2. route tests の共通ヘルパ（session/db mock）抽出を検討。
+3. Playwright E2E の最小スモーク導入検討（post-v0.2 でも可）。
 
 ### Deferred / out of scope right now
 
-- 終了済みマッチ履歴を「あなたの予定」に含める拡張。
-- 専用スケジュールモデル/エンドポイントの新設。
-- Commentary feed / obstacles/items/AP など post-v0.2 項目。
+- 実装本体（route.ts）変更。
+- 管理系 `/api/admin/*` テスト追加。
 
 ### Open questions / handoff notes
 
-- 本PRの「あなたの予定」定義は暫定（`codingDeadlineAt` を予定時刻として利用）。正式仕様確定後に差し替え余地あり。
-- ブラウザ表示は headless 環境のため未検証（純関数テストと型/ビルドは green）。
+- `npm run lint` は既存 warning 4 件が継続（今回差分起因なし）。
 
 ## History
 
+- **PR #44** (merged) — feat(rooms): wire 「あなたの予定」 to real match data (暫定定義)。
 - **#40 — feat(coding): wire countdown timer to `codingDeadlineAt`** — moved to history on 2026-05-25.
 - **PR #39** (open) — feat(simulator): room `rulePreset.maxTurns` now applies to live `simulate(...)` runs via `coding_lock`; added simulator option + normalization tests.
 - **PR #38** (open) — test(admin): rooms write routes + activity feed route tests; suite to 100, `tsc`/`lint`/`build` clean. (Claude)
