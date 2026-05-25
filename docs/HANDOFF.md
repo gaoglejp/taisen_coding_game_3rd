@@ -222,7 +222,7 @@ These are the calls the previous session made that the next session should
    the watch page's obstacles / items / commentary feed
    (placeholder); viewer count + timeline events are now real-data via socket presence and turn/replay-derived ticks (PR TBD).
    watch-page dev state-gallery was removed in PR #27. The rooms page's
-   "your schedule" (still mock); announcements are now API-wired (PR #28); and the
+   "your schedule" is now API-derived via matches+me (PR #TBD, 暫定定義: own active matches by `codingDeadlineAt`); announcements are now API-wired (PR #28); and the
    matches-page **tournament bracket** view (`TournamentView`) — it needs
    match-to-match advancement linkage the schema lacks, so it's blocked on
    a schema call. The create-match modal (PR #25) and the **round-robin /

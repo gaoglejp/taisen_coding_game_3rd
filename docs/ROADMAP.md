@@ -91,7 +91,7 @@ scaffolding is gone.
 | Matches list in room | ✅ | PR #12 — wired to `/api/rooms/:n/matches` |
 | Standings (top 5) | ✅ | PR #12 — wired to `/api/rooms/:n/standings` |
 | "Your record" | ✅ | PR #12 — derived from standings (my entry) |
-| "Your schedule" | ⬜ | Still mock; needs a schedule source **(TBD)** |
+| "Your schedule" | ✅ | PR #TBD — **暫定定義**: このルームで自分が参加している未開始/進行中マッチを予定として表示し、時刻は `codingDeadlineAt` を使用。汎用スケジュール源が定義されたら差し替え。 |
 | Announcements | ✅ | PR #28 — `/api/rooms/:roomNumber/announcements` + room page wiring + admin CRUD surface |
 
 **C is done when** the schedule has a source (announcements API is done).
