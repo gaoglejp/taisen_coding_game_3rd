@@ -618,7 +618,7 @@ export default function DashboardPage() {
                             </td>
                             <td style={{ padding: "12px 16px" }}>
                               <Link
-                                href={`/replay/${m.id}`}
+                                href={`/watch/${m.id}`}
                                 style={{
                                   fontSize: 12,
                                   color: T.p1,

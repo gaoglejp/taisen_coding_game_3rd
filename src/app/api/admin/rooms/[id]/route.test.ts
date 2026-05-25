@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getSessionMock = vi.fn();
+const roomFindFirstMock = vi.fn();
 const roomFindUniqueMock = vi.fn();
 const roomUpdateMock = vi.fn();
 const logAuditMock = vi.fn();
@@ -13,6 +14,7 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/db", () => ({
   prisma: {
     room: {
+      findFirst: (...a: unknown[]) => roomFindFirstMock(...a),
       findUnique: (...a: unknown[]) => roomFindUniqueMock(...a),
       update: (...a: unknown[]) => roomUpdateMock(...a),
     },
@@ -21,7 +23,7 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/audit", () => ({ logAudit: (...a: unknown[]) => logAuditMock(...a) }));
 
-import { DELETE, PATCH } from "./route";
+import { DELETE, GET, PATCH } from "./route";
 
 function req(body?: unknown) {
   return { json: async () => body ?? {} } as unknown as Parameters<typeof PATCH>[0];
@@ -29,9 +31,35 @@ function req(body?: unknown) {
 const ctx = { params: Promise.resolve({ id: "room-1" }) };
 
 beforeEach(() => {
-  for (const m of [getSessionMock, roomFindUniqueMock, roomUpdateMock, logAuditMock]) m.mockReset();
+  for (const m of [getSessionMock, roomFindFirstMock, roomFindUniqueMock, roomUpdateMock, logAuditMock]) m.mockReset();
+  roomFindFirstMock.mockResolvedValue({ id: "room-1" });
   roomFindUniqueMock.mockResolvedValue({ id: "room-1", name: "Room", roomNumber: "ROOM-2026-0001", status: "ACTIVE" });
   roomUpdateMock.mockResolvedValue({ id: "room-1", name: "Room", roomNumber: "ROOM-2026-0001", status: "DELETED" });
+});
+
+describe("GET /api/admin/rooms/:id", () => {
+  it("allows a system admin to view a room", async () => {
+    getSessionMock.mockResolvedValue({ id: "admin", role: "SYSTEM_ADMIN" });
+    const res = await GET(req(), ctx);
+    expect(res.status).toBe(200);
+    expect(roomFindUniqueMock).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "room-1" } }));
+  });
+
+  it("allows an assigned room admin to view the room", async () => {
+    getSessionMock.mockResolvedValue({ id: "teacher", role: "ROOM_ADMIN" });
+    const res = await GET(req(), ctx);
+    expect(res.status).toBe(200);
+    expect(roomFindFirstMock).toHaveBeenCalledWith({
+      where: { id: "room-1", admins: { some: { id: "teacher" } } },
+      select: { id: true },
+    });
+  });
+
+  it("403s a room admin outside the assigned room", async () => {
+    getSessionMock.mockResolvedValue({ id: "teacher", role: "ROOM_ADMIN" });
+    roomFindFirstMock.mockResolvedValue(null);
+    expect((await GET(req(), ctx)).status).toBe(403);
+  });
 });
 
 describe("DELETE /api/admin/rooms/:id", () => {

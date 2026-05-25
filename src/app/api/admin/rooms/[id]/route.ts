@@ -9,10 +9,16 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(_req: NextRequest, { params }: Params) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
-  if (!isSystemAdmin(session.role))
-    return NextResponse.json({ error: "権限がありません" }, { status: 403 });
-
   const { id } = await params;
+
+  const canView =
+    isSystemAdmin(session.role) ||
+    (session.role === "ROOM_ADMIN" &&
+      !!(await prisma.room.findFirst({
+        where: { id, admins: { some: { id: session.id } } },
+        select: { id: true },
+      })));
+  if (!canView) return NextResponse.json({ error: "権限がありません" }, { status: 403 });
 
   const room = await prisma.room.findUnique({
     where: { id },
