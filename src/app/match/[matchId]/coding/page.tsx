@@ -9,6 +9,7 @@ import {
   lockCoding,
 } from "@/lib/socket-client";
 import type { Strategy } from "@/lib/match-simulator";
+import { secondsUntil } from "@/lib/coding-timer";
 
 // <!-- bind: WS recv coding_start { codingDeadlineAt } -->
 // <!-- bind: WS send coding_lock { matchId, strategy, blocklyXml? } -->
@@ -56,6 +57,7 @@ export default function CodingPage({
   const { matchId } = use(params);
   const router = useRouter();
   const [timeLeft, setTimeLeft] = useState(300);
+  const [codingDeadlineAt, setCodingDeadlineAt] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"status" | "lastTurn" | "hints" | "json">("status");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
@@ -93,6 +95,7 @@ export default function CodingPage({
       if (stateRes.status === "fulfilled" && stateRes.value.ok) {
         const data = await stateRes.value.json();
         const m = data?.match;
+        setCodingDeadlineAt(typeof m?.codingDeadlineAt === "string" ? m.codingDeadlineAt : null);
         if (m?.room?.name) {
           setMatchMeta({
             roomName: m.room.name,
@@ -146,18 +149,27 @@ export default function CodingPage({
     };
   }, [matchId, myUserId, router]);
 
-  const expired = timeLeft <= 0;
   useEffect(() => {
-    if (expired) return;
-    const id = setInterval(() => {
-      setTimeLeft((t) => {
-        const next = t - 1;
-        if (next === 30 || next <= 0) setShowTimeoutModal(true);
+    const localFallbackStartedAt = Date.now();
+
+    const updateTimeLeft = () => {
+      const nextFromDeadline = secondsUntil(codingDeadlineAt);
+      const next =
+        nextFromDeadline ?? Math.max(0, 300 - Math.floor((Date.now() - localFallbackStartedAt) / 1000));
+
+      setTimeLeft((prev) => {
+        if ((prev > 30 && next <= 30) || (prev > 0 && next <= 0)) {
+          setShowTimeoutModal(true);
+        }
         return next;
       });
-    }, 1000);
+    };
+
+    updateTimeLeft();
+    const id = setInterval(updateTimeLeft, 1000);
     return () => clearInterval(id);
-  }, [expired]);
+  }, [codingDeadlineAt]);
+
 
   const timerColor =
     timeLeft <= 30 ? "#dc2626" : timeLeft <= 60 ? "#f59e0b" : "#1f2330";

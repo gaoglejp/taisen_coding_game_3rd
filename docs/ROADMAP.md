@@ -56,6 +56,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started
 | :--- | :----- | :---- |
 | Login / signup / session | ✅ | `src/lib/auth.ts`, cookie sessions |
 | Coding page header (room / opponent) | ✅ | PR #8 |
+| Coding countdown bound to `codingDeadlineAt` | ✅ | PR #40 — `src/app/match/[matchId]/coding/page.tsx` now recalculates from `/api/match/:id/state` deadline each tick; null/invalid keeps 300s fallback. |
 | Lock strategy → `match_started` | ✅ | `server.ts` `coding_lock` handler |
 | Turn simulator (server-side) | ✅ | PR #5, `src/lib/match-simulator.ts` |
 | Room `rulePreset.maxTurns` reflected in live simulation | ✅ | PR #39 — `coding_lock` → `runMatch` now passes validated `maxTurns` to `simulate` |

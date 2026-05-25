@@ -13,25 +13,25 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #39 — feat(simulator): wire room `rulePreset.maxTurns` into match simulation
-- **Branch**: `codex/v0.2-ruleset-maxturns`
+- **PR**: #40 — feat(coding): wire countdown timer to `codingDeadlineAt`
+- **Branch**: `codex/v0.2-coding-deadline-timer`
 - **Date**: 2026-05-25
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- `simulate()` now accepts an optional third argument `options?: { maxTurns?: number }` (backward compatible), and uses `normalizeMaxTurns` to clamp/validate turn caps (`1..200`, default `MAX_TURNS=20`).
-- `server.ts` now reads `room.rulePreset` defensively at `coding_lock` start, resolves `maxTurns` only when numeric, and passes it into `simulate(...)`. Socket/boot wiring is unchanged.
-- Expanded simulator tests to cover custom `maxTurns`, default behavior when omitted, and pure-function tests for `normalizeMaxTurns` invalid/clamped inputs.
-- Scope note: only `maxTurns` is now active; other ruleset fields (`ap`, `obstacles`, `items`, etc.) remain post-v0.2.
+- Added `secondsUntil(deadlineIso, now?)` in `src/lib/coding-timer.ts` to compute remaining seconds as a pure function (`future => positive`, `past => 0`, `null/invalid => null`, `Math.ceil` rounding).
+- Coding page timer now stores `/api/match/:id/state` `match.codingDeadlineAt` and re-evaluates remaining seconds every second from the deadline (drift-resistant on tab resume).
+- Preserved backward-compatible fallback: when `codingDeadlineAt` is null/invalid, timer keeps the prior local 300-second countdown behavior.
+- Added deterministic unit tests for `secondsUntil` (future/past/null/invalid/ceil); full suite now 109 tests green.
 
 ### Parallel work (Claude)
 
-- Claude PR #38 (admin route tests) remains the latest merged/open stream outside this branch.
+- Claude PR stream remains focused on route-handler tests; no known overlap with this coding timer change.
 
 ### Next 1–3 PRs (recommended order)
 
-1. Manual browser pass on already-wired pages (#23–#38) in a GUI-capable environment.
+1. Manual browser pass for coding timer behavior (deadline-bound countdown + null fallback), since this container is headless.
 2. Decision-gated items: coding `lastTurn` source, room "your schedule" source, true bracket-tree linkage, 2FA/email confirmation.
 3. Optional: Playwright smoke once browser-capable CI exists.
 
@@ -45,11 +45,12 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ### Open questions / handoff notes
 
-- Browser behavior isn't validated in this headless container; wired pages still need manual pass.
+- Browser behavior isn't validated in this headless container; coding timer needs manual pass with a real `codingDeadlineAt` match.
 - `docs/ROADMAP.md` remains a draft pending product confirmation.
 
 ## History
 
+- **PR #39** (open) — feat(simulator): room `rulePreset.maxTurns` now applies to live `simulate(...)` runs via `coding_lock`; added simulator option + normalization tests.
 - **PR #38** (open) — test(admin): rooms write routes + activity feed route tests; suite to 100, `tsc`/`lint`/`build` clean. (Claude)
 - **PR #37** (merged) — feat(admin): room overview activity feed from the
   audit log (`GET /api/admin/rooms/:id/activity`, own-room guard, limit
