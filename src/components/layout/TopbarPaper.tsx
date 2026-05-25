@@ -136,6 +136,7 @@ export function TopbarPaper({
             )}
             <Link
               href="/api/auth/logout"
+              prefetch={false}
               style={{
                 fontSize: 13,
                 color: "var(--ink-soft)",

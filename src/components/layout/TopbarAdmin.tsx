@@ -143,6 +143,7 @@ export function TopbarAdmin({
             )}
             <Link
               href="/api/auth/logout"
+              prefetch={false}
               style={{
                 fontSize: 13,
                 color: "#9ca3af",

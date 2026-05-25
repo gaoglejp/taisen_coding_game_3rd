@@ -4,9 +4,12 @@ import { prisma } from "@/lib/db";
 import { createSessionToken } from "@/lib/auth";
 
 function sessionCookieOptions() {
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_BASE_URL ?? "";
+
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && appUrl.startsWith("https://"),
     sameSite: "lax" as const,
     path: "/",
     maxAge: 60 * 60 * 24 * 7, // 7 days
