@@ -3,6 +3,7 @@
 import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { TopbarPaper } from "@/components/layout/TopbarPaper";
+import { selectMySchedule } from "@/lib/room-schedule";
 
 // <!-- bind: GET /api/rooms/:roomNumber -->
 // <!-- bind: GET /api/rooms/:roomNumber/matches -->
@@ -31,6 +32,7 @@ interface ApiMatch {
   id: string;
   matchNumber: number;
   status: string;
+  codingDeadlineAt?: string | null;
   player1: ApiPlayer | null;
   player2: ApiPlayer | null;
 }
@@ -65,7 +67,6 @@ const RULE_DEFAULTS = {
   codingLimit: "5分",
 };
 
-// "あなたの予定" (schedule) is still intentionally mock-only in this page.
 // Announcements are API-wired via GET /api/rooms/:roomNumber/announcements.
 // See docs/ROADMAP.md → Milestone C.
 interface ApiAnnouncement {
@@ -166,6 +167,22 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
   });
   const liveMatchCount = matches.filter((m) => m.status === "BATTLING").length;
   const myStanding = meId ? standings.find((s) => s.userId === meId) ?? null : null;
+  const mySchedule = selectMySchedule(matches, meId);
+
+  const statusBadge = (status: string) => ({
+    background:
+      status === "BATTLING"
+        ? "var(--p2-soft)"
+        : status === "CODING"
+          ? "var(--p1-soft)"
+          : "var(--bg-2)",
+    color:
+      status === "BATTLING"
+        ? "var(--p2-ink)"
+        : status === "CODING"
+          ? "var(--p1-ink)"
+          : "var(--ink-soft)",
+  });
 
   if (error) {
     return (
@@ -318,19 +335,36 @@ export default function RoomTopPage({ params }: { params: Promise<{ roomNumber: 
               )}
             </div>
 
-            {/* "あなたの予定" is still mock — no schedule API yet (ROADMAP C). */}
             <div className="card" style={{ padding: 18 }}>
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>あなたの予定</div>
-              {[
-                { label: "マッチ #12 進行中", time: "現在", accent: "var(--p2)" },
-                { label: "マッチ #16 vs みか", time: "水 15:00" },
-                { label: "コーディング締切", time: "5/31 23:59", accent: "var(--accent)" },
-              ].map((s, i) => (
-                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 0", borderBottom: "1px solid var(--line)", fontSize: 12 }}>
-                  <span style={{ color: s.accent ?? "var(--ink)" }}>{s.label}</span>
-                  <span style={{ color: "var(--ink-soft)" }}>{s.time}</span>
+              {mySchedule.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "12px 0", fontSize: 12, color: "var(--ink-soft)" }}>
+                  参加予定のマッチはありません
                 </div>
-              ))}
+              ) : (
+                mySchedule.map((m) => {
+                  const opponent = m.player1?.id === meId ? m.player2 : m.player1;
+                  const opponentName = opponent?.displayName ?? opponent?.username ?? "募集中";
+                  const href = m.status === "BATTLING" ? `/watch/${m.id}` : `/match/${m.id}/coding`;
+                  const badge = statusBadge(m.status);
+                  return (
+                    <Link
+                      key={m.id}
+                      href={href}
+                      style={{ display: "block", textDecoration: "none", color: "inherit", borderBottom: "1px solid var(--line)", padding: "8px 0" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, marginBottom: 4 }}>
+                        <span style={{ fontWeight: 700 }}>#{m.matchNumber}</span>
+                        <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>{m.codingDeadlineAt ? formatRelativeDate(m.codingDeadlineAt) : "期限なし"}</span>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontSize: 12 }}>{opponentName}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: badge.background, color: badge.color }}>{m.status}</span>
+                      </div>
+                    </Link>
+                  );
+                })
+              )}
             </div>
 
             <div className="card" style={{ padding: 18 }}>
