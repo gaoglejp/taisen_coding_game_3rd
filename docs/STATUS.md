@@ -13,10 +13,10 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: TBD — test(e2e): Playwright Scope-A smoke foundation
+- **PR**: #51 — test(e2e): Playwright Scope-A smoke foundation
 - **Branch**: `codex/v0.2-e2e-smoke`
 - **Date**: 2026-05-25
-- **Status**: local green; PR pending
+- **Status**: open
 
 ### What changed
 
