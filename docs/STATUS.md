@@ -13,31 +13,28 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #55 — fix(nav): audit and harden screen transitions
-- **Branch**: `codex/v0.2-nav-audit`
+- **PR**: #57 — fix(nav): wire system-rooms "詳細" + room-admin sidenav E2E
+- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-25
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- Added `docs/NAV_AUDIT.md` with the `src/app` + `src/components` navigation
-  matrix: 6 broken route/auth landings found, 6 fixed, 0 要判断. Dynamic
-  parameters were checked for roomNumber / roomId / matchId consistency.
-- Fixed known 404s: `/admin/system` now redirects to `/admin/system/rooms`;
-  `/admin` is role-aware; `/admin/system/settings` and `/practice` are minimal
-  準備中 pages using existing chrome.
-- Fixed one additional dead route: dashboard recent-match replay links now use
-  `/watch/[matchId]` instead of nonexistent `/replay/[id]`.
-- Fixed the ROOM_ADMIN `/admin` landing auth path by allowing assigned room
-  admins to GET `/api/admin/rooms/[id]` for overview display; PATCH/DELETE
-  remain SYSTEM_ADMIN-only.
-- Added `e2e/navigation.spec.ts`: dashboard→rooms→room→coding, practice,
-  replay→watch, system-admin sidenav, `/admin` role redirects, and error-page
-  admin buttons.
-- Local verification: `db:push`, `db:seed`, `tsc`, `lint`, Vitest 146,
-  `build`, and Playwright 10 all green. `lint` still has 4 pre-existing
-  warnings.
-
+- Follow-up to the nav audit (#55), closing the two gaps an independent
+  re-review found:
+  - **Wired the system-rooms row "詳細"** (was a no-op `<button>`) → `Link` to
+    `/admin/rooms/${room.id}` (overview; GET allows SYSTEM_ADMIN / own-room
+    ROOM_ADMIN). The remaining no-op buttons (system-rooms "任命",
+    matches/users "詳細") are documented in `docs/NAV_AUDIT.md` as
+    unimplemented features (assign-admin / detail pages), not nav bugs.
+  - **Extended `e2e/navigation.spec.ts`** to click the **room-admin sidenav**
+    (概要/メンバー/マッチカード/成績/お知らせ/設定) and assert no 404 — the
+    system-admin sidenav was already E2E-covered in #55.
+- Link-level audit confirmed (independent re-inventory): **every** href /
+  redirect / sidenav target across pages + components resolves to a real
+  route (no 404 remaining).
+- `tsc` (incl. e2e spec) / `lint` / `build` clean; Vitest **146**. The new
+  Playwright assertions are verified by the CI `e2e` job (no local browser).
 ### Next 1–3 PRs (recommended order)
 
 1. **Playwright E2E Scope B** — two browser contexts for
@@ -67,7 +64,13 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
-- **PR #53** (open at handoff) — fix(rooms): added the missing `/rooms` index
+- **PR #56** (merged) — docs: amended the room-auth decision so it matches PR #55
+  (`GET /api/admin/rooms/:id` allows own-room ROOM_ADMIN; writes stay sysadmin). (Claude)
+- **PR #55** (merged) — fix(nav): navigation audit (`docs/NAV_AUDIT.md`, 6 broken
+  → 6 fixed) — `/admin`, `/admin/system`, `/admin/system/settings`, `/practice`,
+  dashboard replay→`/watch`; relaxed `GET rooms/:id` for own-room ROOM_ADMIN;
+  added `e2e/navigation.spec.ts` + system-admin sidenav coverage. (Codex)
+- **PR #53** (merged) — fix(rooms): added the missing `/rooms` index
   so dashboard CTA/empty-state links no longer 404; flagged `/practice` for the
   nav audit follow-up. (Claude)
 - **PR #52** (merged) — fix(proxy): keep `/watch` anonymous — removed it from

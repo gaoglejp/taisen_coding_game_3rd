@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { TopbarAdmin } from "@/components/layout/TopbarAdmin";
 import { ScopeBanner } from "@/components/layout/ScopeBanner";
 import { AdminSidenav } from "@/components/layout/AdminSidenav";
@@ -433,7 +434,13 @@ export default function SystemRoomsPage() {
                       </td>
                       <td style={{ padding: "0 16px" }}>
                         <div style={{ display: "flex", gap: "6px", flexWrap: "nowrap" }}>
-                          <button style={actionBtnStyle("#1d4ed8", "rgba(29,78,216,0.08)")}>詳細</button>
+                          <Link
+                            href={`/admin/rooms/${room.id}`}
+                            style={{ ...actionBtnStyle("#1d4ed8", "rgba(29,78,216,0.08)"), textDecoration: "none", display: "inline-block" }}
+                          >
+                            詳細
+                          </Link>
+                          {/* 任命: assign-admin flow not implemented yet (no modal/endpoint) — see docs/NAV_AUDIT.md */}
                           <button style={actionBtnStyle("#0891b2", "rgba(8,145,178,0.08)")}>任命</button>
                           <button
                             onClick={() => handleArchiveToggle(room)}
