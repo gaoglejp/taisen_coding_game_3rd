@@ -51,6 +51,11 @@ test.describe("navigation smoke", () => {
     await expect(page).toHaveURL(/\/admin\/system\/rooms$/);
     await expectNotFoundCopyAbsent(page);
 
+    // The dashboard guard bounces an admin off the player home.
+    await page.goto("/dashboard");
+    await expect(page).toHaveURL(/\/admin\/system\/rooms$/);
+    await expectNotFoundCopyAbsent(page);
+
     const systemNav = page.getByRole("navigation");
 
     await systemNav.getByRole("link", { name: /ホーム/ }).click();
