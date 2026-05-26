@@ -16,7 +16,7 @@ When you push, do these three things in `docs/STATUS.md`:
 - **PR**: #57 — fix(nav): wire system-rooms "詳細" + room-admin sidenav E2E
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-25
-- **Status**: open, awaiting CI
+- **Status**: merged (CI `check` + `e2e` both green)
 
 ### What changed
 
@@ -39,6 +39,7 @@ When you push, do these three things in `docs/STATUS.md`:
 
 1. **Playwright E2E Scope B** — two browser contexts for
    taro/hanako coding→lock→battle→result, plus watch viewer-count smoke.
+   **Codex brief ready: `docs/CODEX_TASK_e2e_scope_b.md`** (dispatch to Codex).
 2. **Manual test-play pass** by the spec owner using `docs/TESTPLAY.md`
    (the wired loop has never been run end-to-end in a browser).
 3. **Decision-gated** backlog (only if product/schema calls are made):
