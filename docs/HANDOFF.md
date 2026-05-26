@@ -208,6 +208,14 @@ These are the calls the previous session made that the next session should
    chrome rather than inventing product UI or removing visible nav affordances.
    Dashboard replay links use `/watch/[matchId]`; there is no `/replay/[id]`
    page.
+13. **Login is role-aware (PR #62).** After a successful login the client
+   redirects on `data.user.role`: SYSTEM_ADMIN / ROOM_ADMIN → `/admin` (which
+   resolves the role-specific admin landing per decision #12), everyone else →
+   `/dashboard`. `/dashboard` stays the *player* home (the prototype is
+   ROOM_USER-shaped and has no admin affordance), so admins should not be
+   parked there with no way into the console. The redirect target is `/admin`,
+   not a hard-coded admin sub-route, so the role-aware logic lives in one place
+   (`src/app/admin/page.tsx`).
 
 ## 4. Known unfinished work (in priority order)
 
