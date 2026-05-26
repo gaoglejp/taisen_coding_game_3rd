@@ -34,23 +34,31 @@ async function confirmCode(page: Page) {
   await page.getByRole("button", { name: "確定する", exact: true }).click();
 }
 
+async function readViewerCount(page: Page): Promise<number> {
+  const text = await page.getByLabel("観戦者数").textContent();
+  const match = text?.match(/\d+/);
+  return match ? Number(match[0]) : 0;
+}
+
 async function closeContexts(contexts: BrowserContext[]) {
   await Promise.all(contexts.map((context) => context.close().catch(() => {})));
 }
 
 test.describe("Scope B realtime smoke", () => {
-  test("two students lock code, reach battle/result, and a watcher joins viewer_count", async ({ browser }) => {
+  test("two students lock code, reach battle/result, and anonymous watchers receive live updates", async ({ browser }) => {
     test.setTimeout(120_000);
 
     const taroContext = await browser.newContext();
     const hanakoContext = await browser.newContext();
     const watcherContext = await browser.newContext();
-    const contexts = [taroContext, hanakoContext, watcherContext];
+    const secondWatcherContext = await browser.newContext();
+    const contexts = [taroContext, hanakoContext, watcherContext, secondWatcherContext];
 
     try {
       const taro = await taroContext.newPage();
       const hanako = await hanakoContext.newPage();
       const watcher = await watcherContext.newPage();
+      const secondWatcher = await secondWatcherContext.newPage();
 
       await login(taro, "taro_student");
       const matchId = await openSeedCodingMatchViaRoom(taro);
@@ -74,6 +82,19 @@ test.describe("Scope B realtime smoke", () => {
       await watcher.goto(`/watch/${matchId}`);
       await expect(watcher).toHaveURL(new RegExp(`/watch/${matchId}$`));
       await expect(watcher.getByLabel("観戦者数")).toHaveText(/[1-9]\d*/, { timeout: 10_000 });
+      await expect(watcher.getByLabel("実盤面").getByText(/Turn 0\s*\/\s*20/)).toBeVisible();
+      const joinedViewerCount = await readViewerCount(watcher);
+
+      await secondWatcher.goto(`/watch/${matchId}`);
+      await expect(secondWatcher.getByLabel("観戦者数")).toHaveText(/[1-9]\d*/, { timeout: 10_000 });
+      await expect
+        .poll(() => readViewerCount(watcher), { timeout: 10_000 })
+        .toBeGreaterThanOrEqual(joinedViewerCount + 1);
+
+      await secondWatcherContext.close();
+      await expect
+        .poll(() => readViewerCount(watcher), { timeout: 10_000 })
+        .toBeLessThanOrEqual(joinedViewerCount);
 
       await confirmCode(taro);
       await expect(taro.getByText("相手の確定を待っています")).toBeVisible();
@@ -82,6 +103,12 @@ test.describe("Scope B realtime smoke", () => {
       await confirmCode(hanako);
       await expect(taro).toHaveURL(new RegExp(`/match/${matchId}/battle$`), { timeout: 15_000 });
       await expect(hanako).toHaveURL(new RegExp(`/match/${matchId}/battle$`), { timeout: 15_000 });
+      await expect(watcher.getByLabel("実盤面").getByText(/Turn [1-9]\d*\s*\/\s*20/)).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(watcher.getByLabel("試合タイムライン").getByText(/現在:\s*T[1-9]\d*/)).toBeVisible({
+        timeout: 30_000,
+      });
 
       await expect(taroBattleResultLink).toHaveCSS("pointer-events", "auto", { timeout: 60_000 });
 

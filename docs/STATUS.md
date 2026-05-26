@@ -13,29 +13,30 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #60 — fix(watch): allow anonymous Socket.io spectating
-- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
+- **PR**: #61 — test(e2e): strengthen anonymous watch regression
+- **Branch**: `codex/v0.2-watch-anon-verify`
 - **Date**: 2026-05-26
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Closed the anonymous-spectating gap surfaced by the Scope B review.**
-  `/watch` is a public route (proxy + `/api/match/:id/public` are no-auth,
-  decision #11), but `server.ts` `io.use` was rejecting cookie-less sockets —
-  so an anonymous viewer loaded the page yet got no live board or
-  `viewer_count`. Relaxed the handshake to allow **anonymous read-only
-  sockets**; identity is set only when a valid session cookie is present.
-  Write events stay guarded — `coding_lock` already no-ops without
-  `socket.data.userId`.
-- **Updated Scope B E2E** (`e2e/zz-scope-b.spec.ts`): the watcher context no
-  longer logs in (was a sysadmin workaround), so it now actually verifies the
-  anonymous `/watch` → `viewer_count` path.
-- Amended HANDOFF decision #11 to note the handshake now matches the public
-  route (both layers agree on anonymous spectating).
-- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **146** /
-  `build` all green locally. The anonymous-watcher assertion is verified by
-  the CI `e2e` job (no local browser/Postgres).
+- **Strengthened the Scope B watch regression** in
+  `e2e/zz-scope-b.spec.ts`. The anonymous watcher now verifies more than a
+  positive `viewer_count`: it waits for the live board turn counter and
+  timeline cursor to move from `T0`, proving `turn_event` reaches a
+  cookie-less `/watch/:matchId` socket.
+- Added a second anonymous watcher context to verify `viewer_count` increments
+  on join and decreases again after `context.close()`, covering the
+  `join_match` + `disconnecting` broadcast path.
+- Local verification:
+  `npm ci`; `npx playwright install --with-deps chromium`; `npm run db:push`;
+  `npm run db:seed`; `npm run build`; `npx playwright test` green **3
+  consecutive runs with `db:seed` before each run**. Also green:
+  `npx tsc --noEmit`; `npm run lint` (0 errors, 4 pre-existing warnings);
+  `npm test` (**146**); `npm run build`.
+- Anonymous write-protection remains covered by server-side guard
+  (`coding_lock` no-ops without `socket.data.userId`) and is not additionally
+  asserted by this browser E2E.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -64,6 +65,10 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #60** (merged) — fix(watch): allow anonymous Socket.io spectating —
+  relaxed `server.ts` `io.use` so cookie-less `/watch` sockets can receive
+  read-only `turn_event` / `viewer_count`; write events still require
+  `socket.data.userId`. (Claude)
 - **PR #59** (merged) — test(e2e): Scope B realtime smoke — taro/hanako lock
   via two contexts → auto battle → result, plus a watcher `viewer_count`
   assertion; single-worker E2E + seed `codingDeadlineAt` reset. (Codex)
