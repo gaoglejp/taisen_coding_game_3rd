@@ -13,41 +13,37 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #63 — fix(auth): enforce admin landing server-side (dashboard guard)
-- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
+- **PR**: #65 — feat(practice): standalone solo battle
+- **Branch**: `codex/v0.2-practice-solo`
 - **Date**: 2026-05-26
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Follow-up to #62.** #62 added a *client-side* login redirect for admins,
-  but that alone is fragile: a stale login bundle, the `TopbarPaper` brand
-  logo's `/dashboard` link, or a direct visit could still drop an admin on the
-  player dashboard. (The reporter still saw the player dashboard after #62 —
-  consistent with a cached login bundle; #62's CI also merged before the `e2e`
-  job ran, so the landing was never machine-verified.)
-- **Added a server-side guard** so admins never see the player home regardless
-  of client state:
-  - `src/app/dashboard/layout.tsx` (new) — a Server Component that reads
-    `getSession()` and redirects admins to their admin landing before the
-    client dashboard renders.
-  - `src/lib/admin-landing.ts` (new) — `adminLandingPath(session)` returns
-    `/admin/system/rooms` (SYSTEM_ADMIN), `/admin/rooms/:id` (ROOM_ADMIN with a
-    room), or `null` (non-admin / room admin with no room → stays on the
-    dashboard, so there is **no redirect loop**).
-  - `src/app/admin/page.tsx` refactored to use the same helper, keeping the
-    rule in one place.
-- The client login redirect from #62 stays as the fast path (admins skip the
-  dashboard hop); the server guard is the safety net.
-- **E2E**: `e2e/navigation.spec.ts` now also asserts a system admin visiting
-  `/dashboard` is bounced to `/admin/system/rooms`.
-- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **146** /
-  `build` all green locally; landing/guard verified by the CI `e2e` job.
+- **Implemented `/practice` as a logged-in solo battle surface.** The page now
+  reuses the real Blockly editor / serializer, lets the user choose a built-in
+  bot difficulty, starts a standalone simulation, replays turns locally, and
+  shows the result summary (win/loss/draw, remaining HP, turns, end reason)
+  with a retry action.
+- **Added `POST /api/practice/simulate`.** The route requires `getSession()`,
+  validates `{ strategy, difficulty? }`, selects a built-in bot (`weak` /
+  `normal`), calls the pure simulator, and returns `{ bot, result }`. It does
+  not create `Match` records, write stats, or use Socket.io.
+- **Access control:** `/practice` is now included in `src/proxy.ts`'s
+  optimistic login guard; the API has its own session guard.
+- **Tests:** added route-handler coverage for 401, valid 200 simulation, and
+  invalid strategy 400; added a Playwright practice smoke
+  (login → `/practice` → 対戦開始 → replay/result).
+- Local verification: `npx tsc --noEmit`, `npm run lint` (0 errors, 4
+  pre-existing warnings), `npm test` (**149**), `npm run build`, manual
+  Playwright smoke against local dev, and full `npx playwright test` (**13**)
+  are green.
 
 ### Next 1–3 PRs (recommended order)
 
 1. **Manual test-play pass** by the spec owner using `docs/TESTPLAY.md`
-   (the wired loop has never been run end-to-end in a browser).
+   (the classroom match loop has automated Scope B smoke, but still needs the
+   human spec-owner pass).
 2. **Decision-gated** backlog (only if product/schema calls are made):
    `InviteCode` model + signup validation, 2FA, email confirmation, coding
    `lastTurn` source, true tournament bracket linkage, obstacles/items.
@@ -71,6 +67,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #63** (merged) — fix(auth): server-side dashboard guard bounces admins
+  to the shared admin landing, hardening #62's client-side login redirect;
+  navigation E2E covers direct `/dashboard` admin access. (Claude)
 - **PR #62** (merged) — fix(auth): client-side login redirect sends
   SYSTEM_ADMIN / ROOM_ADMIN to `/admin` (role-aware landing); regular users
   keep `/dashboard`. Hardened server-side in #63. (Claude)

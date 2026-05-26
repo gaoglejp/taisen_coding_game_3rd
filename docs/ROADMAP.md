@@ -60,6 +60,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started
 | Lock strategy → `match_started` | ✅ | `server.ts` `coding_lock` handler; Scope B E2E covers taro/hanako two-context lock → auto battle transition |
 | Turn simulator (server-side) | ✅ | PR #5, `src/lib/match-simulator.ts` |
 | Room `rulePreset.maxTurns` reflected in live simulation | ✅ | PR #39 — `coding_lock` → `runMatch` now passes validated `maxTurns` to `simulate` |
+| Practice solo mode | ✅ | PR #65 — `/practice` reuses Blockly + `simulate()` against built-in bots via `POST /api/practice/simulate`; standalone, no Match/Socket.io/persistence. |
 | Battle replay (live `turn_event`) | ✅ | PR #5; Scope B E2E waits through live battle to result link |
 | Result screen (real stats) | ✅ | PR #7; Scope B E2E clicks through to `/result` and asserts real HP/turn data |
 | **Blockly → strategy JSON serializer** | ✅ | PR #23 — real Blockly (v12) editor + `src/lib/strategy-blocks.ts` serializer; coding page submits the live workspace as `Strategy` JSON. Players now run their own strategies. Canvas UX needs manual browser verification. |

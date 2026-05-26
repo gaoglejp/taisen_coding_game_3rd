@@ -35,7 +35,7 @@ test.describe("navigation smoke", () => {
     await page.goto("/dashboard");
     await page.getByRole("link", { name: /練習する/ }).click();
     await expect(page).toHaveURL(/\/practice$/);
-    await expect(page.getByRole("heading", { name: "練習モード" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "ソロバトル" })).toBeVisible();
     await expectNotFoundCopyAbsent(page);
 
     await page.goto("/dashboard");
