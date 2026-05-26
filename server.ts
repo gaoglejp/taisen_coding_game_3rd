@@ -110,25 +110,28 @@ app.prepare().then(() => {
   setSocketServer(io);
 
   io.use(async (socket, next) => {
+    // Anonymous sockets are allowed so public spectating (`/watch`) works
+    // without a login — they get viewer_count / turn_event but no identity.
+    // Write actions (coding_lock) still require socket.data.userId below.
     const token = readSessionCookie(socket.handshake.headers.cookie);
     const userId = userIdFromToken(token);
-    if (!userId) {
-      return next(new Error("unauthorized"));
+    if (userId) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId, status: "ACTIVE" },
+        select: { id: true, username: true, displayName: true, role: true },
+      });
+      if (user) {
+        socket.data.userId = user.id;
+        socket.data.username = user.username;
+        socket.data.role = user.role;
+      }
     }
-    const user = await prisma.user.findUnique({
-      where: { id: userId, status: "ACTIVE" },
-      select: { id: true, username: true, displayName: true, role: true },
-    });
-    if (!user) return next(new Error("unauthorized"));
-    socket.data.userId = user.id;
-    socket.data.username = user.username;
-    socket.data.role = user.role;
     next();
   });
 
   io.on("connection", (socket) => {
     console.log(
-      `Socket connected: ${socket.id} (user=${socket.data.username})`
+      `Socket connected: ${socket.id} (user=${socket.data.username ?? "anonymous"})`
     );
 
     socket.on("join_match", ({ matchId }: { matchId: string }) => {

@@ -68,9 +68,9 @@ test.describe("Scope B realtime smoke", () => {
       await expect(hanako).toHaveURL(new RegExp(`/match/${matchId}/coding$`));
       await expect(hanako.getByRole("button", { name: "コードを確定する" }).first()).toBeVisible();
 
-      // The watch page route is public, but the current Socket.io handshake
-      // requires a session cookie. Log the watcher in via UI, then open /watch.
-      await login(watcher, "sysadmin");
+      // Public spectating: the watcher is anonymous (no login). The Socket.io
+      // handshake allows anonymous read-only sockets, so viewer_count still
+      // increments without a session cookie.
       await watcher.goto(`/watch/${matchId}`);
       await expect(watcher).toHaveURL(new RegExp(`/watch/${matchId}$`));
       await expect(watcher.getByLabel("観戦者数")).toHaveText(/[1-9]\d*/, { timeout: 10_000 });
