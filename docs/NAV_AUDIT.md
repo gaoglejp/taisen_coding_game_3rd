@@ -95,3 +95,19 @@ Result summary:
 | `src/app/layout.tsx` | Google Fonts URLs | HTML resource links | External preload/stylesheet resources, not app navigation | OK |
 
 No form `action` navigation was found in `src/app` or `src/components`; mutations use `fetch()` and stay on-page unless listed above.
+
+## Inert action buttons (non-link; intended transition)
+
+These are `<button>`s (not links), so they never 404 and aren't in the matrix
+above — but several imply a screen transition and currently do nothing.
+
+| Source | Button | Status |
+| :--- | :--- | :--- |
+| `src/app/admin/system/rooms/page.tsx` row | **詳細** | **Wired** → `/admin/rooms/${room.id}` (room overview; GET allows SYSTEM_ADMIN / own-room ROOM_ADMIN). |
+| `src/app/admin/system/rooms/page.tsx` row | **任命** (assign room admin) | **No-op** — assign-admin flow (modal + endpoint) not implemented. Out of scope; needs a feature. |
+| `src/app/admin/rooms/[roomId]/matches/page.tsx` list row | **詳細** | **No-op** — no per-match detail page (the row already has 観戦 → `/watch/:id`). Out of scope. |
+| `src/app/admin/system/users/page.tsx` row | **詳細** | **No-op** — no per-user detail page exists. Out of scope. |
+
+The "詳細" (system rooms) wiring is done; the remaining no-ops are
+unimplemented features (detail pages / assign-admin), not navigation bugs —
+left for a product call.

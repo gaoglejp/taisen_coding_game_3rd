@@ -84,6 +84,39 @@ test.describe("navigation smoke", () => {
     await expectNotFoundCopyAbsent(page);
   });
 
+  test("room admin sidenav entries do not land on 404", async ({ page }) => {
+    await login(page, "teacher01");
+
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/admin\/rooms\/[^/]+$/);
+
+    const roomNav = page.getByRole("navigation");
+
+    await roomNav.getByRole("link", { name: /メンバー/ }).click();
+    await expect(page).toHaveURL(/\/admin\/rooms\/[^/]+\/members$/);
+    await expectNotFoundCopyAbsent(page);
+
+    await roomNav.getByRole("link", { name: /マッチカード/ }).click();
+    await expect(page).toHaveURL(/\/admin\/rooms\/[^/]+\/matches$/);
+    await expectNotFoundCopyAbsent(page);
+
+    await roomNav.getByRole("link", { name: /成績/ }).click();
+    await expect(page).toHaveURL(/\/admin\/rooms\/[^/]+\/standings$/);
+    await expectNotFoundCopyAbsent(page);
+
+    await roomNav.getByRole("link", { name: /お知らせ/ }).click();
+    await expect(page).toHaveURL(/\/admin\/rooms\/[^/]+\/announcements$/);
+    await expectNotFoundCopyAbsent(page);
+
+    await roomNav.getByRole("link", { name: /設定/ }).click();
+    await expect(page).toHaveURL(/\/admin\/rooms\/[^/]+\/settings$/);
+    await expectNotFoundCopyAbsent(page);
+
+    await roomNav.getByRole("link", { name: /概要/ }).click();
+    await expect(page).toHaveURL(/\/admin\/rooms\/[^/]+$/);
+    await expectNotFoundCopyAbsent(page);
+  });
+
   test("error page management actions resolve through the admin landing route", async ({ page }) => {
     await login(page, "sysadmin");
 
