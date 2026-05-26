@@ -13,10 +13,10 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: pending — feat(practice): standalone solo battle
+- **PR**: #65 — feat(practice): standalone solo battle
 - **Branch**: `codex/v0.2-practice-solo`
 - **Date**: 2026-05-26
-- **Status**: local implementation verified; ready to open PR
+- **Status**: open, awaiting CI
 
 ### What changed
 
