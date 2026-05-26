@@ -13,10 +13,10 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: pending — test(e2e): strengthen anonymous watch regression
+- **PR**: #61 — test(e2e): strengthen anonymous watch regression
 - **Branch**: `codex/v0.2-watch-anon-verify`
 - **Date**: 2026-05-26
-- **Status**: local verification green; ready to open PR
+- **Status**: open, awaiting CI
 
 ### What changed
 
