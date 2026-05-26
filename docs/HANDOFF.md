@@ -271,7 +271,7 @@ These are the calls the previous session made that the next session should
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **Test coverage is growing (146 unit/route cases + Scope-A/Nav E2E smoke).** Vitest is wired up (PR #10).
+5. **Test coverage is growing (146 unit/route cases + Scope-A/Nav/Scope-B E2E smoke).** Vitest is wired up (PR #10).
    Unit tests: `src/lib/match-simulator.ts` (incl. `maxTurns` options +
    `normalizeMaxTurns`), `src/lib/auth.ts` (PR #13),
    `src/lib/strategy-blocks.ts` (jsdom — Blockly→Strategy serializer),
@@ -291,8 +291,10 @@ These are the calls the previous session made that the next session should
    room-page smoke. The nav smoke additionally clicks dashboard→rooms→room→
    coding, `/practice`, dashboard replay→watch, system-admin sidenav entries,
    `/admin` role redirects, and error-page admin buttons to prevent 404
-   regressions. Scope B (two browser contexts for coding→lock→battle→result +
-   watch viewer count) remains the next E2E task.
+   regressions. Scope B now adds a realtime multi-context smoke: taro/hanako
+   log in separately, derive the seeded CODING match id through the room
+   "入室する" flow, lock code, auto-transition to battle, click the result link,
+   and verify a watcher context increases `/watch/[matchId]` viewer count.
 6. **Ruleset simulation note updated.** PR #19 left `rulePreset` as
    round-trip but simulator-inert; PR #39 wires `rulePreset.maxTurns` into
    live `simulate(...)` runs (`coding_lock` → `runMatch`) with defensive JSON
@@ -311,8 +313,8 @@ npm run db:push && npm run db:seed
 npm run dev                          # http://localhost:3000
 ```
 
-Playwright smoke (Scope A + navigation) runs against a production build and
-requires the same Postgres seed data:
+Playwright smoke (Scope A + navigation + Scope B) runs against a production
+build and requires the same Postgres seed data:
 
 ```bash
 docker compose up -d postgres
@@ -325,6 +327,8 @@ npm run test:e2e
 
 `playwright.config.ts` starts `npm run start` via `webServer` on
 `http://localhost:3000` and reuses an already-running local server outside CI.
+Scope B consumes the seeded CODING match by driving it to FINISHED, so run
+`npm run db:seed` before each local E2E rerun.
 
 Without `.env`, `prisma db push` fails with
 `Error: The datasource.url property is required in your Prisma config file`

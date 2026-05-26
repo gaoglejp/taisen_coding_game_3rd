@@ -13,36 +13,37 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #57 — fix(nav): wire system-rooms "詳細" + room-admin sidenav E2E
-- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
-- **Date**: 2026-05-25
-- **Status**: merged (CI `check` + `e2e` both green)
+- **PR**: TBD — test(e2e): add Scope B realtime match loop smoke
+- **Branch**: `codex/v0.2-e2e-scope-b`
+- **Date**: 2026-05-26
+- **Status**: local verification green; PR pending
 
 ### What changed
 
-- Follow-up to the nav audit (#55), closing the two gaps an independent
-  re-review found:
-  - **Wired the system-rooms row "詳細"** (was a no-op `<button>`) → `Link` to
-    `/admin/rooms/${room.id}` (overview; GET allows SYSTEM_ADMIN / own-room
-    ROOM_ADMIN). The remaining no-op buttons (system-rooms "任命",
-    matches/users "詳細") are documented in `docs/NAV_AUDIT.md` as
-    unimplemented features (assign-admin / detail pages), not nav bugs.
-  - **Extended `e2e/navigation.spec.ts`** to click the **room-admin sidenav**
-    (概要/メンバー/マッチカード/成績/お知らせ/設定) and assert no 404 — the
-    system-admin sidenav was already E2E-covered in #55.
-- Link-level audit confirmed (independent re-inventory): **every** href /
-  redirect / sidenav target across pages + components resolves to a real
-  route (no 404 remaining).
-- `tsc` (incl. e2e spec) / `lint` / `build` clean; Vitest **146**. The new
-  Playwright assertions are verified by the CI `e2e` job (no local browser).
+- Added Scope B Playwright E2E (`e2e/zz-scope-b.spec.ts`): taro/hanako use
+  separate browser contexts, derive the seeded CODING match id through
+  `/rooms/ROOM-2026-0001` → `入室する`, lock code, auto-transition to battle,
+  click through to result, and assert real result data.
+- Added a watcher context for `/watch/[matchId]` and asserted Socket.io
+  `viewer_count` renders a positive count.
+- Made E2E execution single-worker because Scope B consumes the seeded CODING
+  match by driving it to FINISHED; local/CI should seed before each run.
+- Fixed `prisma/seed.ts` so rerunning `npm run db:seed` resets match #2's
+  `codingDeadlineAt` to +5 minutes as well as status/strategies.
+- Flake hardening: Scope B pre-subscribes a battle page before the second lock,
+  so the short live match cannot miss `match_result` during the app-route
+  transition from coding to battle.
+- Local verification: `docker compose up -d postgres`, `npm ci`,
+  `npx playwright install --with-deps chromium`, `db:push`, repeated
+  `db:seed` + `npx playwright test` runs (12 passed twice after final
+  hardening), `tsc`, `lint`, Vitest 146, and `build` all green. `lint` still
+  carries 4 pre-existing warnings.
+
 ### Next 1–3 PRs (recommended order)
 
-1. **Playwright E2E Scope B** — two browser contexts for
-   taro/hanako coding→lock→battle→result, plus watch viewer-count smoke.
-   **Codex brief ready: `docs/CODEX_TASK_e2e_scope_b.md`** (dispatch to Codex).
-2. **Manual test-play pass** by the spec owner using `docs/TESTPLAY.md`
+1. **Manual test-play pass** by the spec owner using `docs/TESTPLAY.md`
    (the wired loop has never been run end-to-end in a browser).
-3. **Decision-gated** backlog (only if product/schema calls are made):
+2. **Decision-gated** backlog (only if product/schema calls are made):
    `InviteCode` model + signup validation, 2FA, email confirmation, coding
    `lastTurn` source, true tournament bracket linkage, obstacles/items.
    Plus the standalone `next-auth` dependency removal (no decision needed).
@@ -58,13 +59,15 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ### Open questions / handoff notes
 
-- Scope A browser smoke is automated and locally green. The full wired v0.2
-  loop still needs **Scope B E2E** and the manual `docs/TESTPLAY.md` pass.
+- Scope A/Nav/Scope B browser smoke is automated and locally green. The full
+  wired v0.2 loop still needs the manual `docs/TESTPLAY.md` pass.
 - `docs/ROADMAP.md` remains a draft pending product confirmation.
 - `npm run lint` carries 4 pre-existing warnings (unrelated to recent diffs).
 
 ## History
 
+- **PR #57** (merged) — fix(nav): wired system-rooms "詳細" to
+  `/admin/rooms/:id` and extended E2E to cover room-admin sidenav links. (Claude)
 - **PR #56** (merged) — docs: amended the room-auth decision so it matches PR #55
   (`GET /api/admin/rooms/:id` allows own-room ROOM_ADMIN; writes stay sysadmin). (Claude)
 - **PR #55** (merged) — fix(nav): navigation audit (`docs/NAV_AUDIT.md`, 6 broken
