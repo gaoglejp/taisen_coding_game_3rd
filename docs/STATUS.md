@@ -13,32 +13,36 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #62 — fix(auth): route admins to the admin console on login
+- **PR**: #63 — fix(auth): enforce admin landing server-side (dashboard guard)
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-26
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Admins now land on the admin console after login.** Previously every role
-  was redirected to `/dashboard` (the player home), and there was no visible
-  path to the admin console — a SYSTEM_ADMIN saw the same player dashboard as a
-  student. Login now redirects SYSTEM_ADMIN / ROOM_ADMIN to `/admin`, which
-  resolves the role-specific landing (sysadmin → `/admin/system/rooms` with
-  room create/manage; room admin → their assigned room overview, falling back
-  to `/dashboard` if none). Regular users (ROOM_USER / GENERAL_USER) keep the
-  `/dashboard` landing.
-- The fix is a one-line client redirect keyed on `data.user.role` from the
-  existing login API response — no new auth path, reusing `/admin`'s
-  role-aware redirect (`src/app/admin/page.tsx`).
-- **Updated E2E** so the login helpers accept the expected landing:
-  `e2e/navigation.spec.ts` (sysadmin → `/admin/system/rooms`, teacher01 →
-  `/admin/rooms/:id`) and `e2e/smoke.spec.ts` (split the role-aware landing
-  test — students assert the dashboard hero; sysadmin asserts the system rooms
-  console heading; room admin asserts their room overview).
+- **Follow-up to #62.** #62 added a *client-side* login redirect for admins,
+  but that alone is fragile: a stale login bundle, the `TopbarPaper` brand
+  logo's `/dashboard` link, or a direct visit could still drop an admin on the
+  player dashboard. (The reporter still saw the player dashboard after #62 —
+  consistent with a cached login bundle; #62's CI also merged before the `e2e`
+  job ran, so the landing was never machine-verified.)
+- **Added a server-side guard** so admins never see the player home regardless
+  of client state:
+  - `src/app/dashboard/layout.tsx` (new) — a Server Component that reads
+    `getSession()` and redirects admins to their admin landing before the
+    client dashboard renders.
+  - `src/lib/admin-landing.ts` (new) — `adminLandingPath(session)` returns
+    `/admin/system/rooms` (SYSTEM_ADMIN), `/admin/rooms/:id` (ROOM_ADMIN with a
+    room), or `null` (non-admin / room admin with no room → stays on the
+    dashboard, so there is **no redirect loop**).
+  - `src/app/admin/page.tsx` refactored to use the same helper, keeping the
+    rule in one place.
+- The client login redirect from #62 stays as the fast path (admins skip the
+  dashboard hop); the server guard is the safety net.
+- **E2E**: `e2e/navigation.spec.ts` now also asserts a system admin visiting
+  `/dashboard` is bounced to `/admin/system/rooms`.
 - `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **146** /
-  `build` all green locally. The landing changes are verified by the CI `e2e`
-  job (no local browser).
+  `build` all green locally; landing/guard verified by the CI `e2e` job.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -67,6 +71,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #62** (merged) — fix(auth): client-side login redirect sends
+  SYSTEM_ADMIN / ROOM_ADMIN to `/admin` (role-aware landing); regular users
+  keep `/dashboard`. Hardened server-side in #63. (Claude)
 - **PR #61** (merged) — test(e2e): strengthened the Scope B watch regression —
   anonymous watcher asserts live board/timeline movement (not just a positive
   count) + a second watcher verifies `viewer_count` increment/decrement. (Codex)
