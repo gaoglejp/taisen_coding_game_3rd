@@ -16,7 +16,7 @@ When you push, do these three things in `docs/STATUS.md`:
 - **PR**: #59 — test(e2e): add Scope B realtime match loop smoke
 - **Branch**: `codex/v0.2-e2e-scope-b`
 - **Date**: 2026-05-26
-- **Status**: open, awaiting CI
+- **Status**: open, CI `check` + `e2e` green
 
 ### What changed
 
