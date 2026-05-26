@@ -13,10 +13,10 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: TBD — test(e2e): add Scope B realtime match loop smoke
+- **PR**: #59 — test(e2e): add Scope B realtime match loop smoke
 - **Branch**: `codex/v0.2-e2e-scope-b`
 - **Date**: 2026-05-26
-- **Status**: local verification green; PR pending
+- **Status**: open, awaiting CI
 
 ### What changed
 
