@@ -13,30 +13,32 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #61 — test(e2e): strengthen anonymous watch regression
-- **Branch**: `codex/v0.2-watch-anon-verify`
+- **PR**: #62 — fix(auth): route admins to the admin console on login
+- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-26
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Strengthened the Scope B watch regression** in
-  `e2e/zz-scope-b.spec.ts`. The anonymous watcher now verifies more than a
-  positive `viewer_count`: it waits for the live board turn counter and
-  timeline cursor to move from `T0`, proving `turn_event` reaches a
-  cookie-less `/watch/:matchId` socket.
-- Added a second anonymous watcher context to verify `viewer_count` increments
-  on join and decreases again after `context.close()`, covering the
-  `join_match` + `disconnecting` broadcast path.
-- Local verification:
-  `npm ci`; `npx playwright install --with-deps chromium`; `npm run db:push`;
-  `npm run db:seed`; `npm run build`; `npx playwright test` green **3
-  consecutive runs with `db:seed` before each run**. Also green:
-  `npx tsc --noEmit`; `npm run lint` (0 errors, 4 pre-existing warnings);
-  `npm test` (**146**); `npm run build`.
-- Anonymous write-protection remains covered by server-side guard
-  (`coding_lock` no-ops without `socket.data.userId`) and is not additionally
-  asserted by this browser E2E.
+- **Admins now land on the admin console after login.** Previously every role
+  was redirected to `/dashboard` (the player home), and there was no visible
+  path to the admin console — a SYSTEM_ADMIN saw the same player dashboard as a
+  student. Login now redirects SYSTEM_ADMIN / ROOM_ADMIN to `/admin`, which
+  resolves the role-specific landing (sysadmin → `/admin/system/rooms` with
+  room create/manage; room admin → their assigned room overview, falling back
+  to `/dashboard` if none). Regular users (ROOM_USER / GENERAL_USER) keep the
+  `/dashboard` landing.
+- The fix is a one-line client redirect keyed on `data.user.role` from the
+  existing login API response — no new auth path, reusing `/admin`'s
+  role-aware redirect (`src/app/admin/page.tsx`).
+- **Updated E2E** so the login helpers accept the expected landing:
+  `e2e/navigation.spec.ts` (sysadmin → `/admin/system/rooms`, teacher01 →
+  `/admin/rooms/:id`) and `e2e/smoke.spec.ts` (split the role-aware landing
+  test — students assert the dashboard hero; sysadmin asserts the system rooms
+  console heading; room admin asserts their room overview).
+- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **146** /
+  `build` all green locally. The landing changes are verified by the CI `e2e`
+  job (no local browser).
 
 ### Next 1–3 PRs (recommended order)
 
@@ -65,6 +67,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #61** (merged) — test(e2e): strengthened the Scope B watch regression —
+  anonymous watcher asserts live board/timeline movement (not just a positive
+  count) + a second watcher verifies `viewer_count` increment/decrement. (Codex)
 - **PR #60** (merged) — fix(watch): allow anonymous Socket.io spectating —
   relaxed `server.ts` `io.use` so cookie-less `/watch` sockets can receive
   read-only `turn_event` / `viewer_count`; write events still require

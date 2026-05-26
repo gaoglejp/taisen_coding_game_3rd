@@ -47,7 +47,11 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
+      const role = data.user?.role;
+      const isAdmin = role === "SYSTEM_ADMIN" || role === "ROOM_ADMIN";
+      // `/admin` resolves the role-specific admin landing (and falls back to
+      // `/dashboard` for a room admin with no assigned room).
+      router.push(isAdmin ? "/admin" : "/dashboard");
     } catch {
       setError("ネットワークエラーが発生しました");
     } finally {

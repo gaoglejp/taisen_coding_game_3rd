@@ -2,12 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 
 const PASSWORD = "password123!";
 
-async function login(page: Page, username: string) {
+async function login(page: Page, username: string, landing: RegExp = /\/dashboard$/) {
   await page.goto("/login");
   await page.getByPlaceholder("username または email@example.com").fill(username);
   await page.getByPlaceholder("パスワード").fill(PASSWORD);
   await page.getByRole("button", { name: "ログイン" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(landing);
 }
 
 async function expectNotFoundCopyAbsent(page: Page) {
@@ -45,7 +45,7 @@ test.describe("navigation smoke", () => {
   });
 
   test("system admin sidenav entries and /admin redirect do not land on 404", async ({ page }) => {
-    await login(page, "sysadmin");
+    await login(page, "sysadmin", /\/admin\/system\/rooms$/);
 
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin\/system\/rooms$/);
@@ -76,7 +76,7 @@ test.describe("navigation smoke", () => {
   });
 
   test("room admin /admin redirect lands on the assigned room overview", async ({ page }) => {
-    await login(page, "teacher01");
+    await login(page, "teacher01", /\/admin\/rooms\/[^/]+$/);
 
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin\/rooms\/[^/]+$/);
@@ -85,7 +85,7 @@ test.describe("navigation smoke", () => {
   });
 
   test("room admin sidenav entries do not land on 404", async ({ page }) => {
-    await login(page, "teacher01");
+    await login(page, "teacher01", /\/admin\/rooms\/[^/]+$/);
 
     await page.goto("/admin");
     await expect(page).toHaveURL(/\/admin\/rooms\/[^/]+$/);
@@ -118,7 +118,7 @@ test.describe("navigation smoke", () => {
   });
 
   test("error page management actions resolve through the admin landing route", async ({ page }) => {
-    await login(page, "sysadmin");
+    await login(page, "sysadmin", /\/admin\/system\/rooms$/);
 
     await page.goto("/error/403-admin");
     await page.getByRole("link", { name: /管理ホーム/ }).click();

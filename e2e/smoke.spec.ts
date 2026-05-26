@@ -9,27 +9,25 @@ type SeedAccount = {
   roleLabel: string;
 };
 
-const accounts: SeedAccount[] = [
-  { username: "sysadmin", displayName: "システム管理者", roleLabel: "SYSTEM ADMIN" },
-  { username: "teacher01", displayName: "田中先生", roleLabel: "ROOM ADMIN" },
+const studentAccounts: SeedAccount[] = [
   { username: "taro_student", displayName: "たろう", roleLabel: "ROOM USER" },
   { username: "hanako_student", displayName: "はなこ", roleLabel: "ROOM USER" },
 ];
 
-async function login(page: Page, username: string) {
+async function login(page: Page, username: string, landing: RegExp = /\/dashboard$/) {
   await page.goto("/login");
   await page.getByPlaceholder("username または email@example.com").fill(username);
   await page.getByPlaceholder("パスワード").fill(PASSWORD);
   await page.getByRole("button", { name: "ログイン" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  await expect(page.getByText(`@${username}`)).toBeVisible();
+  await expect(page).toHaveURL(landing);
 }
 
 test.describe("Scope A smoke", () => {
-  for (const account of accounts) {
-    test(`${account.username} can log in and reaches the role-aware dashboard`, async ({ page }) => {
+  for (const account of studentAccounts) {
+    test(`${account.username} logs in and lands on the player dashboard`, async ({ page }) => {
       await login(page, account.username);
 
+      await expect(page.getByText(`@${account.username}`)).toBeVisible();
       await expect(
         page.getByRole("heading", { name: `おかえりなさい、${account.displayName}さん` })
       ).toBeVisible();
@@ -38,6 +36,16 @@ test.describe("Scope A smoke", () => {
       ).toBeVisible();
     });
   }
+
+  test("system admin logs in and lands on the system rooms console", async ({ page }) => {
+    await login(page, "sysadmin", /\/admin\/system\/rooms$/);
+    await expect(page.getByRole("heading", { name: "ルーム", exact: true })).toBeVisible();
+  });
+
+  test("room admin logs in and lands on their assigned room overview", async ({ page }) => {
+    await login(page, "teacher01", /\/admin\/rooms\/[^/]+$/);
+    await expect(page.getByRole("heading", { name: "プログラミング入門クラス" })).toBeVisible();
+  });
 
   test("protected pages redirect unauthenticated users to login", async ({ page }) => {
     await page.goto("/dashboard");
