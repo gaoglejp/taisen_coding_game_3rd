@@ -13,31 +13,27 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #65 — feat(practice): standalone solo battle
-- **Branch**: `codex/v0.2-practice-solo`
+- **PR**: #66 — fix(practice): reflow the replay panel for the half-width column
+- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-26
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Implemented `/practice` as a logged-in solo battle surface.** The page now
-  reuses the real Blockly editor / serializer, lets the user choose a built-in
-  bot difficulty, starts a standalone simulation, replays turns locally, and
-  shows the result summary (win/loss/draw, remaining HP, turns, end reason)
-  with a retry action.
-- **Added `POST /api/practice/simulate`.** The route requires `getSession()`,
-  validates `{ strategy, difficulty? }`, selects a built-in bot (`weak` /
-  `normal`), calls the pure simulator, and returns `{ bot, result }`. It does
-  not create `Match` records, write stats, or use Socket.io.
-- **Access control:** `/practice` is now included in `src/proxy.ts`'s
-  optimistic login guard; the API has its own session guard.
-- **Tests:** added route-handler coverage for 401, valid 200 simulation, and
-  invalid strategy 400; added a Playwright practice smoke
-  (login → `/practice` → 対戦開始 → replay/result).
-- Local verification: `npx tsc --noEmit`, `npm run lint` (0 errors, 4
-  pre-existing warnings), `npm test` (**149**), `npm run build`, manual
-  Playwright smoke against local dev, and full `npx playwright test` (**13**)
-  are green.
+- **Fixed a layout break on `/practice`** (reported with a screenshot). The
+  replay panel laid out P1 (280px) + board (~428px) + P2 (280px) side by side,
+  which overflowed the ~half-width replay column: the board overlapped the P2
+  panel and the controls/turn-log column was crushed into a vertical sliver.
+- **Reflowed the replay panel vertically** for the narrow column: board
+  centered on top (with `overflowX: auto` as a safety net), then the P1/P2
+  panels in a row below it, then the playback controls, then the turn log.
+  `PlayerPanel` changed from a fixed `width: 280` to `flex: 1; min-width: 0`
+  so the two panels share the row. No behavior/logic change — layout only.
+- **Verified visually**: built and ran the app locally (Postgres + `npm run
+  start`), logged in as a student, ran a practice battle, and screenshotted the
+  replay — board / panels / controls / log all lay out cleanly now.
+- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **149** /
+  `build` all green.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -67,6 +63,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #65** (merged) — feat(practice): standalone `/practice` solo battle —
+  reuses Blockly + `simulate()` vs built-in bots via `POST /api/practice/simulate`
+  (no Match/Socket.io/persistence); route tests + practice E2E. (Codex)
 - **PR #63** (merged) — fix(auth): server-side dashboard guard bounces admins
   to the shared admin landing, hardening #62's client-side login redirect;
   navigation E2E covers direct `/dashboard` admin access. (Claude)
