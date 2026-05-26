@@ -190,6 +190,12 @@ These are the calls the previous session made that the next session should
    deliberately excluded from the matcher**: public spectating is anonymous
    (`/api/match/:id/public` is "no auth required", gated by `isPublicWatch` /
    `watchingPublic`), so do not add `/watch/:path*` back to the matcher.
+   **The Socket.io handshake (`server.ts` `io.use`) likewise allows anonymous
+   read-only sockets** so `/watch` gets live `turn_event` / `viewer_count`
+   without a login; write events still require `socket.data.userId`
+   (`coding_lock` no-ops for anonymous). Earlier the handshake rejected
+   cookie-less sockets, which silently broke anonymous spectating despite the
+   route being public — fixed so the two layers agree.
    Related PR #51 auth fixes: the session cookie is `secure` only when the
    app URL is HTTPS (so prod-over-HTTP localhost login works), and the logout
    `<Link>`s use `prefetch={false}` (prefetch was silently hitting the

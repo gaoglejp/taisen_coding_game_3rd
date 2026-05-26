@@ -76,7 +76,7 @@ simulation reflects them.
 | Watch header (room / players) | ✅ | PR #9 |
 | Obstacles / items on board | ⬜ | Depends on simulator modelling them (post-v0.2? **TBD**) |
 | Timeline event ticks | ✅ | PR #34 — derived from `turn_event` / replay turns (hit ticks + finish tick), includes empty state |
-| Viewer count (real) | ✅ | PR #34 — Socket.io presence via `join_match` + `disconnecting` room-size broadcast; Scope B E2E asserts `/watch/[matchId]` viewer count increases |
+| Viewer count (real) | ✅ | PR #34 — Socket.io presence via `join_match` + `disconnecting` room-size broadcast; Scope B E2E asserts `/watch/[matchId]` viewer count increases (anonymous, after PR #60 relaxed the socket handshake) |
 | Live commentary feed | ⬜ | No backing feature; likely **post-v0.2** |
 | Remove design-only "state gallery" | ✅ | PR #27 — removed the 6-card showcase + its helpers from the watch page |
 
