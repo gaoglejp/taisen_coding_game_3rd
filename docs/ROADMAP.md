@@ -57,11 +57,11 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started
 | Login / signup / session | ✅ | `src/lib/auth.ts`, cookie sessions |
 | Coding page header (room / opponent) | ✅ | PR #8 |
 | Coding countdown bound to `codingDeadlineAt` | ✅ | PR #40 — `src/app/match/[matchId]/coding/page.tsx` now recalculates from `/api/match/:id/state` deadline each tick; null/invalid keeps 300s fallback. |
-| Lock strategy → `match_started` | ✅ | `server.ts` `coding_lock` handler |
+| Lock strategy → `match_started` | ✅ | `server.ts` `coding_lock` handler; Scope B E2E covers taro/hanako two-context lock → auto battle transition |
 | Turn simulator (server-side) | ✅ | PR #5, `src/lib/match-simulator.ts` |
 | Room `rulePreset.maxTurns` reflected in live simulation | ✅ | PR #39 — `coding_lock` → `runMatch` now passes validated `maxTurns` to `simulate` |
-| Battle replay (live `turn_event`) | ✅ | PR #5 |
-| Result screen (real stats) | ✅ | PR #7 |
+| Battle replay (live `turn_event`) | ✅ | PR #5; Scope B E2E waits through live battle to result link |
+| Result screen (real stats) | ✅ | PR #7; Scope B E2E clicks through to `/result` and asserts real HP/turn data |
 | **Blockly → strategy JSON serializer** | ✅ | PR #23 — real Blockly (v12) editor + `src/lib/strategy-blocks.ts` serializer; coding page submits the live workspace as `Strategy` JSON. Players now run their own strategies. Canvas UX needs manual browser verification. |
 | Coding `lastTurn` tab real data | ⬜ | Needs simulator to surface prior-turn perception OR a `/api/match/:id/lastTurn` endpoint **(TBD which)** |
 
@@ -76,7 +76,7 @@ simulation reflects them.
 | Watch header (room / players) | ✅ | PR #9 |
 | Obstacles / items on board | ⬜ | Depends on simulator modelling them (post-v0.2? **TBD**) |
 | Timeline event ticks | ✅ | PR #34 — derived from `turn_event` / replay turns (hit ticks + finish tick), includes empty state |
-| Viewer count (real) | ✅ | PR #34 — Socket.io presence via `join_match` + `disconnecting` room-size broadcast |
+| Viewer count (real) | ✅ | PR #34 — Socket.io presence via `join_match` + `disconnecting` room-size broadcast; Scope B E2E asserts `/watch/[matchId]` viewer count increases |
 | Live commentary feed | ⬜ | No backing feature; likely **post-v0.2** |
 | Remove design-only "state gallery" | ✅ | PR #27 — removed the 6-card showcase + its helpers from the watch page |
 

@@ -152,6 +152,7 @@ async function main() {
       endedAt: null,
       winnerId: null,
       endReason: null,
+      codingDeadlineAt: new Date(Date.now() + 300000),
     },
     create: {
       matchNumber: 2,
