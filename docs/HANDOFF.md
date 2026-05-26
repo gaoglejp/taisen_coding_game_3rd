@@ -32,7 +32,7 @@ into the client yet (the server side scaffold exists). See section 4.
 | `/dashboard`                              | `project/dashboard.html`                  |
 | `/rooms`                                  | Minimal room-picker index (no prototype)  |
 | `/rooms/[roomNumber]`                     | `project/room-top.html`                   |
-| `/practice`                               | Minimal準備中 placeholder (no prototype) |
+| `/practice`                               | Solo practice battle (no prototype)      |
 | `/match/[matchId]/coding`                 | `project/match-coding.html`               |
 | `/match/[matchId]/battle`                 | `project/match-battle.html`               |
 | `/match/[matchId]/result`                 | `project/match-result.html`               |
@@ -68,6 +68,7 @@ All routes use `src/lib/db.ts` (Prisma client) and `src/lib/auth.ts`
 /api/match/[matchId]/state              GET
 /api/match/[matchId]/result             GET
 /api/match/[matchId]/replay             GET
+/api/practice/simulate                  POST   — standalone solo bot simulation
 /api/socket                             — (Socket.io path, served by server.ts)
 
 /api/admin/audit                        GET
@@ -204,7 +205,7 @@ These are the calls the previous session made that the next session should
    `docs/NAV_AUDIT.md` and keeps contentless landings as redirects:
    `/admin/system` → `/admin/system/rooms`, `/admin` → role-aware admin or
    dashboard destination. Feature routes without a v0.2 implementation
-   (`/admin/system/settings`, `/practice`) use minimal準備中 pages with existing
+   (`/admin/system/settings`) use minimal準備中 pages with existing
    chrome rather than inventing product UI or removing visible nav affordances.
    Dashboard replay links use `/watch/[matchId]`; there is no `/replay/[id]`
    page.
@@ -221,6 +222,15 @@ These are the calls the previous session made that the next session should
    `/admin/system/rooms`, ROOM_ADMIN → first assigned non-deleted room, else
    `null` (non-admin / room admin with no room → stays on `/dashboard`, so
    there is no redirect loop).
+14. **Practice mode is standalone and non-persistent.** `/practice` is now a
+   logged-in solo battle surface: the client reuses the real Blockly editor and
+   serializer, posts `{ strategy, difficulty }` to
+   `POST /api/practice/simulate`, and replays the returned simulator turns
+   locally. The API selects a built-in bot and calls the pure
+   `simulate(userStrategy, botStrategy, { maxTurns: MAX_TURNS })`. It does
+   **not** create `Match` records, open Socket.io, write stats, or affect room
+   standings. `/practice` is included in the optimistic proxy matcher, and the
+   API also requires `getSession()`.
 
 ## 4. Known unfinished work (in priority order)
 
@@ -290,7 +300,7 @@ These are the calls the previous session made that the next session should
      future `InviteCode` model (schema change required)
    - `src/app/api/auth/signup/route.ts:77` and
      `src/app/api/auth/signup/promote/route.ts:95` — send confirmation email
-5. **Test coverage is growing (146 unit/route cases + Scope-A/Nav/Scope-B E2E smoke).** Vitest is wired up (PR #10).
+5. **Test coverage is growing (149 unit/route cases + Scope-A/Nav/Scope-B/practice E2E smoke).** Vitest is wired up (PR #10).
    Unit tests: `src/lib/match-simulator.ts` (incl. `maxTurns` options +
    `normalizeMaxTurns`), `src/lib/auth.ts` (PR #13),
    `src/lib/strategy-blocks.ts` (jsdom — Blockly→Strategy serializer),
@@ -303,7 +313,9 @@ These are the calls the previous session made that the next session should
      rooms create/delete/archive·restore + activity feed (PR #38);
    - player read: `rooms/:n` + matches/standings, `me/stats`, `me/matches`
      (PR #46);
-   - match read: `match/:id/{public,state,result,replay}` (PR #48).
+   - match read: `match/:id/{public,state,result,replay}` (PR #48);
+   - practice: `practice/simulate` validates logged-in standalone bot
+     simulations.
    Playwright E2E Scope A is now wired under `e2e/**/*.spec.ts` with
    `playwright.config.ts`: seed-account login → dashboard role smoke,
    unauthenticated protected-page redirect to `/login`, and seeded student
@@ -314,6 +326,8 @@ These are the calls the previous session made that the next session should
    log in separately, derive the seeded CODING match id through the room
    "入室する" flow, lock code, auto-transition to battle, click the result link,
    and verify a watcher context increases `/watch/[matchId]` viewer count.
+   The practice smoke logs in, opens `/practice`, starts a solo bot battle, and
+   waits for replay result controls.
 6. **Ruleset simulation note updated.** PR #19 left `rulePreset` as
    round-trip but simulator-inert; PR #39 wires `rulePreset.maxTurns` into
    live `simulate(...)` runs (`coding_lock` → `runMatch`) with defensive JSON
