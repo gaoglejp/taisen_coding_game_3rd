@@ -234,8 +234,10 @@ These are the calls the previous session made that the next session should
 15. **Strategy block language is composable; the simulator uses a
    relative-direction model (PR #66).** The Blockly palette is being rebuilt
    into categories of individual blocks (see the requested mockups). Landed so
-   far: **行動** (10 action statement blocks) and **状態確認** (4 boolean value
-   blocks). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
+   far: **行動** (10 action statement blocks), **状態確認** (4 boolean value
+   blocks), and **敵情報** (1 boolean `敵を検出している？` → `scan_detected`, plus
+   3 Number readouts `敵の前方/右方向距離`・`敵までの距離` that are palette-only until
+   comparisons land). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
    `tank_fallback` is `実行 <Action statement>`. The serializer still emits the
    same `Strategy` JSON (`rules[].{conditions,actions}` + `fallbackActions`), so
    the simulator / real-match flow are structurally unchanged. **Simulator

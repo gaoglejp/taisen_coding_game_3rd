@@ -30,8 +30,23 @@ const CHECK_BLOCKS: [string, string, string][] = [
   ["右に進める？", "tank_chk_can_move_right", "can_move_right"],
 ];
 
+// 敵情報 boolean checks. label, block type, simulator condition.
+const ENEMY_CHECK_BLOCKS: [string, string, string][] = [
+  ["敵を検出している？", "tank_chk_enemy_detected", "scan_detected"],
+];
+
+// 敵情報 number readouts (value blocks). label, block type. These output a
+// Number; they become usable inside rules once the 論理・比較 (comparison)
+// category lands, which will compare them and feed the boolean into 「もし」.
+const ENEMY_NUMBER_BLOCKS: [string, string][] = [
+  ["敵の前方距離", "tank_num_enemy_forward_distance"],
+  ["敵の右方向距離", "tank_num_enemy_right_distance"],
+  ["敵までの距離", "tank_num_enemy_distance"],
+];
+
 const ACTION_COLOUR = 30;
 const CHECK_COLOUR = 210;
+const ENEMY_COLOUR = 0;
 const RULE_COLOUR = 230;
 const FALLBACK_COLOUR = 290;
 
@@ -39,7 +54,7 @@ const ACTION_BLOCK_TO_TYPE: Record<string, string> = Object.fromEntries(
   ACTION_BLOCKS.map(([, block, type]) => [block, type])
 );
 const CHECK_BLOCK_TO_COND: Record<string, string> = Object.fromEntries(
-  CHECK_BLOCKS.map(([, block, cond]) => [block, cond])
+  [...CHECK_BLOCKS, ...ENEMY_CHECK_BLOCKS].map(([, block, cond]) => [block, cond])
 );
 
 const ACTION_BLOCK_DEFINITIONS = ACTION_BLOCKS.map(([label, type]) => ({
@@ -58,6 +73,24 @@ const CHECK_BLOCK_DEFINITIONS = CHECK_BLOCKS.map(([label, type]) => ({
   output: "Boolean",
   colour: CHECK_COLOUR,
   tooltip: `${label} の真偽を返します。ルールの「もし」に差し込みます。`,
+  helpUrl: "",
+}));
+
+const ENEMY_CHECK_DEFINITIONS = ENEMY_CHECK_BLOCKS.map(([label, type]) => ({
+  type,
+  message0: label,
+  output: "Boolean",
+  colour: ENEMY_COLOUR,
+  tooltip: `${label} の真偽を返します。ルールの「もし」に差し込みます。`,
+  helpUrl: "",
+}));
+
+const ENEMY_NUMBER_DEFINITIONS = ENEMY_NUMBER_BLOCKS.map(([label, type]) => ({
+  type,
+  message0: label,
+  output: "Number",
+  colour: ENEMY_COLOUR,
+  tooltip: `${label} を数値で返します。比較ブロックと組み合わせて使います。`,
   helpUrl: "",
 }));
 
@@ -90,6 +123,8 @@ const STRUCTURE_BLOCK_DEFINITIONS = [
 const BLOCK_DEFINITIONS = [
   ...ACTION_BLOCK_DEFINITIONS,
   ...CHECK_BLOCK_DEFINITIONS,
+  ...ENEMY_CHECK_DEFINITIONS,
+  ...ENEMY_NUMBER_DEFINITIONS,
   ...STRUCTURE_BLOCK_DEFINITIONS,
 ];
 
@@ -116,6 +151,15 @@ export const STRATEGY_TOOLBOX = {
       name: "状態確認",
       colour: String(CHECK_COLOUR),
       contents: CHECK_BLOCKS.map(([, type]) => ({ kind: "block", type })),
+    },
+    {
+      kind: "category",
+      name: "敵情報",
+      colour: String(ENEMY_COLOUR),
+      contents: [...ENEMY_CHECK_BLOCKS, ...ENEMY_NUMBER_BLOCKS].map(([, type]) => ({
+        kind: "block",
+        type,
+      })),
     },
     {
       kind: "category",

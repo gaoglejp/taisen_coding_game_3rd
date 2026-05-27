@@ -81,6 +81,32 @@ describe("workspaceToStrategy", () => {
     ws.dispose();
   });
 
+  it("maps the 敵を検出している？ check to the scan_detected condition", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                COND: { block: { type: "tank_chk_enemy_detected" } },
+                DO: { block: { type: "tank_act_shoot_forward" } },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].conditions).toEqual([{ type: "scan_detected", value: true }]);
+    expect(strategy.rules![0].actions).toEqual([{ type: "SHOOT_FORWARD", ap: 1 }]);
+    ws.dispose();
+  });
+
   it("treats a rule with no condition block as always-matching (empty conditions)", () => {
     const ws = new Blockly.Workspace();
     Blockly.serialization.workspaces.load(
