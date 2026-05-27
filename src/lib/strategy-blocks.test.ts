@@ -107,6 +107,41 @@ describe("workspaceToStrategy", () => {
     ws.dispose();
   });
 
+  it("maps the 前回結果 checks to damaged / shot_hit conditions", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                COND: { block: { type: "tank_chk_took_damage" } },
+                DO: { block: { type: "tank_act_move_back" } },
+              },
+              next: {
+                block: {
+                  type: "tank_rule",
+                  inputs: {
+                    COND: { block: { type: "tank_chk_shot_hit" } },
+                    DO: { block: { type: "tank_act_shoot_forward" } },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].conditions).toEqual([{ type: "damaged", value: true }]);
+    expect(strategy.rules![1].conditions).toEqual([{ type: "shot_hit", value: true }]);
+    ws.dispose();
+  });
+
   it("treats a rule with no condition block as always-matching (empty conditions)", () => {
     const ws = new Blockly.Workspace();
     Blockly.serialization.workspaces.load(

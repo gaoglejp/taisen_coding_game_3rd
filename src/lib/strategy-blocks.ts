@@ -44,9 +44,16 @@ const ENEMY_NUMBER_BLOCKS: [string, string][] = [
   ["敵までの距離", "tank_num_enemy_distance"],
 ];
 
+// 前回結果 boolean checks (previous turn outcome). label, block type, condition.
+const LAST_RESULT_CHECK_BLOCKS: [string, string, string][] = [
+  ["前回ダメージを受けた？", "tank_chk_took_damage", "damaged"],
+  ["前回敵に命中した？", "tank_chk_shot_hit", "shot_hit"],
+];
+
 const ACTION_COLOUR = 30;
 const CHECK_COLOUR = 210;
 const ENEMY_COLOUR = 0;
+const LAST_RESULT_COLOUR = 270;
 const RULE_COLOUR = 230;
 const FALLBACK_COLOUR = 290;
 
@@ -54,7 +61,10 @@ const ACTION_BLOCK_TO_TYPE: Record<string, string> = Object.fromEntries(
   ACTION_BLOCKS.map(([, block, type]) => [block, type])
 );
 const CHECK_BLOCK_TO_COND: Record<string, string> = Object.fromEntries(
-  [...CHECK_BLOCKS, ...ENEMY_CHECK_BLOCKS].map(([, block, cond]) => [block, cond])
+  [...CHECK_BLOCKS, ...ENEMY_CHECK_BLOCKS, ...LAST_RESULT_CHECK_BLOCKS].map(([, block, cond]) => [
+    block,
+    cond,
+  ])
 );
 
 const ACTION_BLOCK_DEFINITIONS = ACTION_BLOCKS.map(([label, type]) => ({
@@ -94,6 +104,15 @@ const ENEMY_NUMBER_DEFINITIONS = ENEMY_NUMBER_BLOCKS.map(([label, type]) => ({
   helpUrl: "",
 }));
 
+const LAST_RESULT_CHECK_DEFINITIONS = LAST_RESULT_CHECK_BLOCKS.map(([label, type]) => ({
+  type,
+  message0: label,
+  output: "Boolean",
+  colour: LAST_RESULT_COLOUR,
+  tooltip: `${label} の真偽を返します。ルールの「もし」に差し込みます。`,
+  helpUrl: "",
+}));
+
 const STRUCTURE_BLOCK_DEFINITIONS = [
   {
     type: "tank_rule",
@@ -125,6 +144,7 @@ const BLOCK_DEFINITIONS = [
   ...CHECK_BLOCK_DEFINITIONS,
   ...ENEMY_CHECK_DEFINITIONS,
   ...ENEMY_NUMBER_DEFINITIONS,
+  ...LAST_RESULT_CHECK_DEFINITIONS,
   ...STRUCTURE_BLOCK_DEFINITIONS,
 ];
 
@@ -160,6 +180,12 @@ export const STRATEGY_TOOLBOX = {
         kind: "block",
         type,
       })),
+    },
+    {
+      kind: "category",
+      name: "前回結果",
+      colour: String(LAST_RESULT_COLOUR),
+      contents: LAST_RESULT_CHECK_BLOCKS.map(([, type]) => ({ kind: "block", type })),
     },
     {
       kind: "category",

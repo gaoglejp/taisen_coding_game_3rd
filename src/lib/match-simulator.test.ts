@@ -60,6 +60,25 @@ describe("simulate", () => {
     expect(result.turns[0].p1).toMatchObject({ x: 1, y: 0, moved: true });
   });
 
+  it("exposes shot_hit: the turn after a SHOOT_FORWARD hits, the shot_hit rule fires", () => {
+    // P1 descends column 0 to row 9, advances east toward the idle P2 at (9,9),
+    // and shoots when adjacent. After a hit, the shot_hit rule makes it WAIT.
+    const hunter: Strategy = {
+      rules: [
+        { conditions: [{ type: "shot_hit", value: true }], actions: [{ type: "WAIT" }] },
+        { conditions: [{ type: "can_move_right", value: true }], actions: [{ type: "MOVE_RIGHT" }] },
+        { conditions: [{ type: "can_move_forward", value: true }], actions: [{ type: "MOVE_FORWARD" }] },
+      ],
+      fallbackActions: [{ type: "SHOOT_FORWARD" }],
+    };
+    const result = simulate(hunter, waitOnly, { maxTurns: 30 });
+
+    const hitIndex = result.turns.findIndex((t) => t.p1.shoot_result === "HIT");
+    expect(hitIndex).toBeGreaterThanOrEqual(0);
+    expect(result.turns[hitIndex + 1].p1.action).toBe("WAIT");
+    expect(result.finalHp.p2).toBeLessThan(INITIAL_HP);
+  });
+
   it("decides on HP_ZERO when one side reaches 0 HP", () => {
     // Both shoot constantly. The simulator's deterministic positioning has
     // P1 at (0,0) facing E and P2 at (9,9) facing W — neither on each

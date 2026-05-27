@@ -13,27 +13,24 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #67 — feat(blocks): 敵情報 category (enemy detection + distance readouts)
+- **PR**: #68 — feat(blocks): 前回結果 category (previous-turn outcome checks)
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Added the 敵情報 (enemy info) block category** (red), matching the requested
-  mockup — 4 blocks:
-  - **敵を検出している？** — boolean value block. Maps to the existing
-    `scan_detected` condition, so it is **functional now**: drop it into a rule's
-    「もし」 to act when the last `SCAN_AROUND` found the enemy.
-  - **敵の前方距離 / 敵の右方向距離 / 敵までの距離** — Number value blocks. Defined
-    in the palette as forward progress; they output a Number and **become usable
-    inside rules once the 論理・比較 (comparison) category lands** (a comparison
-    will turn a number into the boolean 「もし」 expects). No simulator distance
-    plumbing yet — that lands with the comparison blocks so it ships testable.
-- Serializer + test: a rule whose 「もし」 holds 敵を検出している？ serializes to
-  `{ type: "scan_detected", value: true }`.
-- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **153** / `build`
-  green; screenshotted the 敵情報 flyout (4 red blocks) from a local run.
+- **Added the 前回結果 (previous result) block category** (purple), matching the
+  mockup — 2 boolean value blocks, both **functional now**:
+  - **前回ダメージを受けた？** → existing `damaged` condition (took damage last turn).
+  - **前回敵に命中した？** → **new `shot_hit` condition**. Added a `shot_hit`
+    perception field to the simulator (true when last turn's SHOOT_* landed a
+    HIT) + an `evaluateCondition` case, threaded through `buildPerception`.
+- Tests: serializer maps both checks to `damaged` / `shot_hit`; a simulator test
+  drives a hunter strategy to an adjacent shot and asserts the `shot_hit` rule
+  fires the turn after a HIT (P2 HP drops).
+- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **155** / `build`
+  green; screenshotted the 前回結果 flyout (2 purple blocks) from a local run.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -63,6 +60,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #67** (merged) — feat(blocks): added the 敵情報 category — 敵を検出している？
+  (→ `scan_detected`, functional) + three Number distance readouts (palette-only
+  until comparisons land). (Claude)
 - **PR #66** (merged) — feat(blocks): rebuilt the strategy palette into 行動
   (10 action blocks) + 状態確認 (4 boolean checks); reworked the simulator to a
   relative-direction model (strafe move/shoot, SCAN_AROUND, rotation removed,
