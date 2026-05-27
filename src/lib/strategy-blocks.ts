@@ -74,6 +74,8 @@ const CHECK_COLOUR = 210;
 const ENEMY_COLOUR = 0;
 const LAST_RESULT_COLOUR = 270;
 const SELF_COLOUR = 160;
+const CONTROL_CAT_COLOUR = 60;
+const CONTROL_BLOCK_COLOUR = 120;
 const RULE_COLOUR = 230;
 const FALLBACK_COLOUR = 290;
 
@@ -151,6 +153,37 @@ const SELF_DIRECTION_DEFINITIONS = SELF_DIRECTION_BLOCKS.map(([label, type]) => 
   helpUrl: "",
 }));
 
+// 制御 (control flow). These snap into a rule's 「実行」 stack like actions, but
+// the rule-table runtime does not interpret them yet — their execution
+// semantics (especially 繰り返す, intentionally unimplemented for now) land with
+// the future sequential-program model. Palette-only at this stage.
+const CONTROL_BLOCK_DEFINITIONS = [
+  {
+    type: "tank_ctl_if",
+    message0: "もし %1",
+    args0: [{ type: "input_value", name: "COND", check: "Boolean" }],
+    message1: "実行 %1",
+    args1: [{ type: "input_statement", name: "DO", check: "Action" }],
+    previousStatement: "Action",
+    nextStatement: "Action",
+    colour: CONTROL_BLOCK_COLOUR,
+    tooltip: "条件が真のとき、中の行動を実行します（実行モデル確定後に有効化）。",
+    helpUrl: "",
+  },
+  {
+    type: "tank_ctl_repeat",
+    message0: "%1 回繰り返す",
+    args0: [{ type: "field_number", name: "TIMES", value: 2, min: 1, precision: 1 }],
+    message1: "実行 %1",
+    args1: [{ type: "input_statement", name: "DO", check: "Action" }],
+    previousStatement: "Action",
+    nextStatement: "Action",
+    colour: CONTROL_BLOCK_COLOUR,
+    tooltip: "中の行動を指定回数くり返します（未実装・実行モデル確定後に有効化）。",
+    helpUrl: "",
+  },
+];
+
 const STRUCTURE_BLOCK_DEFINITIONS = [
   {
     type: "tank_rule",
@@ -185,6 +218,7 @@ const BLOCK_DEFINITIONS = [
   ...LAST_RESULT_CHECK_DEFINITIONS,
   ...SELF_NUMBER_DEFINITIONS,
   ...SELF_DIRECTION_DEFINITIONS,
+  ...CONTROL_BLOCK_DEFINITIONS,
   ...STRUCTURE_BLOCK_DEFINITIONS,
 ];
 
@@ -235,6 +269,15 @@ export const STRATEGY_TOOLBOX = {
         kind: "block",
         type,
       })),
+    },
+    {
+      kind: "category",
+      name: "制御",
+      colour: String(CONTROL_CAT_COLOUR),
+      contents: [
+        { kind: "block", type: "tank_ctl_if" },
+        { kind: "block", type: "tank_ctl_repeat" },
+      ],
     },
     {
       kind: "category",

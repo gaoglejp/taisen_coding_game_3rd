@@ -241,7 +241,11 @@ These are the calls the previous session made that the next session should
    `前回敵に命中した？` → `shot_hit`, a perception flag set when last turn's shot
    landed a HIT), and **自機情報** (`自分のHP`・`残りターン` Number readouts +
    `自分の向き` and the `上/右/下/左` Direction constants — all palette-only until
-   comparisons land). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
+   comparisons land), and **制御** (`もし` if-block + `N回繰り返す` repeat-block;
+   palette-only — they snap into a 「実行」 stack but the rule-table runtime does
+   not interpret them yet. The 繰り返す loop is intentionally unimplemented per a
+   product decision; control-flow semantics land with the sequential-program
+   model). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
    `tank_fallback` is `実行 <Action statement>`. The serializer still emits the
    same `Strategy` JSON (`rules[].{conditions,actions}` + `fallbackActions`), so
    the simulator / real-match flow are structurally unchanged. **Simulator
