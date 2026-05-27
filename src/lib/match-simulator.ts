@@ -1,34 +1,58 @@
 // Pure deterministic turn simulator for a 10x10, two-player match.
 //
-// A strategy is the JSON object produced by the coding page (see
-// MOCK_STRATEGY_JSON in src/app/match/[matchId]/coding/page.tsx). The simulator
-// evaluates rules in order, takes the first matching rule's first action, and
-// applies it. With no matching rule it falls back to `fallbackActions[0]`, or
-// WAIT if that is missing too.
+// A strategy is the JSON object produced by the coding/practice block editor
+// (see src/lib/strategy-blocks.ts). The simulator evaluates rules in order,
+// takes the first matching rule's first action, and applies it. With no
+// matching rule it falls back to `fallbackActions[0]`, or WAIT if missing.
 //
 // The simulator is intentionally small: no obstacles, no items, no AP budget,
-// one action per player per turn. The intent is to get a complete game loop
-// landed end-to-end; richer rules can be layered on without changing the
-// turn_event / match_result shape.
+// one action per player per turn. Movement and shooting are relative to the
+// player's facing (forward / back / left / right). There is no rotation, so a
+// player's facing is fixed for the whole match — "relative" simply gives each
+// player a stable four-direction frame.
 
 export type Direction = "N" | "E" | "S" | "W";
 
+export type RelDir = "FORWARD" | "BACK" | "LEFT" | "RIGHT";
+
 export type ActionType =
   | "MOVE_FORWARD"
-  | "TURN_LEFT"
-  | "TURN_RIGHT"
+  | "MOVE_BACK"
+  | "MOVE_LEFT"
+  | "MOVE_RIGHT"
   | "SHOOT_FORWARD"
-  | "SCAN"
+  | "SHOOT_BACK"
+  | "SHOOT_LEFT"
+  | "SHOOT_RIGHT"
+  | "SCAN_AROUND"
   | "WAIT";
 
 const ACTION_TYPES: ReadonlySet<ActionType> = new Set([
   "MOVE_FORWARD",
-  "TURN_LEFT",
-  "TURN_RIGHT",
+  "MOVE_BACK",
+  "MOVE_LEFT",
+  "MOVE_RIGHT",
   "SHOOT_FORWARD",
-  "SCAN",
+  "SHOOT_BACK",
+  "SHOOT_LEFT",
+  "SHOOT_RIGHT",
+  "SCAN_AROUND",
   "WAIT",
 ]);
+
+const MOVE_ACTIONS: Partial<Record<ActionType, RelDir>> = {
+  MOVE_FORWARD: "FORWARD",
+  MOVE_BACK: "BACK",
+  MOVE_LEFT: "LEFT",
+  MOVE_RIGHT: "RIGHT",
+};
+
+const SHOOT_ACTIONS: Partial<Record<ActionType, RelDir>> = {
+  SHOOT_FORWARD: "FORWARD",
+  SHOOT_BACK: "BACK",
+  SHOOT_LEFT: "LEFT",
+  SHOOT_RIGHT: "RIGHT",
+};
 
 export interface PlayerState {
   x: number;
@@ -38,7 +62,7 @@ export interface PlayerState {
 }
 
 export interface DetectedTarget {
-  direction: "forward";
+  direction: RelDir;
   distance: number;
   age: number;
 }
@@ -106,11 +130,35 @@ const DIR_DELTA: Record<Direction, [number, number]> = {
 
 const TURN_LEFT_OF: Record<Direction, Direction> = { N: "W", W: "S", S: "E", E: "N" };
 const TURN_RIGHT_OF: Record<Direction, Direction> = { N: "E", E: "S", S: "W", W: "N" };
+const OPPOSITE_OF: Record<Direction, Direction> = { N: "S", S: "N", E: "W", W: "E" };
+const REL_DIRS: RelDir[] = ["FORWARD", "BACK", "LEFT", "RIGHT"];
+
+// The absolute compass direction of a relative direction, given a facing.
+function relDirection(facing: Direction, rel: RelDir): Direction {
+  switch (rel) {
+    case "FORWARD":
+      return facing;
+    case "BACK":
+      return OPPOSITE_OF[facing];
+    case "LEFT":
+      return TURN_LEFT_OF[facing];
+    case "RIGHT":
+      return TURN_RIGHT_OF[facing];
+  }
+}
+
+function relDelta(facing: Direction, rel: RelDir): [number, number] {
+  return DIR_DELTA[relDirection(facing, rel)];
+}
 
 interface Perception {
   scan_detected: boolean;
   damaged: number;
   moved: boolean;
+  can_move_forward: boolean;
+  can_move_back: boolean;
+  can_move_left: boolean;
+  can_move_right: boolean;
 }
 
 function isAction(value: unknown): value is ActionType {
@@ -138,6 +186,14 @@ function evaluateCondition(c: StrategyCondition, p: Perception): boolean {
       return p.damaged > 0 === Boolean(c.value);
     case "moved":
       return p.moved === Boolean(c.value);
+    case "can_move_forward":
+      return p.can_move_forward === Boolean(c.value);
+    case "can_move_back":
+      return p.can_move_back === Boolean(c.value);
+    case "can_move_left":
+      return p.can_move_left === Boolean(c.value);
+    case "can_move_right":
+      return p.can_move_right === Boolean(c.value);
     default:
       return false;
   }
@@ -147,15 +203,21 @@ function inBounds(x: number, y: number): boolean {
   return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
 }
 
-function forwardCell(player: PlayerState): [number, number] {
-  const [dx, dy] = DIR_DELTA[player.dir];
+// Cell one step from `player` in relative direction `rel`.
+function relCell(player: PlayerState, rel: RelDir): [number, number] {
+  const [dx, dy] = relDelta(player.dir, rel);
   return [player.x + dx, player.y + dy];
 }
 
-// Distance along `shooter.dir` to `target` if target is on that ray within
-// `range`. Returns 0 if not in line.
-function forwardDistance(shooter: PlayerState, target: PlayerState, range: number): number {
-  const [dx, dy] = DIR_DELTA[shooter.dir];
+// Distance along `delta` to `target` if it sits on that ray within `range`.
+// Returns 0 if not in line.
+function rayDistance(
+  shooter: PlayerState,
+  target: PlayerState,
+  delta: [number, number],
+  range: number
+): number {
+  const [dx, dy] = delta;
   for (let step = 1; step <= range; step++) {
     const x = shooter.x + dx * step;
     const y = shooter.y + dy * step;
@@ -165,17 +227,41 @@ function forwardDistance(shooter: PlayerState, target: PlayerState, range: numbe
   return 0;
 }
 
-function applyTurnAction(player: PlayerState, action: ActionType): void {
-  if (action === "TURN_LEFT") player.dir = TURN_LEFT_OF[player.dir];
-  else if (action === "TURN_RIGHT") player.dir = TURN_RIGHT_OF[player.dir];
+// Whether `self` could step into its relative cell (in bounds, not the
+// opponent's current cell).
+function canMove(self: PlayerState, opponent: PlayerState, rel: RelDir): boolean {
+  const [x, y] = relCell(self, rel);
+  return inBounds(x, y) && !(x === opponent.x && y === opponent.y);
+}
+
+function buildPerception(
+  self: PlayerState,
+  opponent: PlayerState,
+  scan_detected: boolean,
+  damaged: number,
+  moved: boolean
+): Perception {
+  return {
+    scan_detected,
+    damaged,
+    moved,
+    can_move_forward: canMove(self, opponent, "FORWARD"),
+    can_move_back: canMove(self, opponent, "BACK"),
+    can_move_left: canMove(self, opponent, "LEFT"),
+    can_move_right: canMove(self, opponent, "RIGHT"),
+  };
 }
 
 const ACTION_LABEL: Record<ActionType, string> = {
   MOVE_FORWARD: "前進",
-  TURN_LEFT: "左旋回",
-  TURN_RIGHT: "右旋回",
-  SHOOT_FORWARD: "射撃",
-  SCAN: "索敵",
+  MOVE_BACK: "後退",
+  MOVE_LEFT: "左移動",
+  MOVE_RIGHT: "右移動",
+  SHOOT_FORWARD: "前方射撃",
+  SHOOT_BACK: "後方射撃",
+  SHOOT_LEFT: "左方射撃",
+  SHOOT_RIGHT: "右方射撃",
+  SCAN_AROUND: "全方位索敵",
   WAIT: "待機",
 };
 
@@ -185,21 +271,16 @@ function logLine(
   shoot: "HIT" | "MISS" | null,
   scan: boolean
 ): string {
-  const tail =
-    action === "MOVE_FORWARD"
-      ? moved
-        ? "成功"
-        : "ブロック"
-      : action === "SHOOT_FORWARD"
-        ? shoot === "HIT"
-          ? `HIT -${SHOOT_DAMAGE}`
-          : "MISS"
-        : action === "SCAN"
-          ? scan
-            ? "検知あり"
-            : "検知なし"
-          : "";
-  return tail ? `${ACTION_LABEL[action]} → ${tail}` : ACTION_LABEL[action];
+  if (action in MOVE_ACTIONS) {
+    return `${ACTION_LABEL[action]} → ${moved ? "成功" : "ブロック"}`;
+  }
+  if (action in SHOOT_ACTIONS) {
+    return `${ACTION_LABEL[action]} → ${shoot === "HIT" ? `HIT -${SHOOT_DAMAGE}` : "MISS"}`;
+  }
+  if (action === "SCAN_AROUND") {
+    return `${ACTION_LABEL[action]} → ${scan ? "検知あり" : "検知なし"}`;
+  }
+  return ACTION_LABEL[action];
 }
 
 export function simulate(
@@ -210,8 +291,8 @@ export function simulate(
   const maxTurns = normalizeMaxTurns(options?.maxTurns);
   const p1: PlayerState = { x: 0, y: 0, dir: "E", hp: INITIAL_HP };
   const p2: PlayerState = { x: GRID_SIZE - 1, y: GRID_SIZE - 1, dir: "W", hp: INITIAL_HP };
-  let perception1: Perception = { scan_detected: false, damaged: 0, moved: false };
-  let perception2: Perception = { scan_detected: false, damaged: 0, moved: false };
+  let perception1: Perception = buildPerception(p1, p2, false, 0, false);
+  let perception2: Perception = buildPerception(p2, p1, false, 0, false);
 
   const turns: TurnSnapshot[] = [];
   let endReason: "HP_ZERO" | "TIMEOUT" = "TIMEOUT";
@@ -220,10 +301,13 @@ export function simulate(
     const action1 = chooseAction(strategy1, perception1);
     const action2 = chooseAction(strategy2, perception2);
 
-    // Resolve moves simultaneously: cannot move onto opponent, cannot swap
-    // into the same cell. If they collide on the target cell, neither moves.
-    const move1 = action1 === "MOVE_FORWARD" ? forwardCell(p1) : null;
-    const move2 = action2 === "MOVE_FORWARD" ? forwardCell(p2) : null;
+    // Resolve moves simultaneously: cannot move onto the opponent's current
+    // cell, and if both target the same cell neither moves. Facing never
+    // changes, so the move direction is purely the player's relative frame.
+    const moveRel1 = MOVE_ACTIONS[action1];
+    const moveRel2 = MOVE_ACTIONS[action2];
+    const move1 = moveRel1 ? relCell(p1, moveRel1) : null;
+    const move2 = moveRel2 ? relCell(p2, moveRel2) : null;
     const validMove1 = move1 && inBounds(...move1) && !(move1[0] === p2.x && move1[1] === p2.y);
     const validMove2 = move2 && inBounds(...move2) && !(move2[0] === p1.x && move2[1] === p1.y);
     const collision = validMove1 && validMove2 && move1![0] === move2![0] && move1![1] === move2![1];
@@ -238,32 +322,32 @@ export function simulate(
       p2.y = move2![1];
     }
 
-    applyTurnAction(p1, action1);
-    applyTurnAction(p2, action2);
-
     // Shoots and scans use post-move positions.
-    const shootDist1 = action1 === "SHOOT_FORWARD" ? forwardDistance(p1, p2, SHOOT_RANGE) : 0;
-    const shootDist2 = action2 === "SHOOT_FORWARD" ? forwardDistance(p2, p1, SHOOT_RANGE) : 0;
-    const shootResult1: "HIT" | "MISS" | null =
-      action1 === "SHOOT_FORWARD" ? (shootDist1 > 0 ? "HIT" : "MISS") : null;
-    const shootResult2: "HIT" | "MISS" | null =
-      action2 === "SHOOT_FORWARD" ? (shootDist2 > 0 ? "HIT" : "MISS") : null;
+    const shootRel1 = SHOOT_ACTIONS[action1];
+    const shootRel2 = SHOOT_ACTIONS[action2];
+    const shootDist1 = shootRel1 ? rayDistance(p1, p2, relDelta(p1.dir, shootRel1), SHOOT_RANGE) : 0;
+    const shootDist2 = shootRel2 ? rayDistance(p2, p1, relDelta(p2.dir, shootRel2), SHOOT_RANGE) : 0;
+    const shootResult1: "HIT" | "MISS" | null = shootRel1 ? (shootDist1 > 0 ? "HIT" : "MISS") : null;
+    const shootResult2: "HIT" | "MISS" | null = shootRel2 ? (shootDist2 > 0 ? "HIT" : "MISS") : null;
     const damaged1 = shootDist2 > 0 ? SHOOT_DAMAGE : 0;
     const damaged2 = shootDist1 > 0 ? SHOOT_DAMAGE : 0;
     p1.hp = Math.max(0, p1.hp - damaged1);
     p2.hp = Math.max(0, p2.hp - damaged2);
 
-    const scanDist1 = action1 === "SCAN" ? forwardDistance(p1, p2, SCAN_RANGE) : 0;
-    const scanDist2 = action2 === "SCAN" ? forwardDistance(p2, p1, SCAN_RANGE) : 0;
-    const scan1 = scanDist1 > 0;
-    const scan2 = scanDist2 > 0;
-
-    const targets1: DetectedTarget[] = scan1
-      ? [{ direction: "forward", distance: scanDist1, age: 0 }]
-      : [];
-    const targets2: DetectedTarget[] = scan2
-      ? [{ direction: "forward", distance: scanDist2, age: 0 }]
-      : [];
+    const targets1: DetectedTarget[] =
+      action1 === "SCAN_AROUND"
+        ? REL_DIRS.map((rel) => ({ rel, dist: rayDistance(p1, p2, relDelta(p1.dir, rel), SCAN_RANGE) }))
+            .filter((o) => o.dist > 0)
+            .map((o) => ({ direction: o.rel, distance: o.dist, age: 0 }))
+        : [];
+    const targets2: DetectedTarget[] =
+      action2 === "SCAN_AROUND"
+        ? REL_DIRS.map((rel) => ({ rel, dist: rayDistance(p2, p1, relDelta(p2.dir, rel), SCAN_RANGE) }))
+            .filter((o) => o.dist > 0)
+            .map((o) => ({ direction: o.rel, distance: o.dist, age: 0 }))
+        : [];
+    const scan1 = targets1.length > 0;
+    const scan2 = targets2.length > 0;
 
     turns.push({
       turn,
@@ -291,8 +375,8 @@ export function simulate(
       ],
     });
 
-    perception1 = { scan_detected: scan1, damaged: damaged1, moved: moved1 };
-    perception2 = { scan_detected: scan2, damaged: damaged2, moved: moved2 };
+    perception1 = buildPerception(p1, p2, scan1, damaged1, moved1);
+    perception2 = buildPerception(p2, p1, scan2, damaged2, moved2);
 
     if (p1.hp <= 0 || p2.hp <= 0) {
       endReason = "HP_ZERO";

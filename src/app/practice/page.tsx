@@ -33,10 +33,14 @@ const INITIAL_P2 = { x: GRID_SIZE - 1, y: GRID_SIZE - 1, dir: "W" as Direction, 
 const DIR_ARROW: Record<Direction, string> = { N: "↑", E: "→", S: "↓", W: "←" };
 const ACTION_LABEL: Record<string, string> = {
   MOVE_FORWARD: "前進",
-  TURN_LEFT: "左回転",
-  TURN_RIGHT: "右回転",
-  SHOOT_FORWARD: "射撃",
-  SCAN: "スキャン",
+  MOVE_BACK: "後退",
+  MOVE_LEFT: "左移動",
+  MOVE_RIGHT: "右移動",
+  SHOOT_FORWARD: "前方射撃",
+  SHOOT_BACK: "後方射撃",
+  SHOOT_LEFT: "左方射撃",
+  SHOOT_RIGHT: "右方射撃",
+  SCAN_AROUND: "全方位索敵",
   WAIT: "待機",
 };
 
@@ -82,8 +86,8 @@ function PlayerPanel({
   return (
     <aside
       style={{
-        width: 280,
-        flexShrink: 0,
+        flex: 1,
+        minWidth: 0,
         display: "flex",
         flexDirection: "column",
         gap: 10,
@@ -397,87 +401,92 @@ export default function PracticePage() {
               </span>
             </header>
 
-            <div style={{ display: "flex", gap: 12, padding: 14, flex: 1, minHeight: 0 }}>
-              <PlayerPanel
-                label="P1"
-                name="あなた"
-                color="var(--p1)"
-                soft="var(--p1-soft)"
-                ink="var(--p1-ink)"
-                state={p1}
-                turn={activeSnapshot?.p1}
-              />
-              <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, flex: 1, minHeight: 0, overflowY: "auto" }}>
+              <div style={{ display: "flex", justifyContent: "center", overflowX: "auto", paddingBottom: 4 }}>
                 <Board p1={p1} p2={p2} />
-                <div style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 12, padding: 12 }}>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-                    {[
-                      ["最初へ", "⏮", () => { setPlaying(false); setCurrentTurn(0); }],
-                      ["前のターン", "⏪", () => { setPlaying(false); setCurrentTurn((turn) => Math.max(0, turn - 1)); }],
-                      [playing ? "一時停止" : "再生", playing ? "⏸" : "▶", () => simulation && setPlaying((value) => !value)],
-                      ["次のターン", "⏩", () => { setPlaying(false); setCurrentTurn((turn) => Math.min(totalTurns, turn + 1)); }],
-                      ["最後へ", "⏭", () => { setPlaying(false); setCurrentTurn(totalTurns); }],
-                    ].map(([title, icon, action]) => (
-                      <button
-                        key={String(title)}
-                        type="button"
-                        title={String(title)}
-                        onClick={action as () => void}
-                        disabled={!simulation}
-                        style={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 8,
-                          border: "1px solid var(--line)",
-                          background: icon === "▶" || icon === "⏸" ? "var(--p1)" : "var(--surface)",
-                          color: icon === "▶" || icon === "⏸" ? "#fff" : "var(--ink)",
-                          fontSize: 15,
-                          cursor: simulation ? "pointer" : "not-allowed",
-                        }}
-                      >
-                        {String(icon)}
-                      </button>
-                    ))}
-                  </div>
-                  <input
-                    aria-label="リプレイターン"
-                    type="range"
-                    min={0}
-                    max={totalTurns}
-                    value={currentTurn}
-                    disabled={!simulation}
-                    onChange={(e) => {
-                      setPlaying(false);
-                      setCurrentTurn(Number(e.target.value));
-                    }}
-                    style={{ width: "100%" }}
-                  />
-                </div>
-                <div style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 12, padding: 12, minHeight: 112 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "var(--ink-soft)", marginBottom: 8 }}>ターンログ</div>
-                  {(simulation?.result.turns ?? [])
-                    .slice(Math.max(0, currentTurn - 4), currentTurn)
-                    .flatMap((snap) => snap.logs.map((log) => ({ turn: snap.turn, log })))
-                    .map(({ turn, log }, index) => (
-                      <div key={`${turn}-${index}`} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "3px 0" }}>
-                        <span style={{ background: log.playerId === "p1" ? "var(--p1)" : "var(--p2)", color: "#fff", borderRadius: 4, padding: "1px 5px", fontFamily: "JetBrains Mono, monospace", fontSize: 10, fontWeight: 800 }}>
-                          T{turn}
-                        </span>
-                        <span>{log.playerId === "p1" ? "あなた" : "Bot"}: {log.text}</span>
-                      </div>
-                    ))}
-                  {!simulation && <div style={{ color: "var(--ink-soft)", fontSize: 13 }}>まだリプレイはありません</div>}
-                </div>
               </div>
-              <PlayerPanel
-                label="P2"
-                name={simulation?.bot.name ?? "Bot"}
-                color="var(--p2)"
-                soft="var(--p2-soft)"
-                ink="var(--p2-ink)"
-                state={p2}
-                turn={activeSnapshot?.p2}
-              />
+
+              <div style={{ display: "flex", gap: 12 }}>
+                <PlayerPanel
+                  label="P1"
+                  name="あなた"
+                  color="var(--p1)"
+                  soft="var(--p1-soft)"
+                  ink="var(--p1-ink)"
+                  state={p1}
+                  turn={activeSnapshot?.p1}
+                />
+                <PlayerPanel
+                  label="P2"
+                  name={simulation?.bot.name ?? "Bot"}
+                  color="var(--p2)"
+                  soft="var(--p2-soft)"
+                  ink="var(--p2-ink)"
+                  state={p2}
+                  turn={activeSnapshot?.p2}
+                />
+              </div>
+
+              <div style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 12, padding: 12 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+                  {[
+                    ["最初へ", "⏮", () => { setPlaying(false); setCurrentTurn(0); }],
+                    ["前のターン", "⏪", () => { setPlaying(false); setCurrentTurn((turn) => Math.max(0, turn - 1)); }],
+                    [playing ? "一時停止" : "再生", playing ? "⏸" : "▶", () => simulation && setPlaying((value) => !value)],
+                    ["次のターン", "⏩", () => { setPlaying(false); setCurrentTurn((turn) => Math.min(totalTurns, turn + 1)); }],
+                    ["最後へ", "⏭", () => { setPlaying(false); setCurrentTurn(totalTurns); }],
+                  ].map(([title, icon, action]) => (
+                    <button
+                      key={String(title)}
+                      type="button"
+                      title={String(title)}
+                      onClick={action as () => void}
+                      disabled={!simulation}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: 8,
+                        border: "1px solid var(--line)",
+                        background: icon === "▶" || icon === "⏸" ? "var(--p1)" : "var(--surface)",
+                        color: icon === "▶" || icon === "⏸" ? "#fff" : "var(--ink)",
+                        fontSize: 15,
+                        cursor: simulation ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      {String(icon)}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  aria-label="リプレイターン"
+                  type="range"
+                  min={0}
+                  max={totalTurns}
+                  value={currentTurn}
+                  disabled={!simulation}
+                  onChange={(e) => {
+                    setPlaying(false);
+                    setCurrentTurn(Number(e.target.value));
+                  }}
+                  style={{ width: "100%" }}
+                />
+              </div>
+
+              <div style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 12, padding: 12, minHeight: 112 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "var(--ink-soft)", marginBottom: 8 }}>ターンログ</div>
+                {(simulation?.result.turns ?? [])
+                  .slice(Math.max(0, currentTurn - 4), currentTurn)
+                  .flatMap((snap) => snap.logs.map((log) => ({ turn: snap.turn, log })))
+                  .map(({ turn, log }, index) => (
+                    <div key={`${turn}-${index}`} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "3px 0" }}>
+                      <span style={{ background: log.playerId === "p1" ? "var(--p1)" : "var(--p2)", color: "#fff", borderRadius: 4, padding: "1px 5px", fontFamily: "JetBrains Mono, monospace", fontSize: 10, fontWeight: 800 }}>
+                        T{turn}
+                      </span>
+                      <span>{log.playerId === "p1" ? "あなた" : "Bot"}: {log.text}</span>
+                    </div>
+                  ))}
+                {!simulation && <div style={{ color: "var(--ink-soft)", fontSize: 13 }}>まだリプレイはありません</div>}
+              </div>
             </div>
 
             {simulation && replayComplete && (

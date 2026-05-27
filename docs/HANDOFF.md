@@ -231,6 +231,22 @@ These are the calls the previous session made that the next session should
    **not** create `Match` records, open Socket.io, write stats, or affect room
    standings. `/practice` is included in the optimistic proxy matcher, and the
    API also requires `getSession()`.
+15. **Strategy block language is composable; the simulator uses a
+   relative-direction model (PR #66).** The Blockly palette is being rebuilt
+   into categories of individual blocks (see the requested mockups). Landed so
+   far: **行動** (10 action statement blocks) and **状態確認** (4 boolean value
+   blocks). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
+   `tank_fallback` is `実行 <Action statement>`. The serializer still emits the
+   same `Strategy` JSON (`rules[].{conditions,actions}` + `fallbackActions`), so
+   the simulator / real-match flow are structurally unchanged. **Simulator
+   semantics**: move and shoot are **relative to facing** (FORWARD/BACK/LEFT/
+   RIGHT); a player never rotates (rotation actions removed), so facing is fixed
+   for the match and "relative" gives each player a stable four-direction frame.
+   `SCAN_AROUND` detects in all four directions within range. New conditions
+   `can_move_{forward,back,left,right}` report whether that relative cell is in
+   bounds and unoccupied. Still **to build** (future categories from the
+   mockup): 敵情報, 前回結果, 自機情報, 制御, 論理・比較 (AND/OR for multi-condition
+   rules), 数値・変数. Until 論理 lands, a rule takes a single boolean condition.
 
 ## 4. Known unfinished work (in priority order)
 

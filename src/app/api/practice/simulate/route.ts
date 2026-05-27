@@ -4,14 +4,26 @@ import { MAX_TURNS, simulate, type Strategy } from "@/lib/match-simulator";
 
 const ACTION_TYPES = new Set([
   "MOVE_FORWARD",
-  "TURN_LEFT",
-  "TURN_RIGHT",
+  "MOVE_BACK",
+  "MOVE_LEFT",
+  "MOVE_RIGHT",
   "SHOOT_FORWARD",
-  "SCAN",
+  "SHOOT_BACK",
+  "SHOOT_LEFT",
+  "SHOOT_RIGHT",
+  "SCAN_AROUND",
   "WAIT",
 ]);
 
-const CONDITION_TYPES = new Set(["scan_detected", "damaged", "moved"]);
+const CONDITION_TYPES = new Set([
+  "scan_detected",
+  "damaged",
+  "moved",
+  "can_move_forward",
+  "can_move_back",
+  "can_move_left",
+  "can_move_right",
+]);
 
 const BOTS = {
   weak: {
@@ -27,10 +39,11 @@ const BOTS = {
     strategy: {
       version: "1.0",
       rules: [
-        { conditions: [{ type: "damaged", value: true }], actions: [{ type: "SHOOT_FORWARD", ap: 1 }] },
-        { conditions: [{ type: "moved", value: false }], actions: [{ type: "TURN_LEFT", ap: 1 }] },
+        { conditions: [{ type: "scan_detected", value: true }], actions: [{ type: "SHOOT_FORWARD", ap: 1 }] },
+        { conditions: [{ type: "can_move_forward", value: true }], actions: [{ type: "MOVE_FORWARD", ap: 1 }] },
+        { conditions: [{ type: "can_move_right", value: true }], actions: [{ type: "MOVE_RIGHT", ap: 1 }] },
       ],
-      fallbackActions: [{ type: "MOVE_FORWARD", ap: 1 }],
+      fallbackActions: [{ type: "SCAN_AROUND", ap: 1 }],
     } satisfies Strategy,
   },
 } as const;

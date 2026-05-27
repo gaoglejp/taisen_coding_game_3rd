@@ -13,31 +13,37 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #65 — feat(practice): standalone solo battle
-- **Branch**: `codex/v0.2-practice-solo`
-- **Date**: 2026-05-26
+- **PR**: #66 — feat(blocks): 行動 / 状態確認 categories + relative-direction simulator
+- **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
+- **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Implemented `/practice` as a logged-in solo battle surface.** The page now
-  reuses the real Blockly editor / serializer, lets the user choose a built-in
-  bot difficulty, starts a standalone simulation, replays turns locally, and
-  shows the result summary (win/loss/draw, remaining HP, turns, end reason)
-  with a retry action.
-- **Added `POST /api/practice/simulate`.** The route requires `getSession()`,
-  validates `{ strategy, difficulty? }`, selects a built-in bot (`weak` /
-  `normal`), calls the pure simulator, and returns `{ bot, result }`. It does
-  not create `Match` records, write stats, or use Socket.io.
-- **Access control:** `/practice` is now included in `src/proxy.ts`'s
-  optimistic login guard; the API has its own session guard.
-- **Tests:** added route-handler coverage for 401, valid 200 simulation, and
-  invalid strategy 400; added a Playwright practice smoke
-  (login → `/practice` → 対戦開始 → replay/result).
-- Local verification: `npx tsc --noEmit`, `npm run lint` (0 errors, 4
-  pre-existing warnings), `npm test` (**149**), `npm run build`, manual
-  Playwright smoke against local dev, and full `npx playwright test` (**13**)
-  are green.
+- **New Blockly block language (行動 / 状態確認 categories).** Replaced the old
+  dropdown-based rule/condition/action blocks with individual blocks the player
+  drags from categories, matching the requested palette mockups:
+  - **行動 (actions)** — 10 statement blocks: 前/後ろ/左/右へ移動, 前/後ろ/左/右へ射撃,
+    周囲を索敵, 待機.
+  - **状態確認 (state checks)** — 4 boolean value blocks: 前/後ろ/左/右に進める？.
+  - `tank_rule` redesigned to `もし <Boolean>` (value input) + `実行 <Action>`
+    (statement input); `tank_fallback` takes an `実行` action stack.
+- **Simulator reworked to a relative-direction model** (per the agreed design):
+  movement and shooting are forward/back/left/right relative to facing (strafe,
+  facing never changes); `SCAN_AROUND` scans all four directions; rotation
+  (`TURN_LEFT`/`TURN_RIGHT`) removed. Added `can_move_{forward,back,left,right}`
+  perception/conditions backing the 状態確認 checks.
+- Updated the serializer (`workspaceToStrategy`), default workspace, practice
+  bots + API validation (`/api/practice/simulate`), and the practice action
+  labels to the new vocabulary. `Strategy` JSON shape is unchanged, so the
+  real-match flow (server.ts → `simulate`) is structurally unaffected.
+- **Also includes the earlier `/practice` replay-panel layout fix** (board
+  centered on top, P1/P2 panels in a row below, then controls + log) — this PR
+  was opened for that fix and the block work landed on the same branch.
+- **Verified visually**: built + ran locally, screenshotted the 行動 (10) and
+  状態確認 (4) flyouts and a practice battle (default strategy advances forward;
+  turn log shows 前進 → 成功). `tsc` / `lint` (0 errors, 4 pre-existing
+  warnings) / Vitest **152** / `build` all green.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -67,6 +73,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #65** (merged) — feat(practice): standalone `/practice` solo battle —
+  reuses Blockly + `simulate()` vs built-in bots via `POST /api/practice/simulate`
+  (no Match/Socket.io/persistence); route tests + practice E2E. (Codex)
 - **PR #63** (merged) — fix(auth): server-side dashboard guard bounces admins
   to the shared admin landing, hardening #62's client-side login redirect;
   navigation E2E covers direct `/dashboard` admin access. (Claude)
