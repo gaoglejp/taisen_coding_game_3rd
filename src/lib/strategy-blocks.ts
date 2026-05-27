@@ -50,10 +50,30 @@ const LAST_RESULT_CHECK_BLOCKS: [string, string, string][] = [
   ["前回敵に命中した？", "tank_chk_shot_hit", "shot_hit"],
 ];
 
+// 自機情報 number readouts (value blocks). label, block type. Output a Number;
+// usable in rules once the 論理・比較 (comparison) category lands.
+const SELF_NUMBER_BLOCKS: [string, string][] = [
+  ["自分のHP", "tank_num_self_hp"],
+  ["残りターン", "tank_num_turns_left"],
+];
+
+// 自機情報 direction readouts/constants (value blocks). label, block type,
+// direction value. `自分の向き` reports the player's facing; 上/右/下/左 are the
+// N/E/S/W constants to compare it against. Output "Direction"; usable once the
+// 論理・比較 category provides an equality block.
+const SELF_DIRECTION_BLOCKS: [string, string, string][] = [
+  ["自分の向き", "tank_dir_self_facing", "SELF"],
+  ["上", "tank_dir_north", "N"],
+  ["右", "tank_dir_east", "E"],
+  ["下", "tank_dir_south", "S"],
+  ["左", "tank_dir_west", "W"],
+];
+
 const ACTION_COLOUR = 30;
 const CHECK_COLOUR = 210;
 const ENEMY_COLOUR = 0;
 const LAST_RESULT_COLOUR = 270;
+const SELF_COLOUR = 160;
 const RULE_COLOUR = 230;
 const FALLBACK_COLOUR = 290;
 
@@ -113,6 +133,24 @@ const LAST_RESULT_CHECK_DEFINITIONS = LAST_RESULT_CHECK_BLOCKS.map(([label, type
   helpUrl: "",
 }));
 
+const SELF_NUMBER_DEFINITIONS = SELF_NUMBER_BLOCKS.map(([label, type]) => ({
+  type,
+  message0: label,
+  output: "Number",
+  colour: SELF_COLOUR,
+  tooltip: `${label} を数値で返します。比較ブロックと組み合わせて使います。`,
+  helpUrl: "",
+}));
+
+const SELF_DIRECTION_DEFINITIONS = SELF_DIRECTION_BLOCKS.map(([label, type]) => ({
+  type,
+  message0: label,
+  output: "Direction",
+  colour: SELF_COLOUR,
+  tooltip: `${label}。向きの比較に使います。`,
+  helpUrl: "",
+}));
+
 const STRUCTURE_BLOCK_DEFINITIONS = [
   {
     type: "tank_rule",
@@ -145,6 +183,8 @@ const BLOCK_DEFINITIONS = [
   ...ENEMY_CHECK_DEFINITIONS,
   ...ENEMY_NUMBER_DEFINITIONS,
   ...LAST_RESULT_CHECK_DEFINITIONS,
+  ...SELF_NUMBER_DEFINITIONS,
+  ...SELF_DIRECTION_DEFINITIONS,
   ...STRUCTURE_BLOCK_DEFINITIONS,
 ];
 
@@ -186,6 +226,15 @@ export const STRATEGY_TOOLBOX = {
       name: "前回結果",
       colour: String(LAST_RESULT_COLOUR),
       contents: LAST_RESULT_CHECK_BLOCKS.map(([, type]) => ({ kind: "block", type })),
+    },
+    {
+      kind: "category",
+      name: "自機情報",
+      colour: String(SELF_COLOUR),
+      contents: [...SELF_NUMBER_BLOCKS, ...SELF_DIRECTION_BLOCKS].map(([, type]) => ({
+        kind: "block",
+        type,
+      })),
     },
     {
       kind: "category",

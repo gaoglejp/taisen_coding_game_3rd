@@ -237,9 +237,11 @@ These are the calls the previous session made that the next session should
    far: **行動** (10 action statement blocks), **状態確認** (4 boolean value
    blocks), **敵情報** (1 boolean `敵を検出している？` → `scan_detected`, plus
    3 Number readouts `敵の前方/右方向距離`・`敵までの距離` that are palette-only until
-   comparisons land), and **前回結果** (`前回ダメージを受けた？` → `damaged`,
+   comparisons land), **前回結果** (`前回ダメージを受けた？` → `damaged`,
    `前回敵に命中した？` → `shot_hit`, a perception flag set when last turn's shot
-   landed a HIT). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
+   landed a HIT), and **自機情報** (`自分のHP`・`残りターン` Number readouts +
+   `自分の向き` and the `上/右/下/左` Direction constants — all palette-only until
+   comparisons land). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
    `tank_fallback` is `実行 <Action statement>`. The serializer still emits the
    same `Strategy` JSON (`rules[].{conditions,actions}` + `fallbackActions`), so
    the simulator / real-match flow are structurally unchanged. **Simulator
