@@ -196,4 +196,46 @@ describe("POST /api/practice/simulate", () => {
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({ error: "invalid_strategy" });
   });
+
+  it("accepts an if statement with else-if clauses and an else branch", async () => {
+    getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
+
+    const strategy: Strategy = {
+      version: "1.0",
+      rules: [
+        {
+          conditions: [],
+          body: [
+            {
+              kind: "if",
+              clauses: [
+                { cond: { type: "scan_detected", value: true }, body: [{ kind: "action", type: "SHOOT_FORWARD" }] },
+                { cond: { type: "can_move_forward", value: true }, body: [{ kind: "action", type: "MOVE_FORWARD" }] },
+              ],
+              else: [{ kind: "action", type: "SCAN_AROUND" }],
+            },
+          ],
+        },
+      ],
+    };
+
+    const res = await POST(request({ strategy, difficulty: "weak" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.result.turns.length).toBeGreaterThan(0);
+  });
+
+  it("400 for an if clause missing its condition", async () => {
+    getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
+
+    const res = await POST(
+      request({
+        strategy: { rules: [{ body: [{ kind: "if", clauses: [{ body: [{ kind: "action", type: "WAIT" }] }] }] }] },
+      })
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "invalid_strategy" });
+  });
 });

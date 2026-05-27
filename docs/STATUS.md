@@ -13,39 +13,40 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #73 — feat(blocks): wire 制御 もし, remove 繰り返す (ordered rule body)
+- **PR**: #74 — feat(blocks): restyle 制御 もし (slate-blue + else-if/else mutator)
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Deleted the 繰り返す (repeat) block** (per request — no sequential-program
-  model gives it meaning yet).
-- **Wired the 制御 `もし` block** — the last mock/palette-only block. A rule's
-  「実行」 is now serialized as an **ordered statement body** (`body: StrategyStmt[]`,
-  fallback `fallbackBody`): each statement is `action` / `set` / `if` (the `もし`,
-  body collected recursively). The simulator's `runBody` walks it — `set` mutates
-  a variable, `if` descends only when its condition is true, and the **first
-  action reached wins**. With this, **no palette block is mock-only anymore.**
-- **Backward compatible**: the simulator keeps a legacy path (`runLegacy`) so
-  stored strategies / built-in bots / older tests using the flat `actions`+`sets`
-  shape still execute. See HANDOFF decision #18.
-- **API**: `/api/practice/simulate` now validates `body` / `fallbackBody`
-  recursively (`isValidStmt`).
-- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **178** / `build`
-  green. Screenshotted the 制御 flyout (only 「もし」 remains); ran a **live
-  authenticated** e2e: a rule body `[ if(facing=E) SHOOT ; MOVE ]` → SHOOT on
-  turn 1 (true branch wins), and confirmed `繰り返` no longer appears in the page.
+- **Restyled the 制御 `もし` block to match the attached design**: now **slate-blue**
+  (`#5b6b8c`) with a **gear mutator** so players can add 「そうでなければもし」
+  (else-if, any number) and 「そうでなければ」(else) branches. Reuses Blockly's
+  built-in `controls_if_mutator`, relabeled to Japanese via `Blockly.Msg`
+  (もし / 実行 / そうでなければもし / そうでなければ) — inputs `IF0/DO0`, `IF1/DO1`…,
+  `ELSE`, with `previousStatement`/`nextStatement` constrained to `Action`.
+- **Wired else-if/else into evaluation**: a rule-body `if` statement is now
+  `{kind:"if", clauses:[{cond,body}, …], else?}` — `clauses[0]` is the if and the
+  rest are else-ifs. The simulator's `runBody` runs the **first true clause's**
+  body (and stops; the else does NOT run if any clause matched), otherwise the
+  `else`. The PR #73 single-branch `{cond, body}` shape still works (legacy).
+- **API** validates the multi-clause `if` (and legacy single-branch) recursively.
+- Per the design decision, **action block labels stay Japanese-only** (the image's
+  English command suffix like `MOVE_FORWARD` was explicitly declined).
+- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **183** / `build`
+  green. Screenshotted the 制御 flyout (slate-blue もし + gear); live e2e: an
+  if/else-if/else body returns the else-if action (`facing==E → MOVE_FORWARD`),
+  and the clauses/else shape is accepted by the API. (Could not screenshot the
+  expanded on-canvas block — headless flyout-drag is unreliable — but the mutator
+  is verified via the serializer test loading a mutated `elseIfCount/hasElse`
+  block and via the live API.)
 
 ### Still open / next steps
 
-- **⚠ Visual block restyle requested but blocked.** The task also asked to
-  restyle the Blockly blocks "like the attached image" — **the image did not come
-  through on my end** (no attachment visible across two sends). Asked the user to
-  re-share it; the restyle is not done yet.
-- The block palette is now complete **and** fully functional. Otherwise suggest a
-  manual browser pass on the full editor UX.
+- All three requests from the latest design pass are done (繰り返す removed in
+  PR #73; もし wired in #73; もし restyled with else-if/else here). Suggest a
+  manual browser pass on the full editor UX (incl. opening the もし gear) next.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -75,6 +76,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #73** (merged) — feat(blocks): removed the 繰り返す block and wired the 制御
+  もし into an ordered rule-body statement model (action / set / if); kept a legacy
+  path for stored strategies/bots. (Claude)
 - **PR #72** (merged) — feat(blocks): added the 数値・変数 category, fully wired
   incl. variables (number/arith/mod value nodes + a per-player variable store
   persisted across turns). (Claude)

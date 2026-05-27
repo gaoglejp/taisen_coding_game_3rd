@@ -129,15 +129,24 @@ export interface StrategySet {
   value?: StrategyValue;
 }
 
+// One branch of an `if` statement: a condition and the body to run when true.
+export interface StrategyClause {
+  cond?: StrategyCondition;
+  body?: StrategyStmt[];
+}
+
 // One statement in a matched rule's 「実行」 body, executed in order. The first
-// `action` reached (descending into `if` branches whose condition is true) is
-// the turn's action; `set` mutates a variable; `if` runs its nested body when
-// its condition holds.
+// `action` reached (descending into the first true `if`/`else-if` branch, or the
+// `else`) is the turn's action; `set` mutates a variable.
 export interface StrategyStmt {
   kind?: string;
   type?: string;
   name?: string;
   value?: StrategyValue;
+  // if: ordered clauses (clauses[0] = if, the rest = else-if) plus optional else.
+  clauses?: StrategyClause[];
+  else?: StrategyStmt[];
+  // Legacy single-branch if (no else): `cond` + `body`.
   cond?: StrategyCondition;
   body?: StrategyStmt[];
 }
@@ -247,12 +256,23 @@ function runBody(stmts: StrategyStmt[] | undefined, p: Perception, vars: Vars): 
       case "action":
         if (isAction(s.type)) return s.type;
         break;
-      case "if":
-        if (s.cond && evaluateCondition(s.cond, p, vars)) {
-          const a = runBody(s.body, p, vars);
+      case "if": {
+        const clauses = s.clauses ?? (s.cond ? [{ cond: s.cond, body: s.body }] : []);
+        let matched = false;
+        for (const cl of clauses) {
+          if (cl?.cond && evaluateCondition(cl.cond, p, vars)) {
+            matched = true;
+            const a = runBody(cl.body, p, vars);
+            if (a) return a;
+            break;
+          }
+        }
+        if (!matched) {
+          const a = runBody(s.else, p, vars);
           if (a) return a;
         }
         break;
+      }
     }
   }
   return null;
