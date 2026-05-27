@@ -115,4 +115,44 @@ describe("POST /api/practice/simulate", () => {
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({ error: "invalid_strategy" });
   });
+
+  it("accepts a 数値・変数 strategy (sets + arithmetic + variable read)", async () => {
+    getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
+
+    const strategy: Strategy = {
+      version: "1.0",
+      rules: [
+        {
+          conditions: [{ type: "bool", value: true }],
+          sets: [
+            {
+              name: "count",
+              value: { type: "arith", op: "ADD", left: { type: "var", name: "count" }, right: { type: "num", value: 1 } },
+            },
+          ],
+          actions: [{ type: "WAIT", ap: 0 }],
+        },
+      ],
+      fallbackActions: [{ type: "WAIT", ap: 0 }],
+    };
+
+    const res = await POST(request({ strategy, difficulty: "weak" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.result.turns.length).toBeGreaterThan(0);
+  });
+
+  it("400 for a variable-set node missing a name", async () => {
+    getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
+
+    const res = await POST(
+      request({
+        strategy: { rules: [{ sets: [{ value: { type: "num", value: 1 } }], actions: [{ type: "WAIT" }] }] },
+      })
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "invalid_strategy" });
+  });
 });

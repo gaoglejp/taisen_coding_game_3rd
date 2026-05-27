@@ -63,7 +63,7 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started
 | Practice solo mode | ✅ | PR #65 — `/practice` reuses Blockly + `simulate()` against built-in bots via `POST /api/practice/simulate`; standalone, no Match/Socket.io/persistence. |
 | Battle replay (live `turn_event`) | ✅ | PR #5; Scope B E2E waits through live battle to result link |
 | Result screen (real stats) | ✅ | PR #7; Scope B E2E clicks through to `/result` and asserts real HP/turn data |
-| **Blockly → strategy JSON serializer** | ✅ | PR #23 — real Blockly (v12) editor + `src/lib/strategy-blocks.ts` serializer; coding page submits the live workspace as `Strategy` JSON. Players now run their own strategies. Canvas UX needs manual browser verification. Palette rebuilt into categories (行動/状態確認/敵情報/前回結果/自機情報/制御/論理・比較); **論理・比較 wired into a boolean expression tree** so value blocks (HP/向き/距離) drive real conditions (see HANDOFF #16). 数値・変数 still to add. |
+| **Blockly → strategy JSON serializer** | ✅ | PR #23 — real Blockly (v12) editor + `src/lib/strategy-blocks.ts` serializer; coding page submits the live workspace as `Strategy` JSON. Players now run their own strategies. Canvas UX needs manual browser verification. Palette **fully rebuilt** into all mockup categories (行動/状態確認/敵情報/前回結果/自機情報/制御/論理・比較/数値・変数); conditions are a boolean expression tree and 数値・変数 adds numbers + a per-player variable store, so value blocks (HP/向き/距離) and variables drive real conditions (HANDOFF #16/#17). Only the 制御 もし/繰り返す blocks stay inert (need a sequential-program model). |
 | Coding `lastTurn` tab real data | ⬜ | Needs simulator to surface prior-turn perception OR a `/api/match/:id/lastTurn` endpoint **(TBD which)** |
 
 **A is done when** two students can build different strategies and the

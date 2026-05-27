@@ -238,6 +238,79 @@ describe("condition expression evaluation (論理・比較)", () => {
     ]);
     expect(simulate(s, waitOnly).turns[0].p1.action).toBe("WAIT");
   });
+
+  it("computes arithmetic and modulo, failing closed on divide-by-zero", () => {
+    const mod = moveIf([
+      {
+        conditions: [
+          {
+            type: "compare",
+            cmp: "EQ",
+            left: { type: "mod", left: { type: "num", value: 10 }, right: { type: "num", value: 3 } },
+            right: { type: "num", value: 1 },
+          },
+        ],
+        actions: [{ type: "MOVE_FORWARD" }],
+      },
+    ]);
+    const divZero = moveIf([
+      {
+        conditions: [
+          {
+            type: "compare",
+            cmp: "GT",
+            left: { type: "arith", op: "DIV", left: { type: "num", value: 5 }, right: { type: "num", value: 0 } },
+            right: { type: "num", value: 0 },
+          },
+        ],
+        actions: [{ type: "MOVE_FORWARD" }],
+      },
+    ]);
+    expect(simulate(mod, waitOnly).turns[0].p1.moved).toBe(true);
+    expect(simulate(divZero, waitOnly).turns[0].p1.action).toBe("WAIT");
+  });
+});
+
+describe("variables (数値・変数)", () => {
+  it("persists a variable across turns; a set-only matched rule falls through", () => {
+    // Rule 1 always matches and increments `count` but has no action (falls
+    // through). Rule 2 fires once count reaches 3.
+    const s: Strategy = {
+      rules: [
+        {
+          conditions: [{ type: "bool", value: true }],
+          sets: [
+            {
+              name: "count",
+              value: { type: "arith", op: "ADD", left: { type: "var", name: "count" }, right: { type: "num", value: 1 } },
+            },
+          ],
+        },
+        {
+          conditions: [{ type: "compare", cmp: "GTE", left: { type: "var", name: "count" }, right: { type: "num", value: 3 } }],
+          actions: [{ type: "MOVE_FORWARD" }],
+        },
+      ],
+      fallbackActions: [{ type: "WAIT" }],
+    };
+    const r = simulate(s, waitOnly);
+    expect(r.turns[0].p1.action).toBe("WAIT"); // count = 1
+    expect(r.turns[1].p1.action).toBe("WAIT"); // count = 2
+    expect(r.turns[2].p1.action).toBe("MOVE_FORWARD"); // count = 3
+  });
+
+  it("reads an unset variable as 0", () => {
+    const s: Strategy = {
+      rules: [
+        {
+          conditions: [{ type: "compare", cmp: "EQ", left: { type: "var", name: "never_set" }, right: { type: "num", value: 0 } }],
+          actions: [{ type: "MOVE_FORWARD" }],
+        },
+      ],
+      fallbackActions: [{ type: "WAIT" }],
+    };
+    expect(simulate(s, waitOnly).turns[0].p1.moved).toBe(true);
+  });
 });
 
 describe("normalizeMaxTurns", () => {
