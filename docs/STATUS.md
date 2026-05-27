@@ -13,25 +13,25 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #69 — feat(blocks): 自機情報 category (own HP / turns / facing readouts)
+- **PR**: #70 — feat(blocks): 制御 category (if / repeat blocks, palette-only)
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Added the 自機情報 (own info) block category** (teal), matching the mockup —
-  7 value blocks:
-  - **自分のHP / 残りターン** — Number value blocks.
-  - **自分の向き** (output Direction) + the direction constants **上 / 右 / 下 / 左**
-    (N/E/S/W, output Direction) to compare it against.
-- Like the 敵情報 distance readouts, these are **palette-only value blocks** for
-  now — they output Number/Direction and **become usable inside rules once the
-  論理・比較 (comparison) category lands** (e.g. `自分のHP < 30`,
-  `自分の向き = 上`). No serializer/simulator plumbing yet, so it ships without
-  dead, unreachable code.
+- **Added the 制御 (control flow) block category**, matching the mockup (yellow
+  category tab, green blocks) — 2 blocks:
+  - **もし** — a `もし <Boolean>` + `実行 <Action>` if-block.
+  - **N 回繰り返す** — a repeat-N block (number field + `実行 <Action>` body).
+- **Per the product decision, these are palette-only for now** (the rule-table
+  runtime is unchanged): they snap into a rule's 「実行」 stack like actions, but
+  the serializer/simulator do not interpret them yet. Their execution semantics —
+  especially the **繰り返す loop, which the spec owner chose to leave unimplemented
+  for now** — land with the future sequential-program model. No dead runtime
+  code added.
 - `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **155** / `build`
-  green; screenshotted the 自機情報 flyout (7 teal blocks) from a local run.
+  green; screenshotted the 制御 flyout (もし / 2回繰り返す) from a local run.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -61,6 +61,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #69** (merged) — feat(blocks): added the 自機情報 category — 自分のHP /
+  残りターン (Number) + 自分の向き and 上/右/下/左 (Direction); palette-only until
+  comparisons land. (Claude)
 - **PR #68** (merged) — feat(blocks): added the 前回結果 category — 前回ダメージを
   受けた？ (→ `damaged`) + 前回敵に命中した？ (→ new `shot_hit` perception); both
   functional. (Claude)
