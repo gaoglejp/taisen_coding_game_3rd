@@ -21,14 +21,14 @@ describe("workspaceToStrategy", () => {
     expect(strategy.version).toBe("1.0");
     expect(strategy.rules).toHaveLength(2);
     expect(strategy.rules![0]).toEqual({
-      conditions: [{ type: "scan_detected", value: true }],
-      actions: [{ type: "SHOOT_FORWARD", ap: 1 }],
-    });
-    expect(strategy.rules![1]).toEqual({
-      conditions: [],
+      conditions: [{ type: "can_move_forward", value: true }],
       actions: [{ type: "MOVE_FORWARD", ap: 1 }],
     });
-    expect(strategy.fallbackActions).toEqual([{ type: "WAIT", ap: 0 }]);
+    expect(strategy.rules![1]).toEqual({
+      conditions: [{ type: "can_move_right", value: true }],
+      actions: [{ type: "MOVE_RIGHT", ap: 1 }],
+    });
+    expect(strategy.fallbackActions).toEqual([{ type: "SHOOT_FORWARD", ap: 1 }]);
 
     ws.dispose();
   });
@@ -41,7 +41,7 @@ describe("workspaceToStrategy", () => {
     ws.dispose();
   });
 
-  it("AND-chains multiple conditions and respects rule order", () => {
+  it("maps a check block to a condition and walks the action stack in order", () => {
     const ws = new Blockly.Workspace();
     Blockly.serialization.workspaces.load(
       {
@@ -50,23 +50,20 @@ describe("workspaceToStrategy", () => {
           blocks: [
             {
               type: "tank_rule",
-              fields: { ACTION: "TURN_LEFT" },
               inputs: {
-                CONDITIONS: {
+                COND: { block: { type: "tank_chk_can_move_left" } },
+                DO: {
                   block: {
-                    type: "tank_condition",
-                    fields: { COND: "damaged", VAL: "true" },
-                    next: {
-                      block: {
-                        type: "tank_condition",
-                        fields: { COND: "moved", VAL: "false" },
-                      },
-                    },
+                    type: "tank_act_move_left",
+                    next: { block: { type: "tank_act_shoot_forward" } },
                   },
                 },
               },
             },
-            { type: "tank_fallback", fields: { ACTION: "SCAN" } },
+            {
+              type: "tank_fallback",
+              inputs: { DO: { block: { type: "tank_act_scan_around" } } },
+            },
           ],
         },
       },
@@ -75,12 +72,32 @@ describe("workspaceToStrategy", () => {
 
     const strategy = workspaceToStrategy(ws);
     expect(strategy.rules).toHaveLength(1);
-    expect(strategy.rules![0].conditions).toEqual([
-      { type: "damaged", value: true },
-      { type: "moved", value: false },
+    expect(strategy.rules![0].conditions).toEqual([{ type: "can_move_left", value: true }]);
+    expect(strategy.rules![0].actions).toEqual([
+      { type: "MOVE_LEFT", ap: 1 },
+      { type: "SHOOT_FORWARD", ap: 1 },
     ]);
-    expect(strategy.rules![0].actions).toEqual([{ type: "TURN_LEFT", ap: 1 }]);
-    expect(strategy.fallbackActions).toEqual([{ type: "SCAN", ap: 1 }]);
+    expect(strategy.fallbackActions).toEqual([{ type: "SCAN_AROUND", ap: 1 }]);
+    ws.dispose();
+  });
+
+  it("treats a rule with no condition block as always-matching (empty conditions)", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            { type: "tank_rule", inputs: { DO: { block: { type: "tank_act_wait" } } } },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].conditions).toEqual([]);
+    expect(strategy.rules![0].actions).toEqual([{ type: "WAIT", ap: 0 }]);
     ws.dispose();
   });
 });

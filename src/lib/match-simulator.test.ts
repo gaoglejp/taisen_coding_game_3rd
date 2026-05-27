@@ -4,7 +4,7 @@ import { simulate, normalizeMaxTurns, MAX_TURNS, INITIAL_HP, type Strategy } fro
 const waitOnly: Strategy = { fallbackActions: [{ type: "WAIT" }] };
 const alwaysMove: Strategy = { fallbackActions: [{ type: "MOVE_FORWARD" }] };
 const alwaysShoot: Strategy = { fallbackActions: [{ type: "SHOOT_FORWARD" }] };
-const alwaysScan: Strategy = { fallbackActions: [{ type: "SCAN" }] };
+const alwaysScan: Strategy = { fallbackActions: [{ type: "SCAN_AROUND" }] };
 
 describe("simulate", () => {
   it("times out at MAX_TURNS when both players just wait", () => {
@@ -33,12 +33,31 @@ describe("simulate", () => {
     expect(turn10.p1).toMatchObject({ x: 9, y: 0, moved: false });
   });
 
-  it("SCAN sets scan_detected only when the opponent is on the forward ray", () => {
-    // Both scan, neither moves. They start at opposite corners — not on
-    // each other's E/W ray (different y), so neither should detect.
+  it("SCAN_AROUND does not detect a distant opponent (out of scan range)", () => {
+    // Both scan, neither moves. They start at opposite corners — far apart
+    // and not within scan range in any cardinal direction, so neither detects.
     const both = simulate(alwaysScan, alwaysScan);
     expect(both.turns[0].p1.scan_detected).toBe(false);
     expect(both.turns[0].p2.scan_detected).toBe(false);
+  });
+
+  it("MOVE_RIGHT strafes relative to facing without changing direction", () => {
+    // P1 faces E at (0,0); its right is S, so MOVE_RIGHT steps to (0,1).
+    const moveRight: Strategy = { fallbackActions: [{ type: "MOVE_RIGHT" }] };
+    const result = simulate(moveRight, waitOnly);
+    expect(result.turns[0].p1).toMatchObject({ x: 0, y: 1, dir: "E", moved: true });
+  });
+
+  it("can_move_* conditions reflect board edges", () => {
+    // P1 faces E at (0,0): forward (E) is open, but left (N) is out of bounds.
+    // So a rule gated on can_move_left never fires; the fallback MOVE_FORWARD
+    // runs and the tank advances east.
+    const strategy: Strategy = {
+      rules: [{ conditions: [{ type: "can_move_left", value: true }], actions: [{ type: "MOVE_LEFT" }] }],
+      fallbackActions: [{ type: "MOVE_FORWARD" }],
+    };
+    const result = simulate(strategy, waitOnly);
+    expect(result.turns[0].p1).toMatchObject({ x: 1, y: 0, moved: true });
   });
 
   it("decides on HP_ZERO when one side reaches 0 HP", () => {

@@ -9,8 +9,8 @@ import { POST } from "./route";
 
 const validStrategy: Strategy = {
   version: "1.0",
-  rules: [{ conditions: [{ type: "moved", value: false }], actions: [{ type: "TURN_RIGHT", ap: 1 }] }],
-  fallbackActions: [{ type: "MOVE_FORWARD", ap: 1 }],
+  rules: [{ conditions: [{ type: "can_move_forward", value: true }], actions: [{ type: "MOVE_FORWARD", ap: 1 }] }],
+  fallbackActions: [{ type: "SHOOT_FORWARD", ap: 1 }],
 };
 
 function request(body: unknown): Parameters<typeof POST>[0] {

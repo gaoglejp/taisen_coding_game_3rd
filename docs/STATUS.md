@@ -13,27 +13,37 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #66 — fix(practice): reflow the replay panel for the half-width column
+- **PR**: #66 — feat(blocks): 行動 / 状態確認 categories + relative-direction simulator
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
-- **Date**: 2026-05-26
+- **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Fixed a layout break on `/practice`** (reported with a screenshot). The
-  replay panel laid out P1 (280px) + board (~428px) + P2 (280px) side by side,
-  which overflowed the ~half-width replay column: the board overlapped the P2
-  panel and the controls/turn-log column was crushed into a vertical sliver.
-- **Reflowed the replay panel vertically** for the narrow column: board
-  centered on top (with `overflowX: auto` as a safety net), then the P1/P2
-  panels in a row below it, then the playback controls, then the turn log.
-  `PlayerPanel` changed from a fixed `width: 280` to `flex: 1; min-width: 0`
-  so the two panels share the row. No behavior/logic change — layout only.
-- **Verified visually**: built and ran the app locally (Postgres + `npm run
-  start`), logged in as a student, ran a practice battle, and screenshotted the
-  replay — board / panels / controls / log all lay out cleanly now.
-- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **149** /
-  `build` all green.
+- **New Blockly block language (行動 / 状態確認 categories).** Replaced the old
+  dropdown-based rule/condition/action blocks with individual blocks the player
+  drags from categories, matching the requested palette mockups:
+  - **行動 (actions)** — 10 statement blocks: 前/後ろ/左/右へ移動, 前/後ろ/左/右へ射撃,
+    周囲を索敵, 待機.
+  - **状態確認 (state checks)** — 4 boolean value blocks: 前/後ろ/左/右に進める？.
+  - `tank_rule` redesigned to `もし <Boolean>` (value input) + `実行 <Action>`
+    (statement input); `tank_fallback` takes an `実行` action stack.
+- **Simulator reworked to a relative-direction model** (per the agreed design):
+  movement and shooting are forward/back/left/right relative to facing (strafe,
+  facing never changes); `SCAN_AROUND` scans all four directions; rotation
+  (`TURN_LEFT`/`TURN_RIGHT`) removed. Added `can_move_{forward,back,left,right}`
+  perception/conditions backing the 状態確認 checks.
+- Updated the serializer (`workspaceToStrategy`), default workspace, practice
+  bots + API validation (`/api/practice/simulate`), and the practice action
+  labels to the new vocabulary. `Strategy` JSON shape is unchanged, so the
+  real-match flow (server.ts → `simulate`) is structurally unaffected.
+- **Also includes the earlier `/practice` replay-panel layout fix** (board
+  centered on top, P1/P2 panels in a row below, then controls + log) — this PR
+  was opened for that fix and the block work landed on the same branch.
+- **Verified visually**: built + ran locally, screenshotted the 行動 (10) and
+  状態確認 (4) flyouts and a practice battle (default strategy advances forward;
+  turn log shows 前進 → 成功). `tsc` / `lint` (0 errors, 4 pre-existing
+  warnings) / Vitest **152** / `build` all green.
 
 ### Next 1–3 PRs (recommended order)
 

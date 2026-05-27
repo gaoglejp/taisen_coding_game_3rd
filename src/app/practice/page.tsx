@@ -33,10 +33,14 @@ const INITIAL_P2 = { x: GRID_SIZE - 1, y: GRID_SIZE - 1, dir: "W" as Direction, 
 const DIR_ARROW: Record<Direction, string> = { N: "↑", E: "→", S: "↓", W: "←" };
 const ACTION_LABEL: Record<string, string> = {
   MOVE_FORWARD: "前進",
-  TURN_LEFT: "左回転",
-  TURN_RIGHT: "右回転",
-  SHOOT_FORWARD: "射撃",
-  SCAN: "スキャン",
+  MOVE_BACK: "後退",
+  MOVE_LEFT: "左移動",
+  MOVE_RIGHT: "右移動",
+  SHOOT_FORWARD: "前方射撃",
+  SHOOT_BACK: "後方射撃",
+  SHOOT_LEFT: "左方射撃",
+  SHOOT_RIGHT: "右方射撃",
+  SCAN_AROUND: "全方位索敵",
   WAIT: "待機",
 };
 
