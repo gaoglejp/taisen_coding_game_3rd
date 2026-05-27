@@ -97,6 +97,24 @@ function isValidSet(value: unknown): boolean {
   return typeof value.name === "string" && value.name.length > 0 && isValidValue(value.value);
 }
 
+// A 「実行」 body statement: an action, a variable set, or a nested conditional
+// (`if` with a condition and a nested body). Validated recursively.
+function isValidStmt(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  switch (String(value.kind)) {
+    case "action":
+      return ACTION_TYPES.has(String(value.type));
+    case "set":
+      return typeof value.name === "string" && value.name.length > 0 && isValidValue(value.value);
+    case "if":
+      return (
+        isValidCondition(value.cond) && Array.isArray(value.body) && value.body.every(isValidStmt)
+      );
+    default:
+      return false;
+  }
+}
+
 // A condition node: a named check leaf or a logic/comparison expression
 // (true/false constant, NOT, AND/OR, comparison). Validated recursively.
 function isValidCondition(value: unknown): boolean {
@@ -129,6 +147,7 @@ function isValidStrategy(value: unknown): value is Strategy {
       const conditions = rule.conditions;
       const actions = rule.actions;
       const sets = rule.sets;
+      const body = rule.body;
       if (conditions !== undefined && (!Array.isArray(conditions) || !conditions.every(isValidCondition))) {
         return false;
       }
@@ -136,6 +155,9 @@ function isValidStrategy(value: unknown): value is Strategy {
         return false;
       }
       if (sets !== undefined && (!Array.isArray(sets) || !sets.every(isValidSet))) {
+        return false;
+      }
+      if (body !== undefined && (!Array.isArray(body) || !body.every(isValidStmt))) {
         return false;
       }
     }
@@ -154,7 +176,12 @@ function isValidStrategy(value: unknown): value is Strategy {
     return false;
   }
 
-  return Array.isArray(rules) || Array.isArray(fallbackActions);
+  const fallbackBody = value.fallbackBody;
+  if (fallbackBody !== undefined && (!Array.isArray(fallbackBody) || !fallbackBody.every(isValidStmt))) {
+    return false;
+  }
+
+  return Array.isArray(rules) || Array.isArray(fallbackActions) || Array.isArray(fallbackBody);
 }
 
 function parseDifficulty(value: unknown): Difficulty | null {

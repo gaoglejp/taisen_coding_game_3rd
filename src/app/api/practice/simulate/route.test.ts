@@ -155,4 +155,45 @@ describe("POST /api/practice/simulate", () => {
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({ error: "invalid_strategy" });
   });
+
+  it("accepts a rule body with a nested if statement", async () => {
+    getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
+
+    const strategy: Strategy = {
+      version: "1.0",
+      rules: [
+        {
+          conditions: [],
+          body: [
+            {
+              kind: "if",
+              cond: { type: "scan_detected", value: true },
+              body: [{ kind: "action", type: "SHOOT_FORWARD" }],
+            },
+            { kind: "action", type: "MOVE_FORWARD" },
+          ],
+        },
+      ],
+      fallbackBody: [{ kind: "action", type: "WAIT" }],
+    };
+
+    const res = await POST(request({ strategy, difficulty: "weak" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.result.turns.length).toBeGreaterThan(0);
+  });
+
+  it("400 for an if statement missing its condition", async () => {
+    getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
+
+    const res = await POST(
+      request({
+        strategy: { rules: [{ body: [{ kind: "if", body: [{ kind: "action", type: "WAIT" }] }] }] },
+      })
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "invalid_strategy" });
+  });
 });

@@ -313,6 +313,53 @@ describe("variables (数値・変数)", () => {
   });
 });
 
+describe("rule body / もし statement (制御)", () => {
+  it("takes the action inside a true if-branch; skips it when false and falls through", () => {
+    // P1 starts facing E. The if-branch fires only when facing == E.
+    const facingIf = (dir: "E" | "N"): Strategy => ({
+      rules: [
+        {
+          conditions: [],
+          body: [
+            {
+              kind: "if",
+              cond: { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir } },
+              body: [{ kind: "action", type: "SHOOT_FORWARD" }],
+            },
+            { kind: "action", type: "MOVE_FORWARD" },
+          ],
+        },
+      ],
+    });
+    // dir=E: if-branch true -> SHOOT_FORWARD wins over the trailing MOVE_FORWARD.
+    expect(simulate(facingIf("E"), waitOnly).turns[0].p1.action).toBe("SHOOT_FORWARD");
+    // dir=N: if-branch skipped -> falls through to MOVE_FORWARD.
+    expect(simulate(facingIf("N"), waitOnly).turns[0].p1.action).toBe("MOVE_FORWARD");
+  });
+
+  it("applies variable sets inside an if-body only when its condition holds", () => {
+    // Turn 1 sets seen=1 (enemy not yet scanned, so the guard is bool true here).
+    // We use a plain set then an if that, when seen>=1, moves forward.
+    const s: Strategy = {
+      rules: [
+        {
+          conditions: [],
+          body: [
+            { kind: "set", name: "seen", value: { type: "num", value: 1 } },
+            {
+              kind: "if",
+              cond: { type: "compare", cmp: "GTE", left: { type: "var", name: "seen" }, right: { type: "num", value: 1 } },
+              body: [{ kind: "action", type: "MOVE_FORWARD" }],
+            },
+          ],
+        },
+      ],
+      fallbackBody: [{ kind: "action", type: "WAIT" }],
+    };
+    expect(simulate(s, waitOnly).turns[0].p1.action).toBe("MOVE_FORWARD");
+  });
+});
+
 describe("normalizeMaxTurns", () => {
   it("returns default MAX_TURNS for undefined, null, or non-finite values", () => {
     expect(normalizeMaxTurns(undefined)).toBe(MAX_TURNS);

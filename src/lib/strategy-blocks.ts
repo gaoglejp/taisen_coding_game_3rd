@@ -3,7 +3,7 @@ import type {
   Strategy,
   StrategyCondition,
   StrategyValue,
-  StrategySet,
+  StrategyStmt,
   Direction,
 } from "@/lib/match-simulator";
 
@@ -326,10 +326,9 @@ const NUMVAR_BLOCK_DEFINITIONS = [
   },
 ];
 
-// 制御 (control flow). These snap into a rule's 「実行」 stack like actions, but
-// the rule-table runtime does not interpret them yet — their execution
-// semantics (especially 繰り返す, intentionally unimplemented for now) land with
-// the future sequential-program model. Palette-only at this stage.
+// 制御 (control flow). The 「もし」 block nests inside a rule's 「実行」 stack: when
+// its condition is true the simulator descends into its body, otherwise it skips
+// it (see `collectBody` and the simulator's `runBody`).
 const CONTROL_BLOCK_DEFINITIONS = [
   {
     type: "tank_ctl_if",
@@ -340,19 +339,7 @@ const CONTROL_BLOCK_DEFINITIONS = [
     previousStatement: "Action",
     nextStatement: "Action",
     colour: CONTROL_BLOCK_COLOUR,
-    tooltip: "条件が真のとき、中の行動を実行します（実行モデル確定後に有効化）。",
-    helpUrl: "",
-  },
-  {
-    type: "tank_ctl_repeat",
-    message0: "%1 回繰り返す",
-    args0: [{ type: "field_number", name: "TIMES", value: 2, min: 1, precision: 1 }],
-    message1: "実行 %1",
-    args1: [{ type: "input_statement", name: "DO", check: "Action" }],
-    previousStatement: "Action",
-    nextStatement: "Action",
-    colour: CONTROL_BLOCK_COLOUR,
-    tooltip: "中の行動を指定回数くり返します（未実装・実行モデル確定後に有効化）。",
+    tooltip: "条件が真のとき、中の行動だけを実行します。",
     helpUrl: "",
   },
 ];
@@ -449,10 +436,7 @@ export const STRATEGY_TOOLBOX = {
       kind: "category",
       name: "制御",
       colour: String(CONTROL_CAT_COLOUR),
-      contents: [
-        { kind: "block", type: "tank_ctl_if" },
-        { kind: "block", type: "tank_ctl_repeat" },
-      ],
+      contents: [{ kind: "block", type: "tank_ctl_if" }],
     },
     {
       kind: "category",
@@ -527,20 +511,6 @@ export const DEFAULT_WORKSPACE_STATE = {
   },
 };
 
-const actionToObj = (type: string) => ({ type, ap: type === "WAIT" ? 0 : 1 });
-
-// Collects the action stack plugged into a 「実行」 statement input.
-function collectActions(start: Blockly.Block | null): { type: string; ap: number }[] {
-  const actions: { type: string; ap: number }[] = [];
-  let block: Blockly.Block | null = start;
-  while (block) {
-    const type = ACTION_BLOCK_TO_TYPE[block.type];
-    if (type) actions.push(actionToObj(type));
-    block = block.getNextBlock();
-  }
-  return actions;
-}
-
 // Reads a value block (敵情報/自機情報 readout, direction constant, number
 // literal, arithmetic/modulo, or variable read) into a `StrategyValue`. Returns
 // null for an empty or incompletely-wired socket.
@@ -578,22 +548,28 @@ function valueToNode(block: Blockly.Block | null): StrategyValue | null {
   }
 }
 
-// Collects variable-set statements that appear in a 「実行」 stack before its
-// first action. Sets after the first action never run (the turn ends at the
-// action), so they are dropped; control blocks and unknowns are skipped.
-function collectSets(start: Blockly.Block | null): StrategySet[] {
-  const sets: StrategySet[] = [];
+// Walks a 「実行」 statement stack into ordered body statements: action blocks
+// become `action`, 「セット」 blocks become `set`, and 「もし」 blocks become a
+// nested `if` (its 「実行」 collected recursively). Other blocks are skipped.
+function collectBody(start: Blockly.Block | null): StrategyStmt[] {
+  const stmts: StrategyStmt[] = [];
   let block: Blockly.Block | null = start;
   while (block) {
-    if (ACTION_BLOCK_TO_TYPE[block.type]) break;
-    if (block.type === "tank_var_set") {
+    const actionType = ACTION_BLOCK_TO_TYPE[block.type];
+    if (actionType) {
+      stmts.push({ kind: "action", type: actionType });
+    } else if (block.type === "tank_var_set") {
       const name = block.getField("VAR")?.getText();
       const value = valueToNode(block.getInputTargetBlock("VALUE"));
-      if (name && value) sets.push({ name, value });
+      if (name && value) stmts.push({ kind: "set", name, value });
+    } else if (block.type === "tank_ctl_if") {
+      const cond = conditionToNode(block.getInputTargetBlock("COND"));
+      const body = collectBody(block.getInputTargetBlock("DO"));
+      if (cond && body.length) stmts.push({ kind: "if", cond, body });
     }
     block = block.getNextBlock();
   }
-  return sets;
+  return stmts;
 }
 
 // Recursively reads a boolean block plugged into 「もし」 into the condition tree:
@@ -632,32 +608,27 @@ function conditionToNode(block: Blockly.Block | null): StrategyCondition | null 
 /**
  * Walks a Blockly workspace and produces the `Strategy` JSON the simulator
  * consumes. Top-level `tank_rule` stacks become ordered rules (first match
- * wins); the first `tank_fallback` becomes `fallbackActions`. A rule's 「もし」
+ * wins); the first `tank_fallback` becomes `fallbackBody`. A rule's 「もし」
  * boolean becomes its single condition (a boolean expression tree); its 「実行」
- * stack becomes the actions (the simulator runs the first one).
+ * stack becomes an ordered `body` of statements (actions, variable sets, and
+ * nested 「もし」), of which the simulator runs the first reachable action.
  */
 export function workspaceToStrategy(workspace: Blockly.Workspace): Strategy {
   const rules: NonNullable<Strategy["rules"]> = [];
-  let fallback: { type: string; ap: number }[] | undefined;
-  let fallbackSets: StrategySet[] | undefined;
+  let fallbackBody: StrategyStmt[] | undefined;
 
   for (const top of workspace.getTopBlocks(true)) {
     let block: Blockly.Block | null = top;
     while (block) {
       if (block.type === "tank_rule") {
         const cond = conditionToNode(block.getInputTargetBlock("COND"));
-        const sets = collectSets(block.getInputTargetBlock("DO"));
-        const rule: NonNullable<Strategy["rules"]>[number] = {
+        rules.push({
           conditions: cond ? [cond] : [],
-          actions: collectActions(block.getInputTargetBlock("DO")),
-        };
-        if (sets.length) rule.sets = sets;
-        rules.push(rule);
-      } else if (block.type === "tank_fallback" && !fallback) {
-        const actions = collectActions(block.getInputTargetBlock("DO"));
-        const sets = collectSets(block.getInputTargetBlock("DO"));
-        if (actions.length) fallback = actions;
-        if (sets.length) fallbackSets = sets;
+          body: collectBody(block.getInputTargetBlock("DO")),
+        });
+      } else if (block.type === "tank_fallback" && !fallbackBody) {
+        const body = collectBody(block.getInputTargetBlock("DO"));
+        if (body.length) fallbackBody = body;
       }
       block = block.getNextBlock();
     }
@@ -666,7 +637,6 @@ export function workspaceToStrategy(workspace: Blockly.Workspace): Strategy {
   return {
     version: "1.0",
     rules,
-    ...(fallbackSets ? { fallbackSets } : {}),
-    fallbackActions: fallback ?? [{ type: "WAIT", ap: 0 }],
+    fallbackBody: fallbackBody ?? [{ kind: "action", type: "WAIT" }],
   };
 }
