@@ -240,17 +240,17 @@ These are the calls the previous session made that the next session should
    comparisons land), **前回結果** (`前回ダメージを受けた？` → `damaged`,
    `前回敵に命中した？` → `shot_hit`, a perception flag set when last turn's shot
    landed a HIT), and **自機情報** (`自分のHP`・`残りターン` Number readouts +
-   `自分の向き` and the `上/右/下/左` Direction constants), and **制御** (`もし`
-   if-block + `N回繰り返す` repeat-block; palette-only — they snap into a 「実行」
-   stack but the rule-table runtime does not interpret them yet. The 繰り返す loop
-   is intentionally unimplemented per a product decision; control-flow semantics
-   land with the sequential-program model). **論理・比較** (PR — comparison
-   `=/≠/<≤/>≥`, `かつ/または`, `ではない`, `true/false`) is now **functional**: it
+   `自分の向き` and the `上/右/下/左` Direction constants), and **制御** — now just
+   the `もし` if-block (the `繰り返す` repeat-block was **removed**). `もし` is
+   **functional**: it nests in a rule's 「実行」 stack and conditionally runs its
+   body (see decision #18). **論理・比較** (PR — comparison
+   `=/≠/<≤/>≥`, `かつ/または`, `ではない`, `true/false`) is **functional**: it
    wires the accumulated value blocks into evaluable conditions (see decision
-   #16). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
-   `tank_fallback` is `実行 <Action statement>`. The serializer still emits the
-   same `Strategy` JSON (`rules[].{conditions,actions}` + `fallbackActions`), so
-   the simulator / real-match flow are structurally unchanged. **Simulator
+   #16). A `tank_rule` is `もし <Boolean value>` + `実行 <statement body>`;
+   `tank_fallback` is `実行 <statement body>`. The serializer emits the
+   `Strategy` JSON the simulator consumes (`rules[].{conditions, body}` +
+   `fallbackBody`; legacy `actions`/`sets` still execute — decision #18), so the
+   simulator / real-match flow are structurally unchanged. **Simulator
    semantics**: move and shoot are **relative to facing** (FORWARD/BACK/LEFT/
    RIGHT); a player never rotates (rotation actions removed), so facing is fixed
    for the match and "relative" gives each player a stable four-direction frame.
@@ -258,9 +258,9 @@ These are the calls the previous session made that the next session should
    `can_move_{forward,back,left,right}` report whether that relative cell is in
    bounds and unoccupied. **数値・変数** (number literal, arithmetic `+−×÷`,
    `÷ の余り` modulo, variable read `項目`, and `項目 に … をセット`) is the **last
-   mockup category — the palette rebuild is now complete** and wired (see
-   decision #17). The only blocks still inert are the 制御 `もし`/`繰り返す`
-   (palette-only, pending the sequential-program model).
+   mockup category — the palette rebuild is complete** and wired (see decision
+   #17). **Every palette block is now functional** — there are no remaining
+   palette-only/mock blocks.
 16. **論理・比較 conditions are a boolean expression tree; enemy metrics are
    omniscient (PR).** A rule's `もし` is serialized into one condition node, now
    recursive: legacy named checks keep the flat `{type, value}` leaf shape, and
@@ -293,10 +293,23 @@ These are the calls the previous session made that the next session should
    through**, so later rules/conditions see the updated variables. The fallback
    may also carry `fallbackSets`. Variable names come from Blockly's
    `field_variable` (read via `getField("VAR").getText()`). Server-side
-   validation covers the new value nodes and `sets`/`fallbackSets`. **Caveat**:
-   this is a bounded variable model on top of the rule table — it is *not* the
-   general sequential-program model, so the 制御 `もし`/`繰り返す` blocks remain
-   inert (they would need statement-level control flow, deferred).
+   validation covers the new value nodes and `sets`/`fallbackSets`.
+18. **Rule 「実行」 is an ordered statement body; the 制御 `もし` block is wired,
+   and `繰り返す` was removed (PR).** A rule's body is now serialized as
+   `body: StrategyStmt[]` (and the fallback as `fallbackBody`), replacing the
+   earlier flat `actions`+`sets`. A statement is `{kind:"action", type}`,
+   `{kind:"set", name, value}`, or `{kind:"if", cond, body}` (the 制御 `もし`
+   block; its 「実行」 is collected recursively). **Execution** (`runBody`): walk
+   in order — `set` mutates a variable; `if` descends into its nested body only
+   when `cond` is true; the **first `action` reached wins** and ends the turn.
+   A matched rule that produces no action **falls through** (its variable writes
+   persist), as before. The simulator keeps a **legacy path**: rules/fallbacks
+   carrying the old `actions`/`sets` (stored strategies, the built-in bots, older
+   tests) still run via `runLegacy` (apply sets, take first action). The server
+   API validates `body`/`fallbackBody` recursively (`isValidStmt`). The `繰り返す`
+   loop block was **deleted** (no sequential-program model to give it meaning);
+   with `もし` wired, **no palette block is mock-only anymore**. A genuine loop
+   would still need a bounded-iteration model — out of scope for now.
 
 ## 4. Known unfinished work (in priority order)
 

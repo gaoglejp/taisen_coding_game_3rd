@@ -13,45 +13,39 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #72 — feat(blocks): 数値・変数 category, fully wired (incl. variables)
+- **PR**: #73 — feat(blocks): wire 制御 もし, remove 繰り返す (ordered rule body)
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Added the 数値・変数 (numbers / variables) category** — the **last mockup
-  category**, so the palette rebuild is now complete. 5 blocks: number literal
-  `( 0 )`, arithmetic (`+ − × ÷`), `÷ の余り` (modulo), variable read `項目 ▼`,
-  and `項目 ▼ に … をセット` (variable set statement).
-- **Per the product decision, fully wired including variables.** Number /
-  arithmetic / modulo extend the value-expression tree (`num`/`arith`/`mod`), so
-  numeric comparisons like `自分のHP < 30` now work in the editor. **Variables**
-  introduce a per-player store persisted across turns: a `set` statement snaps
-  into a rule's 「実行」 stack and, when that rule matches, applies (in order,
-  before the action) — see HANDOFF decision #17 for the execution model.
-- **Simulator**: `evaluateValue` gained `var`/`arith`/`mod` (DIV/MOD by zero and
-  unresolved operands fail closed → number null); `chooseAction` now threads a
-  `Vars` store and applies a matched rule's sets, with **set-only matched rules
-  falling through** so later rules see updated variables. `simulate` keeps a
-  persistent `vars` per player.
-- **Serializer**: `field_variable`-based get/set (name read via
-  `getField("VAR").getText()`); `collectSets` gathers set statements **before**
-  the first action in a 「実行」 stack (later sets never run).
-- **API**: `/api/practice/simulate` validates the new value nodes and `sets` /
-  `fallbackSets` recursively.
-- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **174** / `build`
-  green. Screenshotted the 数値・変数 flyout; ran a **live authenticated** e2e: a
-  counter that increments each turn → `WAIT, WAIT, MOVE, MOVE` once `count ≥ 3`;
-  malformed set → 400.
+- **Deleted the 繰り返す (repeat) block** (per request — no sequential-program
+  model gives it meaning yet).
+- **Wired the 制御 `もし` block** — the last mock/palette-only block. A rule's
+  「実行」 is now serialized as an **ordered statement body** (`body: StrategyStmt[]`,
+  fallback `fallbackBody`): each statement is `action` / `set` / `if` (the `もし`,
+  body collected recursively). The simulator's `runBody` walks it — `set` mutates
+  a variable, `if` descends only when its condition is true, and the **first
+  action reached wins**. With this, **no palette block is mock-only anymore.**
+- **Backward compatible**: the simulator keeps a legacy path (`runLegacy`) so
+  stored strategies / built-in bots / older tests using the flat `actions`+`sets`
+  shape still execute. See HANDOFF decision #18.
+- **API**: `/api/practice/simulate` now validates `body` / `fallbackBody`
+  recursively (`isValidStmt`).
+- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **178** / `build`
+  green. Screenshotted the 制御 flyout (only 「もし」 remains); ran a **live
+  authenticated** e2e: a rule body `[ if(facing=E) SHOOT ; MOVE ]` → SHOOT on
+  turn 1 (true branch wins), and confirmed `繰り返` no longer appears in the page.
 
-### Next steps
+### Still open / next steps
 
-- **Palette is feature-complete vs. the mockups.** Remaining wiring follow-ups
-  (deferred, not blocking): the 制御 `もし`/`繰り返す` blocks are still palette-only
-  and would need a sequential-program execution model to interpret (the same
-  reason 繰り返す was deferred). Otherwise this milestone item (HANDOFF #15/16/17)
-  is done; suggest a manual browser pass on the full editor UX next.
+- **⚠ Visual block restyle requested but blocked.** The task also asked to
+  restyle the Blockly blocks "like the attached image" — **the image did not come
+  through on my end** (no attachment visible across two sends). Asked the user to
+  re-share it; the restyle is not done yet.
+- The block palette is now complete **and** fully functional. Otherwise suggest a
+  manual browser pass on the full editor UX.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -81,6 +75,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #72** (merged) — feat(blocks): added the 数値・変数 category, fully wired
+  incl. variables (number/arith/mod value nodes + a per-player variable store
+  persisted across turns). (Claude)
 - **PR #71** (merged) — feat(blocks): added the 論理・比較 category, wired into a
   boolean expression tree (and/or/not/bool/compare) so value blocks drive real
   conditions; fixed the API allow-list also rejecting `shot_hit`. (Claude)

@@ -22,13 +22,13 @@ describe("workspaceToStrategy", () => {
     expect(strategy.rules).toHaveLength(2);
     expect(strategy.rules![0]).toEqual({
       conditions: [{ type: "can_move_forward", value: true }],
-      actions: [{ type: "MOVE_FORWARD", ap: 1 }],
+      body: [{ kind: "action", type: "MOVE_FORWARD" }],
     });
     expect(strategy.rules![1]).toEqual({
       conditions: [{ type: "can_move_right", value: true }],
-      actions: [{ type: "MOVE_RIGHT", ap: 1 }],
+      body: [{ kind: "action", type: "MOVE_RIGHT" }],
     });
-    expect(strategy.fallbackActions).toEqual([{ type: "SHOOT_FORWARD", ap: 1 }]);
+    expect(strategy.fallbackBody).toEqual([{ kind: "action", type: "SHOOT_FORWARD" }]);
 
     ws.dispose();
   });
@@ -37,7 +37,7 @@ describe("workspaceToStrategy", () => {
     const ws = new Blockly.Workspace();
     const strategy = workspaceToStrategy(ws);
     expect(strategy.rules).toEqual([]);
-    expect(strategy.fallbackActions).toEqual([{ type: "WAIT", ap: 0 }]);
+    expect(strategy.fallbackBody).toEqual([{ kind: "action", type: "WAIT" }]);
     ws.dispose();
   });
 
@@ -73,11 +73,11 @@ describe("workspaceToStrategy", () => {
     const strategy = workspaceToStrategy(ws);
     expect(strategy.rules).toHaveLength(1);
     expect(strategy.rules![0].conditions).toEqual([{ type: "can_move_left", value: true }]);
-    expect(strategy.rules![0].actions).toEqual([
-      { type: "MOVE_LEFT", ap: 1 },
-      { type: "SHOOT_FORWARD", ap: 1 },
+    expect(strategy.rules![0].body).toEqual([
+      { kind: "action", type: "MOVE_LEFT" },
+      { kind: "action", type: "SHOOT_FORWARD" },
     ]);
-    expect(strategy.fallbackActions).toEqual([{ type: "SCAN_AROUND", ap: 1 }]);
+    expect(strategy.fallbackBody).toEqual([{ kind: "action", type: "SCAN_AROUND" }]);
     ws.dispose();
   });
 
@@ -103,7 +103,7 @@ describe("workspaceToStrategy", () => {
 
     const strategy = workspaceToStrategy(ws);
     expect(strategy.rules![0].conditions).toEqual([{ type: "scan_detected", value: true }]);
-    expect(strategy.rules![0].actions).toEqual([{ type: "SHOOT_FORWARD", ap: 1 }]);
+    expect(strategy.rules![0].body).toEqual([{ kind: "action", type: "SHOOT_FORWARD" }]);
     ws.dispose();
   });
 
@@ -158,7 +158,7 @@ describe("workspaceToStrategy", () => {
 
     const strategy = workspaceToStrategy(ws);
     expect(strategy.rules![0].conditions).toEqual([]);
-    expect(strategy.rules![0].actions).toEqual([{ type: "WAIT", ap: 0 }]);
+    expect(strategy.rules![0].body).toEqual([{ kind: "action", type: "WAIT" }]);
     ws.dispose();
   });
 
@@ -317,7 +317,7 @@ describe("workspaceToStrategy", () => {
     ws.dispose();
   });
 
-  it("serializes a variable-set statement (with an arithmetic value) into rule.sets", () => {
+  it("serializes a variable-set statement (with an arithmetic value) into the rule body", () => {
     const ws = new Blockly.Workspace();
     Blockly.serialization.workspaces.load(
       {
@@ -357,8 +357,9 @@ describe("workspaceToStrategy", () => {
     );
 
     const strategy = workspaceToStrategy(ws);
-    expect(strategy.rules![0].sets).toEqual([
+    expect(strategy.rules![0].body).toEqual([
       {
+        kind: "set",
         name: "count",
         value: {
           type: "arith",
@@ -367,33 +368,30 @@ describe("workspaceToStrategy", () => {
           right: { type: "num", value: 1 },
         },
       },
+      { kind: "action", type: "SCAN_AROUND" },
     ]);
-    expect(strategy.rules![0].actions).toEqual([{ type: "SCAN_AROUND", ap: 1 }]);
     ws.dispose();
   });
 
-  it("drops variable-set statements that appear after the first action", () => {
+  it("serializes a nested もし block into an if statement in the rule body", () => {
     const ws = new Blockly.Workspace();
     Blockly.serialization.workspaces.load(
       {
-        variables: [{ name: "count", id: "v1" }],
         blocks: {
           languageVersion: 0,
           blocks: [
             {
               type: "tank_rule",
               inputs: {
-                COND: { block: { type: "tank_bool", fields: { VAL: "TRUE" } } },
+                COND: { block: { type: "tank_chk_can_move_forward" } },
                 DO: {
                   block: {
-                    type: "tank_act_move_forward",
-                    next: {
-                      block: {
-                        type: "tank_var_set",
-                        fields: { VAR: { id: "v1" } },
-                        inputs: { VALUE: { block: { type: "tank_num_literal", fields: { NUM: 9 } } } },
-                      },
+                    type: "tank_ctl_if",
+                    inputs: {
+                      COND: { block: { type: "tank_chk_enemy_detected" } },
+                      DO: { block: { type: "tank_act_shoot_forward" } },
                     },
+                    next: { block: { type: "tank_act_move_forward" } },
                   },
                 },
               },
@@ -405,8 +403,14 @@ describe("workspaceToStrategy", () => {
     );
 
     const strategy = workspaceToStrategy(ws);
-    expect(strategy.rules![0].sets).toBeUndefined();
-    expect(strategy.rules![0].actions).toEqual([{ type: "MOVE_FORWARD", ap: 1 }]);
+    expect(strategy.rules![0].body).toEqual([
+      {
+        kind: "if",
+        cond: { type: "scan_detected", value: true },
+        body: [{ kind: "action", type: "SHOOT_FORWARD" }],
+      },
+      { kind: "action", type: "MOVE_FORWARD" },
+    ]);
     ws.dispose();
   });
 

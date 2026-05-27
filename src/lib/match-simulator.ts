@@ -129,8 +129,24 @@ export interface StrategySet {
   value?: StrategyValue;
 }
 
+// One statement in a matched rule's 「実行」 body, executed in order. The first
+// `action` reached (descending into `if` branches whose condition is true) is
+// the turn's action; `set` mutates a variable; `if` runs its nested body when
+// its condition holds.
+export interface StrategyStmt {
+  kind?: string;
+  type?: string;
+  name?: string;
+  value?: StrategyValue;
+  cond?: StrategyCondition;
+  body?: StrategyStmt[];
+}
+
 interface StrategyRule {
   conditions?: StrategyCondition[];
+  // `body` is the current ordered-statement form. `sets`/`actions` are the
+  // legacy flat form (stored strategies, bots) and still execute.
+  body?: StrategyStmt[];
   sets?: StrategySet[];
   actions?: StrategyAction[];
 }
@@ -138,6 +154,7 @@ interface StrategyRule {
 export interface Strategy {
   version?: string;
   rules?: StrategyRule[];
+  fallbackBody?: StrategyStmt[];
   fallbackSets?: StrategySet[];
   fallbackActions?: StrategyAction[];
 }
@@ -212,17 +229,50 @@ function isAction(value: unknown): value is ActionType {
 // Per-player variable store, persisted across turns. Unset variables read as 0.
 type Vars = Record<string, number>;
 
-function applySets(sets: StrategySet[] | undefined, p: Perception, vars: Vars): void {
-  for (const s of sets ?? []) {
-    if (!s?.name) continue;
-    const v = evaluateValue(s.value, p, vars);
-    if (typeof v === "number") vars[s.name] = v;
-  }
+function setVar(s: StrategySet | undefined, p: Perception, vars: Vars): void {
+  if (!s?.name) return;
+  const v = evaluateValue(s.value, p, vars);
+  if (typeof v === "number") vars[s.name] = v;
 }
 
-// Walks rules top-down: a matched rule applies its variable sets, then — if it
-// yields a valid action — that action wins. Set-only matched rules apply their
-// sets and fall through, so later rules see the updated variables.
+// Runs a 「実行」 body: a `set` mutates a variable; the first `action` reached is
+// the turn's action; an `if` descends into its nested body when its condition
+// holds. Returns the chosen action, or null if the body produces none.
+function runBody(stmts: StrategyStmt[] | undefined, p: Perception, vars: Vars): ActionType | null {
+  for (const s of stmts ?? []) {
+    switch (s?.kind) {
+      case "set":
+        setVar({ name: s.name, value: s.value }, p, vars);
+        break;
+      case "action":
+        if (isAction(s.type)) return s.type;
+        break;
+      case "if":
+        if (s.cond && evaluateCondition(s.cond, p, vars)) {
+          const a = runBody(s.body, p, vars);
+          if (a) return a;
+        }
+        break;
+    }
+  }
+  return null;
+}
+
+// Legacy flat form: apply sets in order, then take the first valid action.
+function runLegacy(
+  sets: StrategySet[] | undefined,
+  actions: StrategyAction[] | undefined,
+  p: Perception,
+  vars: Vars
+): ActionType | null {
+  for (const s of sets ?? []) setVar(s, p, vars);
+  const action = actions?.[0]?.type;
+  return isAction(action) ? action : null;
+}
+
+// Walks rules top-down. A matched rule runs its body (or legacy sets+action);
+// if that yields an action it wins, otherwise the rule falls through (its
+// variable writes persist), so later rules see the updated variables.
 function chooseAction(
   strategy: Strategy | null | undefined,
   perception: Perception,
@@ -232,14 +282,16 @@ function chooseAction(
   for (const rule of rules) {
     const conds = rule?.conditions ?? [];
     if (conds.every((c) => evaluateCondition(c, perception, vars))) {
-      applySets(rule?.sets, perception, vars);
-      const action = rule?.actions?.[0]?.type;
-      if (isAction(action)) return action;
+      const action = rule?.body
+        ? runBody(rule.body, perception, vars)
+        : runLegacy(rule?.sets, rule?.actions, perception, vars);
+      if (action) return action;
     }
   }
-  applySets(strategy?.fallbackSets, perception, vars);
-  const fallback = strategy?.fallbackActions?.[0]?.type;
-  return isAction(fallback) ? fallback : "WAIT";
+  const fallback = strategy?.fallbackBody
+    ? runBody(strategy.fallbackBody, perception, vars)
+    : runLegacy(strategy?.fallbackSets, strategy?.fallbackActions, perception, vars);
+  return fallback ?? "WAIT";
 }
 
 // Reads a value node into a number or direction; null when unresolved.
