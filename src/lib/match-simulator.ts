@@ -91,9 +91,26 @@ export interface SimulationResult {
   totalTurns: number;
 }
 
-interface StrategyCondition {
+// A value node: a number/direction the comparison block reads. `type` selects a
+// perception metric (enemy_distance, self_hp, turns_left, self_facing, ...), or
+// "num" for a literal (value) / "dir" for a direction constant (dir).
+export interface StrategyValue {
+  type?: string;
+  value?: number;
+  dir?: Direction;
+}
+
+// A condition node. Legacy named perception checks keep the flat
+// `{ type, value }` shape; the 論理・比較 blocks add the "and"/"or"/"not"/"bool"/
+// "compare" operators, forming a boolean expression tree.
+export interface StrategyCondition {
   type?: string;
   value?: unknown;
+  args?: StrategyCondition[];
+  arg?: StrategyCondition;
+  cmp?: string;
+  left?: StrategyValue;
+  right?: StrategyValue;
 }
 
 interface StrategyAction {
@@ -160,6 +177,19 @@ interface Perception {
   can_move_back: boolean;
   can_move_left: boolean;
   can_move_right: boolean;
+  self_hp: number;
+  turns_left: number;
+  self_facing: Direction;
+  // Enemy position is read from ground truth (the simulator is omniscient for
+  // movement and shooting too), expressed relative to the player's facing:
+  // forward/right are signed projections, distance is Manhattan.
+  enemy_distance: number;
+  enemy_forward_distance: number;
+  enemy_right_distance: number;
+}
+
+function isDirection(value: unknown): value is Direction {
+  return value === "N" || value === "E" || value === "S" || value === "W";
 }
 
 function isAction(value: unknown): value is ActionType {
@@ -177,6 +207,52 @@ function chooseAction(strategy: Strategy | null | undefined, perception: Percept
   }
   const fallback = strategy?.fallbackActions?.[0]?.type;
   return isAction(fallback) ? fallback : "WAIT";
+}
+
+// Reads a value node into a number or direction; null when unresolved.
+function evaluateValue(v: StrategyValue | undefined, p: Perception): number | Direction | null {
+  switch (v?.type) {
+    case "num":
+      return typeof v.value === "number" && Number.isFinite(v.value) ? v.value : null;
+    case "dir":
+      return isDirection(v.dir) ? v.dir : null;
+    case "self_facing":
+      return p.self_facing;
+    case "enemy_distance":
+      return p.enemy_distance;
+    case "enemy_forward_distance":
+      return p.enemy_forward_distance;
+    case "enemy_right_distance":
+      return p.enemy_right_distance;
+    case "self_hp":
+      return p.self_hp;
+    case "turns_left":
+      return p.turns_left;
+    default:
+      return null;
+  }
+}
+
+function evaluateCompare(c: StrategyCondition, p: Perception): boolean {
+  const l = evaluateValue(c.left, p);
+  const r = evaluateValue(c.right, p);
+  if (l === null || r === null) return false;
+  switch (c.cmp) {
+    case "EQ":
+      return l === r;
+    case "NEQ":
+      return l !== r;
+    case "LT":
+      return typeof l === "number" && typeof r === "number" && l < r;
+    case "GT":
+      return typeof l === "number" && typeof r === "number" && l > r;
+    case "LTE":
+      return typeof l === "number" && typeof r === "number" && l <= r;
+    case "GTE":
+      return typeof l === "number" && typeof r === "number" && l >= r;
+    default:
+      return false;
+  }
 }
 
 function evaluateCondition(c: StrategyCondition, p: Perception): boolean {
@@ -197,6 +273,16 @@ function evaluateCondition(c: StrategyCondition, p: Perception): boolean {
       return p.can_move_left === Boolean(c.value);
     case "can_move_right":
       return p.can_move_right === Boolean(c.value);
+    case "bool":
+      return Boolean(c.value);
+    case "not":
+      return c.arg ? !evaluateCondition(c.arg, p) : false;
+    case "and":
+      return (c.args ?? []).every((a) => evaluateCondition(a, p));
+    case "or":
+      return (c.args ?? []).some((a) => evaluateCondition(a, p));
+    case "compare":
+      return evaluateCompare(c, p);
     default:
       return false;
   }
@@ -243,8 +329,13 @@ function buildPerception(
   scan_detected: boolean,
   damaged: number,
   moved: boolean,
-  shot_hit: boolean
+  shot_hit: boolean,
+  turnsLeft: number
 ): Perception {
+  const dx = opponent.x - self.x;
+  const dy = opponent.y - self.y;
+  const [ffx, ffy] = DIR_DELTA[self.dir];
+  const [frx, fry] = DIR_DELTA[TURN_RIGHT_OF[self.dir]];
   return {
     scan_detected,
     damaged,
@@ -254,6 +345,12 @@ function buildPerception(
     can_move_back: canMove(self, opponent, "BACK"),
     can_move_left: canMove(self, opponent, "LEFT"),
     can_move_right: canMove(self, opponent, "RIGHT"),
+    self_hp: self.hp,
+    turns_left: turnsLeft,
+    self_facing: self.dir,
+    enemy_distance: Math.abs(dx) + Math.abs(dy),
+    enemy_forward_distance: dx * ffx + dy * ffy,
+    enemy_right_distance: dx * frx + dy * fry,
   };
 }
 
@@ -296,8 +393,8 @@ export function simulate(
   const maxTurns = normalizeMaxTurns(options?.maxTurns);
   const p1: PlayerState = { x: 0, y: 0, dir: "E", hp: INITIAL_HP };
   const p2: PlayerState = { x: GRID_SIZE - 1, y: GRID_SIZE - 1, dir: "W", hp: INITIAL_HP };
-  let perception1: Perception = buildPerception(p1, p2, false, 0, false, false);
-  let perception2: Perception = buildPerception(p2, p1, false, 0, false, false);
+  let perception1: Perception = buildPerception(p1, p2, false, 0, false, false, maxTurns);
+  let perception2: Perception = buildPerception(p2, p1, false, 0, false, false, maxTurns);
 
   const turns: TurnSnapshot[] = [];
   let endReason: "HP_ZERO" | "TIMEOUT" = "TIMEOUT";
@@ -380,8 +477,8 @@ export function simulate(
       ],
     });
 
-    perception1 = buildPerception(p1, p2, scan1, damaged1, moved1, shootResult1 === "HIT");
-    perception2 = buildPerception(p2, p1, scan2, damaged2, moved2, shootResult2 === "HIT");
+    perception1 = buildPerception(p1, p2, scan1, damaged1, moved1, shootResult1 === "HIT", maxTurns - turn);
+    perception2 = buildPerception(p2, p1, scan2, damaged2, moved2, shootResult2 === "HIT", maxTurns - turn);
 
     if (p1.hp <= 0 || p2.hp <= 0) {
       endReason = "HP_ZERO";
