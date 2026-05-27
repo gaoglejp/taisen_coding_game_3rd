@@ -58,4 +58,61 @@ describe("POST /api/practice/simulate", () => {
     expect(res.status).toBe(400);
     await expect(res.json()).resolves.toEqual({ error: "invalid_strategy" });
   });
+
+  it("accepts a 論理・比較 condition tree (compare / and / not / bool)", async () => {
+    getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
+
+    const strategy: Strategy = {
+      version: "1.0",
+      rules: [
+        {
+          conditions: [
+            {
+              type: "and",
+              args: [
+                {
+                  type: "compare",
+                  cmp: "GTE",
+                  left: { type: "self_hp" },
+                  right: { type: "num", value: 50 },
+                },
+                {
+                  type: "not",
+                  arg: {
+                    type: "compare",
+                    cmp: "EQ",
+                    left: { type: "self_facing" },
+                    right: { type: "dir", dir: "N" },
+                  },
+                },
+                { type: "bool", value: true },
+              ],
+            },
+          ],
+          actions: [{ type: "MOVE_FORWARD", ap: 1 }],
+        },
+      ],
+      fallbackActions: [{ type: "WAIT", ap: 0 }],
+    };
+
+    const res = await POST(request({ strategy, difficulty: "weak" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    // P1 starts at full HP facing E, so the rule matches turn 1 and it advances.
+    expect(json.result.turns[0].p1.moved).toBe(true);
+  });
+
+  it("400 for a comparison node missing an operand", async () => {
+    getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
+
+    const res = await POST(
+      request({
+        strategy: { rules: [{ conditions: [{ type: "compare", cmp: "LT", left: { type: "self_hp" } }] }] },
+      })
+    );
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({ error: "invalid_strategy" });
+  });
 });

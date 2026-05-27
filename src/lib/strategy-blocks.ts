@@ -1,5 +1,10 @@
 import * as Blockly from "blockly";
-import type { Strategy } from "@/lib/match-simulator";
+import type {
+  Strategy,
+  StrategyCondition,
+  StrategyValue,
+  Direction,
+} from "@/lib/match-simulator";
 
 // Domain vocabulary the simulator understands (see src/lib/match-simulator.ts).
 //
@@ -35,13 +40,13 @@ const ENEMY_CHECK_BLOCKS: [string, string, string][] = [
   ["敵を検出している？", "tank_chk_enemy_detected", "scan_detected"],
 ];
 
-// 敵情報 number readouts (value blocks). label, block type. These output a
-// Number; they become usable inside rules once the 論理・比較 (comparison)
-// category lands, which will compare them and feed the boolean into 「もし」.
-const ENEMY_NUMBER_BLOCKS: [string, string][] = [
-  ["敵の前方距離", "tank_num_enemy_forward_distance"],
-  ["敵の右方向距離", "tank_num_enemy_right_distance"],
-  ["敵までの距離", "tank_num_enemy_distance"],
+// 敵情報 number readouts (value blocks). label, block type, simulator metric.
+// Output a Number; the 論理・比較 comparison block reads the metric and feeds the
+// resulting boolean into 「もし」.
+const ENEMY_NUMBER_BLOCKS: [string, string, string][] = [
+  ["敵の前方距離", "tank_num_enemy_forward_distance", "enemy_forward_distance"],
+  ["敵の右方向距離", "tank_num_enemy_right_distance", "enemy_right_distance"],
+  ["敵までの距離", "tank_num_enemy_distance", "enemy_distance"],
 ];
 
 // 前回結果 boolean checks (previous turn outcome). label, block type, condition.
@@ -50,11 +55,11 @@ const LAST_RESULT_CHECK_BLOCKS: [string, string, string][] = [
   ["前回敵に命中した？", "tank_chk_shot_hit", "shot_hit"],
 ];
 
-// 自機情報 number readouts (value blocks). label, block type. Output a Number;
-// usable in rules once the 論理・比較 (comparison) category lands.
-const SELF_NUMBER_BLOCKS: [string, string][] = [
-  ["自分のHP", "tank_num_self_hp"],
-  ["残りターン", "tank_num_turns_left"],
+// 自機情報 number readouts (value blocks). label, block type, simulator metric.
+// Output a Number; read by the 論理・比較 comparison block.
+const SELF_NUMBER_BLOCKS: [string, string, string][] = [
+  ["自分のHP", "tank_num_self_hp", "self_hp"],
+  ["残りターン", "tank_num_turns_left", "turns_left"],
 ];
 
 // 自機情報 direction readouts/constants (value blocks). label, block type,
@@ -76,6 +81,7 @@ const LAST_RESULT_COLOUR = 270;
 const SELF_COLOUR = 160;
 const CONTROL_CAT_COLOUR = 60;
 const CONTROL_BLOCK_COLOUR = 120;
+const LOGIC_COLOUR = 210;
 const RULE_COLOUR = 230;
 const FALLBACK_COLOUR = 290;
 
@@ -88,6 +94,13 @@ const CHECK_BLOCK_TO_COND: Record<string, string> = Object.fromEntries(
     cond,
   ])
 );
+const NUMBER_BLOCK_TO_METRIC: Record<string, string> = Object.fromEntries(
+  [...ENEMY_NUMBER_BLOCKS, ...SELF_NUMBER_BLOCKS].map(([, block, metric]) => [block, metric])
+);
+const DIRECTION_BLOCK_TO_VALUE: Record<string, string> = Object.fromEntries(
+  SELF_DIRECTION_BLOCKS.map(([, block, value]) => [block, value])
+);
+const COMPARE_OPS: ReadonlySet<string> = new Set(["EQ", "NEQ", "LT", "LTE", "GT", "GTE"]);
 
 const ACTION_BLOCK_DEFINITIONS = ACTION_BLOCKS.map(([label, type]) => ({
   type,
@@ -152,6 +165,86 @@ const SELF_DIRECTION_DEFINITIONS = SELF_DIRECTION_BLOCKS.map(([label, type]) => 
   tooltip: `${label}。向きの比較に使います。`,
   helpUrl: "",
 }));
+
+// 論理・比較 (logic / comparison). Boolean-output blocks that compose the value
+// and check blocks into a 「もし」 condition: compare two values, AND/OR two
+// booleans, negate, or a true/false constant.
+const LOGIC_BLOCK_DEFINITIONS = [
+  {
+    type: "tank_cmp",
+    message0: "%1 %2 %3",
+    args0: [
+      { type: "input_value", name: "A", check: ["Number", "Direction"] },
+      {
+        type: "field_dropdown",
+        name: "OP",
+        options: [
+          ["=", "EQ"],
+          ["≠", "NEQ"],
+          ["<", "LT"],
+          ["≤", "LTE"],
+          [">", "GT"],
+          ["≥", "GTE"],
+        ],
+      },
+      { type: "input_value", name: "B", check: ["Number", "Direction"] },
+    ],
+    inputsInline: true,
+    output: "Boolean",
+    colour: LOGIC_COLOUR,
+    tooltip: "2つの値を比較して真偽を返します。ルールの「もし」に差し込みます。",
+    helpUrl: "",
+  },
+  {
+    type: "tank_logic_op",
+    message0: "%1 %2 %3",
+    args0: [
+      { type: "input_value", name: "A", check: "Boolean" },
+      {
+        type: "field_dropdown",
+        name: "OP",
+        options: [
+          ["かつ", "AND"],
+          ["または", "OR"],
+        ],
+      },
+      { type: "input_value", name: "B", check: "Boolean" },
+    ],
+    inputsInline: true,
+    output: "Boolean",
+    colour: LOGIC_COLOUR,
+    tooltip: "「かつ」は両方が真のとき、「または」はどちらかが真のときに真。",
+    helpUrl: "",
+  },
+  {
+    type: "tank_not",
+    message0: "ではない %1",
+    args0: [{ type: "input_value", name: "VAL", check: "Boolean" }],
+    inputsInline: true,
+    output: "Boolean",
+    colour: LOGIC_COLOUR,
+    tooltip: "真偽を反転します。",
+    helpUrl: "",
+  },
+  {
+    type: "tank_bool",
+    message0: "%1",
+    args0: [
+      {
+        type: "field_dropdown",
+        name: "VAL",
+        options: [
+          ["true", "TRUE"],
+          ["false", "FALSE"],
+        ],
+      },
+    ],
+    output: "Boolean",
+    colour: LOGIC_COLOUR,
+    tooltip: "true（真）か false（偽）の定数。",
+    helpUrl: "",
+  },
+];
 
 // 制御 (control flow). These snap into a rule's 「実行」 stack like actions, but
 // the rule-table runtime does not interpret them yet — their execution
@@ -218,6 +311,7 @@ const BLOCK_DEFINITIONS = [
   ...LAST_RESULT_CHECK_DEFINITIONS,
   ...SELF_NUMBER_DEFINITIONS,
   ...SELF_DIRECTION_DEFINITIONS,
+  ...LOGIC_BLOCK_DEFINITIONS,
   ...CONTROL_BLOCK_DEFINITIONS,
   ...STRUCTURE_BLOCK_DEFINITIONS,
 ];
@@ -277,6 +371,17 @@ export const STRATEGY_TOOLBOX = {
       contents: [
         { kind: "block", type: "tank_ctl_if" },
         { kind: "block", type: "tank_ctl_repeat" },
+      ],
+    },
+    {
+      kind: "category",
+      name: "論理・比較",
+      colour: String(LOGIC_COLOUR),
+      contents: [
+        { kind: "block", type: "tank_cmp" },
+        { kind: "block", type: "tank_logic_op" },
+        { kind: "block", type: "tank_not" },
+        { kind: "block", type: "tank_bool" },
       ],
     },
     {
@@ -343,12 +448,57 @@ function collectActions(start: Blockly.Block | null): { type: string; ap: number
   return actions;
 }
 
+// Reads a value block (敵情報/自機情報 readout or direction constant) into a
+// `StrategyValue`. Returns null for an empty or unrecognized socket.
+function valueToNode(block: Blockly.Block | null): StrategyValue | null {
+  if (!block) return null;
+  const metric = NUMBER_BLOCK_TO_METRIC[block.type];
+  if (metric) return { type: metric };
+  const dir = DIRECTION_BLOCK_TO_VALUE[block.type];
+  if (dir === "SELF") return { type: "self_facing" };
+  if (dir) return { type: "dir", dir: dir as Direction };
+  return null;
+}
+
+// Recursively reads a boolean block plugged into 「もし」 into the condition tree:
+// a named check leaf, a true/false constant, NOT/AND/OR, or a comparison.
+// Returns null for an empty or incompletely-wired condition.
+function conditionToNode(block: Blockly.Block | null): StrategyCondition | null {
+  if (!block) return null;
+  const cond = CHECK_BLOCK_TO_COND[block.type];
+  if (cond) return { type: cond, value: true };
+  switch (block.type) {
+    case "tank_bool":
+      return { type: "bool", value: block.getFieldValue("VAL") === "TRUE" };
+    case "tank_not": {
+      const arg = conditionToNode(block.getInputTargetBlock("VAL"));
+      return arg ? { type: "not", arg } : null;
+    }
+    case "tank_logic_op": {
+      const a = conditionToNode(block.getInputTargetBlock("A"));
+      const b = conditionToNode(block.getInputTargetBlock("B"));
+      const args = [a, b].filter((n): n is StrategyCondition => n !== null);
+      if (!args.length) return null;
+      return { type: block.getFieldValue("OP") === "OR" ? "or" : "and", args };
+    }
+    case "tank_cmp": {
+      const left = valueToNode(block.getInputTargetBlock("A"));
+      const right = valueToNode(block.getInputTargetBlock("B"));
+      const op = block.getFieldValue("OP");
+      if (!left || !right || !COMPARE_OPS.has(op)) return null;
+      return { type: "compare", cmp: op, left, right };
+    }
+    default:
+      return null;
+  }
+}
+
 /**
  * Walks a Blockly workspace and produces the `Strategy` JSON the simulator
  * consumes. Top-level `tank_rule` stacks become ordered rules (first match
  * wins); the first `tank_fallback` becomes `fallbackActions`. A rule's 「もし」
- * boolean becomes its single condition; its 「実行」 stack becomes the actions
- * (the simulator runs the first one).
+ * boolean becomes its single condition (a boolean expression tree); its 「実行」
+ * stack becomes the actions (the simulator runs the first one).
  */
 export function workspaceToStrategy(workspace: Blockly.Workspace): Strategy {
   const rules: NonNullable<Strategy["rules"]> = [];
@@ -358,11 +508,11 @@ export function workspaceToStrategy(workspace: Blockly.Workspace): Strategy {
     let block: Blockly.Block | null = top;
     while (block) {
       if (block.type === "tank_rule") {
-        const conditions: { type: string; value: boolean }[] = [];
-        const condBlock = block.getInputTargetBlock("COND");
-        const cond = condBlock && CHECK_BLOCK_TO_COND[condBlock.type];
-        if (cond) conditions.push({ type: cond, value: true });
-        rules.push({ conditions, actions: collectActions(block.getInputTargetBlock("DO")) });
+        const cond = conditionToNode(block.getInputTargetBlock("COND"));
+        rules.push({
+          conditions: cond ? [cond] : [],
+          actions: collectActions(block.getInputTargetBlock("DO")),
+        });
       } else if (block.type === "tank_fallback" && !fallback) {
         const actions = collectActions(block.getInputTargetBlock("DO"));
         if (actions.length) fallback = actions;

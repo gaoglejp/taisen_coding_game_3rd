@@ -240,12 +240,14 @@ These are the calls the previous session made that the next session should
    comparisons land), **前回結果** (`前回ダメージを受けた？` → `damaged`,
    `前回敵に命中した？` → `shot_hit`, a perception flag set when last turn's shot
    landed a HIT), and **自機情報** (`自分のHP`・`残りターン` Number readouts +
-   `自分の向き` and the `上/右/下/左` Direction constants — all palette-only until
-   comparisons land), and **制御** (`もし` if-block + `N回繰り返す` repeat-block;
-   palette-only — they snap into a 「実行」 stack but the rule-table runtime does
-   not interpret them yet. The 繰り返す loop is intentionally unimplemented per a
-   product decision; control-flow semantics land with the sequential-program
-   model). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
+   `自分の向き` and the `上/右/下/左` Direction constants), and **制御** (`もし`
+   if-block + `N回繰り返す` repeat-block; palette-only — they snap into a 「実行」
+   stack but the rule-table runtime does not interpret them yet. The 繰り返す loop
+   is intentionally unimplemented per a product decision; control-flow semantics
+   land with the sequential-program model). **論理・比較** (PR — comparison
+   `=/≠/<≤/>≥`, `かつ/または`, `ではない`, `true/false`) is now **functional**: it
+   wires the accumulated value blocks into evaluable conditions (see decision
+   #16). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
    `tank_fallback` is `実行 <Action statement>`. The serializer still emits the
    same `Strategy` JSON (`rules[].{conditions,actions}` + `fallbackActions`), so
    the simulator / real-match flow are structurally unchanged. **Simulator
@@ -255,8 +257,27 @@ These are the calls the previous session made that the next session should
    `SCAN_AROUND` detects in all four directions within range. New conditions
    `can_move_{forward,back,left,right}` report whether that relative cell is in
    bounds and unoccupied. Still **to build** (future categories from the
-   mockup): 敵情報, 前回結果, 自機情報, 制御, 論理・比較 (AND/OR for multi-condition
-   rules), 数値・変数. Until 論理 lands, a rule takes a single boolean condition.
+   mockup): 数値・変数 (number literals/variables — needed to type literals into
+   comparisons in the editor).
+16. **論理・比較 conditions are a boolean expression tree; enemy metrics are
+   omniscient (PR).** A rule's `もし` is serialized into one condition node, now
+   recursive: legacy named checks keep the flat `{type, value}` leaf shape, and
+   the logic blocks add `{type:"and"|"or", args:[…]}`, `{type:"not", arg}`,
+   `{type:"bool", value}`, and `{type:"compare", cmp, left, right}`. A `compare`
+   reads two **value nodes** — a `{type:"num", value}` literal, a
+   `{type:"dir", dir}` direction constant, or a perception **metric**
+   (`enemy_distance`/`enemy_forward_distance`/`enemy_right_distance`, `self_hp`,
+   `turns_left`, `self_facing`). Enemy distance metrics are computed from
+   **ground-truth** opponent position (Manhattan for `enemy_distance`; signed
+   forward/right projections relative to facing) — consistent with the simulator
+   already being omniscient for `can_move_*` and shooting; scanning stays useful
+   only for the `scan_detected` flag. `EQ/NEQ` work on numbers or directions;
+   `LT/GT/LTE/GTE` require numbers. Unresolved operands fail closed (condition
+   false). The same node shapes are validated server-side in
+   `/api/practice/simulate` (recursive `isValidCondition`/`isValidValue`) — that
+   route's allow-list previously also rejected `shot_hit`, now fixed. Numeric
+   comparisons need a number **source** in the editor; until 数値・変数 lands you
+   can compare two metrics or use direction-equality, which work today.
 
 ## 4. Known unfinished work (in priority order)
 

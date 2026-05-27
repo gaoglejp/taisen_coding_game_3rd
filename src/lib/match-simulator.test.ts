@@ -153,6 +153,93 @@ describe("simulate", () => {
   });
 });
 
+describe("condition expression evaluation (論理・比較)", () => {
+  // P1 starts at (0,0) facing E with 100 HP; P2 waits at (9,9).
+  const moveIf = (rules: Strategy["rules"]): Strategy => ({ rules });
+
+  it("compares a self metric against a number literal", () => {
+    const s = moveIf([
+      {
+        conditions: [
+          { type: "compare", cmp: "GTE", left: { type: "self_hp" }, right: { type: "num", value: 50 } },
+        ],
+        actions: [{ type: "MOVE_FORWARD" }],
+      },
+    ]);
+    expect(simulate(s, waitOnly).turns[0].p1.moved).toBe(true);
+  });
+
+  it("compares the player's facing against a direction constant", () => {
+    const match = moveIf([
+      {
+        conditions: [
+          { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "E" } },
+        ],
+        actions: [{ type: "MOVE_FORWARD" }],
+      },
+    ]);
+    const miss = moveIf([
+      {
+        conditions: [
+          { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "N" } },
+        ],
+        actions: [{ type: "MOVE_FORWARD" }],
+      },
+    ]);
+    expect(simulate(match, waitOnly).turns[0].p1.moved).toBe(true);
+    expect(simulate(miss, waitOnly).turns[0].p1.action).toBe("WAIT");
+  });
+
+  it("reads enemy_distance from ground truth (Manhattan, 18 at start)", () => {
+    const s = moveIf([
+      {
+        conditions: [
+          { type: "compare", cmp: "EQ", left: { type: "enemy_distance" }, right: { type: "num", value: 18 } },
+        ],
+        actions: [{ type: "MOVE_FORWARD" }],
+      },
+    ]);
+    expect(simulate(s, waitOnly).turns[0].p1.moved).toBe(true);
+  });
+
+  it("evaluates AND / OR / NOT and the boolean constant", () => {
+    const and = moveIf([
+      {
+        conditions: [
+          {
+            type: "and",
+            args: [
+              { type: "bool", value: true },
+              { type: "not", arg: { type: "bool", value: false } },
+            ],
+          },
+        ],
+        actions: [{ type: "MOVE_FORWARD" }],
+      },
+    ]);
+    const orFalse = moveIf([
+      {
+        conditions: [
+          { type: "or", args: [{ type: "bool", value: false }, { type: "bool", value: false }] },
+        ],
+        actions: [{ type: "MOVE_FORWARD" }],
+      },
+    ]);
+    expect(simulate(and, waitOnly).turns[0].p1.moved).toBe(true);
+    expect(simulate(orFalse, waitOnly).turns[0].p1.action).toBe("WAIT");
+  });
+
+  it("fails closed on a comparison with an unresolved value", () => {
+    const s = moveIf([
+      {
+        conditions: [{ type: "compare", cmp: "LT", left: { type: "self_hp" }, right: {} }],
+        actions: [{ type: "MOVE_FORWARD" }],
+      },
+    ]);
+    expect(simulate(s, waitOnly).turns[0].p1.action).toBe("WAIT");
+  });
+});
+
 describe("normalizeMaxTurns", () => {
   it("returns default MAX_TURNS for undefined, null, or non-finite values", () => {
     expect(normalizeMaxTurns(undefined)).toBe(MAX_TURNS);

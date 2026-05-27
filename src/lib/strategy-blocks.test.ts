@@ -161,4 +161,154 @@ describe("workspaceToStrategy", () => {
     expect(strategy.rules![0].actions).toEqual([{ type: "WAIT", ap: 0 }]);
     ws.dispose();
   });
+
+  it("serializes a comparison of a self metric against a number into a compare node", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                COND: {
+                  block: {
+                    type: "tank_cmp",
+                    fields: { OP: "LT" },
+                    inputs: {
+                      A: { block: { type: "tank_num_self_hp" } },
+                      B: { block: { type: "tank_num_turns_left" } },
+                    },
+                  },
+                },
+                DO: { block: { type: "tank_act_move_back" } },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].conditions).toEqual([
+      { type: "compare", cmp: "LT", left: { type: "self_hp" }, right: { type: "turns_left" } },
+    ]);
+    ws.dispose();
+  });
+
+  it("serializes a direction equality into a compare node (self_facing vs constant)", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                COND: {
+                  block: {
+                    type: "tank_cmp",
+                    fields: { OP: "EQ" },
+                    inputs: {
+                      A: { block: { type: "tank_dir_self_facing" } },
+                      B: { block: { type: "tank_dir_east" } },
+                    },
+                  },
+                },
+                DO: { block: { type: "tank_act_move_forward" } },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].conditions).toEqual([
+      { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "E" } },
+    ]);
+    ws.dispose();
+  });
+
+  it("serializes AND of two checks and a NOT of a constant", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                COND: {
+                  block: {
+                    type: "tank_logic_op",
+                    fields: { OP: "AND" },
+                    inputs: {
+                      A: { block: { type: "tank_chk_enemy_detected" } },
+                      B: {
+                        block: {
+                          type: "tank_not",
+                          inputs: { VAL: { block: { type: "tank_bool", fields: { VAL: "FALSE" } } } },
+                        },
+                      },
+                    },
+                  },
+                },
+                DO: { block: { type: "tank_act_shoot_forward" } },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].conditions).toEqual([
+      {
+        type: "and",
+        args: [
+          { type: "scan_detected", value: true },
+          { type: "not", arg: { type: "bool", value: false } },
+        ],
+      },
+    ]);
+    ws.dispose();
+  });
+
+  it("drops a comparison with an empty value socket (returns no condition)", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                COND: {
+                  block: {
+                    type: "tank_cmp",
+                    fields: { OP: "LT" },
+                    inputs: { A: { block: { type: "tank_num_self_hp" } } },
+                  },
+                },
+                DO: { block: { type: "tank_act_wait" } },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].conditions).toEqual([]);
+    ws.dispose();
+  });
 });

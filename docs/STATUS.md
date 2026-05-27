@@ -13,25 +13,44 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #70 — feat(blocks): 制御 category (if / repeat blocks, palette-only)
+- **PR**: #71 — feat(blocks): 論理・比較 category, fully wired into evaluation
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Added the 制御 (control flow) block category**, matching the mockup (yellow
-  category tab, green blocks) — 2 blocks:
-  - **もし** — a `もし <Boolean>` + `実行 <Action>` if-block.
-  - **N 回繰り返す** — a repeat-N block (number field + `実行 <Action>` body).
-- **Per the product decision, these are palette-only for now** (the rule-table
-  runtime is unchanged): they snap into a rule's 「実行」 stack like actions, but
-  the serializer/simulator do not interpret them yet. Their execution semantics —
-  especially the **繰り返す loop, which the spec owner chose to leave unimplemented
-  for now** — land with the future sequential-program model. No dead runtime
-  code added.
-- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **155** / `build`
-  green; screenshotted the 制御 flyout (もし / 2回繰り返す) from a local run.
+- **Added the 論理・比較 (logic / comparison) category** (blue), matching the
+  mockup — 4 blocks: comparison (`= ≠ < ≤ > ≥`), `かつ/または`, `ではない`,
+  `true/false`.
+- **Per the product decision, this is wired end-to-end** (not palette-only). The
+  serializer now turns a rule's 「もし」 into a recursive **boolean expression
+  tree** (`and`/`or`/`not`/`bool`/`compare`); legacy named checks keep their flat
+  leaf shape. A comparison reads **value nodes** — a number literal, a direction
+  constant, or a perception **metric**. This finally makes the accumulated value
+  blocks usable: `自分のHP`, `残りターン`, `自分の向き`, and the enemy distances now
+  drive real conditions.
+- **Simulator**: extended `Perception` with `self_hp` / `turns_left` /
+  `self_facing` and enemy distance metrics (ground-truth Manhattan +
+  signed forward/right projections — consistent with the existing omniscient
+  `can_move_*`/shooting); `evaluateCondition` gained the tree operators.
+- **API hardening**: `/api/practice/simulate` validates the new node shapes
+  recursively; its allow-list previously rejected `shot_hit` too — now fixed.
+- **Design calls recorded** in `docs/HANDOFF.md` decision #16 (expression tree;
+  omniscient enemy metrics; `EQ/NEQ` on numbers or directions; unresolved
+  operands fail closed). Numeric literals in the editor still need 数値・変数;
+  direction-equality and metric-vs-metric comparisons work today.
+- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **166** / `build`
+  green. Screenshotted the 論理・比較 flyout, and ran a **live authenticated**
+  end-to-end check: `自分の向き = 右` → moves; `= 上` → waits; malformed compare
+  → 400.
+
+### Open question
+
+- **`数値・変数` is the last mockup category.** It needs a number-literal block
+  (and possibly variables) so players can type the right-hand side of numeric
+  comparisons (e.g. `自分のHP < 30`) in the editor. Confirm scope when picking
+  it up.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -61,6 +80,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #70** (merged) — feat(blocks): added the 制御 category — もし if-block +
+  N回繰り返す repeat-block; palette-only (繰り返す intentionally unimplemented per
+  product decision). (Claude)
 - **PR #69** (merged) — feat(blocks): added the 自機情報 category — 自分のHP /
   残りターン (Number) + 自分の向き and 上/右/下/左 (Direction); palette-only until
   comparisons land. (Claude)
