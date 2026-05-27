@@ -106,10 +106,23 @@ function isValidStmt(value: unknown): boolean {
       return ACTION_TYPES.has(String(value.type));
     case "set":
       return typeof value.name === "string" && value.name.length > 0 && isValidValue(value.value);
-    case "if":
-      return (
-        isValidCondition(value.cond) && Array.isArray(value.body) && value.body.every(isValidStmt)
-      );
+    case "if": {
+      const clauses = value.clauses;
+      const elseBody = value.else;
+      if (clauses === undefined) {
+        // Legacy single-branch if: cond + optional body.
+        if (!isValidCondition(value.cond)) return false;
+        return value.body === undefined || (Array.isArray(value.body) && value.body.every(isValidStmt));
+      }
+      if (!Array.isArray(clauses) || clauses.length === 0) return false;
+      for (const cl of clauses) {
+        if (!isRecord(cl) || !isValidCondition(cl.cond)) return false;
+        if (cl.body !== undefined && (!Array.isArray(cl.body) || !cl.body.every(isValidStmt))) {
+          return false;
+        }
+      }
+      return elseBody === undefined || (Array.isArray(elseBody) && elseBody.every(isValidStmt));
+    }
     default:
       return false;
   }

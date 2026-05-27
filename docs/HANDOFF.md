@@ -310,6 +310,16 @@ These are the calls the previous session made that the next session should
    loop block was **deleted** (no sequential-program model to give it meaning);
    with `もし` wired, **no palette block is mock-only anymore**. A genuine loop
    would still need a bounded-iteration model — out of scope for now.
+   **Restyle (later PR):** the `もし` block is **slate-blue** (`#5b6b8c`) and now
+   reuses Blockly's built-in **`controls_if_mutator`** (the gear) so players can
+   add **else-if (そうでなければもし) and else (そうでなければ)** branches —
+   relabeled to Japanese via `Blockly.Msg.CONTROLS_IF_MSG_*`, inputs `IF0/DO0`,
+   `IF1/DO1`…, `ELSE`, prev/next constrained to `Action`. The `if` statement node
+   gained `clauses: [{cond, body}, …]` (clauses[0]=if, rest=else-if) + optional
+   `else`; `runBody` runs the first true clause and **does not** run `else` if any
+   clause matched. The legacy single-branch `{cond, body}` shape still works.
+   Per a product call, **action block labels stay Japanese-only** (no English
+   command suffix).
 
 ## 4. Known unfinished work (in priority order)
 

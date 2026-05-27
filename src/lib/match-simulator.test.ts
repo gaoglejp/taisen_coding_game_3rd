@@ -337,6 +337,60 @@ describe("rule body / もし statement (制御)", () => {
     expect(simulate(facingIf("N"), waitOnly).turns[0].p1.action).toBe("MOVE_FORWARD");
   });
 
+  it("takes the first true else-if branch, else the else branch (if/else-if/else)", () => {
+    // P1 starts at (0,0) facing E, full HP. The if-branch needs HP<0 (never),
+    // the else-if needs facing==E (true) -> MOVE_FORWARD; a third strategy makes
+    // both clauses false so the else (SCAN_AROUND) runs.
+    const branch = (firstDir: "E" | "N"): Strategy => ({
+      rules: [
+        {
+          conditions: [],
+          body: [
+            {
+              kind: "if",
+              clauses: [
+                {
+                  cond: { type: "compare", cmp: "LT", left: { type: "self_hp" }, right: { type: "num", value: 0 } },
+                  body: [{ kind: "action", type: "SHOOT_FORWARD" }],
+                },
+                {
+                  cond: { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: firstDir } },
+                  body: [{ kind: "action", type: "MOVE_FORWARD" }],
+                },
+              ],
+              else: [{ kind: "action", type: "SCAN_AROUND" }],
+            },
+          ],
+        },
+      ],
+    });
+    // else-if (facing==E) true -> MOVE_FORWARD.
+    expect(simulate(branch("E"), waitOnly).turns[0].p1.action).toBe("MOVE_FORWARD");
+    // both clauses false (facing!=N) -> else -> SCAN_AROUND.
+    expect(simulate(branch("N"), waitOnly).turns[0].p1.action).toBe("SCAN_AROUND");
+  });
+
+  it("does not run the else when a clause matched but produced no action", () => {
+    const s: Strategy = {
+      rules: [
+        {
+          conditions: [],
+          body: [
+            {
+              kind: "if",
+              clauses: [{ cond: { type: "bool", value: true }, body: [] }],
+              else: [{ kind: "action", type: "MOVE_FORWARD" }],
+            },
+            { kind: "action", type: "SCAN_AROUND" },
+          ],
+        },
+      ],
+    };
+    // The true clause has an empty body, so the if yields nothing and we fall
+    // through to SCAN_AROUND — the else (MOVE_FORWARD) must NOT run.
+    expect(simulate(s, waitOnly).turns[0].p1.action).toBe("SCAN_AROUND");
+  });
+
   it("applies variable sets inside an if-body only when its condition holds", () => {
     // Turn 1 sets seen=1 (enemy not yet scanned, so the guard is bool true here).
     // We use a plain set then an if that, when seen>=1, moves forward.

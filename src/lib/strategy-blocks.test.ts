@@ -373,7 +373,7 @@ describe("workspaceToStrategy", () => {
     ws.dispose();
   });
 
-  it("serializes a nested もし block into an if statement in the rule body", () => {
+  it("serializes a nested もし block into an if clause in the rule body", () => {
     const ws = new Blockly.Workspace();
     Blockly.serialization.workspaces.load(
       {
@@ -388,8 +388,8 @@ describe("workspaceToStrategy", () => {
                   block: {
                     type: "tank_ctl_if",
                     inputs: {
-                      COND: { block: { type: "tank_chk_enemy_detected" } },
-                      DO: { block: { type: "tank_act_shoot_forward" } },
+                      IF0: { block: { type: "tank_chk_enemy_detected" } },
+                      DO0: { block: { type: "tank_act_shoot_forward" } },
                     },
                     next: { block: { type: "tank_act_move_forward" } },
                   },
@@ -406,10 +406,56 @@ describe("workspaceToStrategy", () => {
     expect(strategy.rules![0].body).toEqual([
       {
         kind: "if",
-        cond: { type: "scan_detected", value: true },
-        body: [{ kind: "action", type: "SHOOT_FORWARD" }],
+        clauses: [
+          { cond: { type: "scan_detected", value: true }, body: [{ kind: "action", type: "SHOOT_FORWARD" }] },
+        ],
       },
       { kind: "action", type: "MOVE_FORWARD" },
+    ]);
+    ws.dispose();
+  });
+
+  it("serializes a もし block with an else-if and an else branch", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                DO: {
+                  block: {
+                    type: "tank_ctl_if",
+                    extraState: { elseIfCount: 1, hasElse: true },
+                    inputs: {
+                      IF0: { block: { type: "tank_chk_enemy_detected" } },
+                      DO0: { block: { type: "tank_act_shoot_forward" } },
+                      IF1: { block: { type: "tank_chk_can_move_forward" } },
+                      DO1: { block: { type: "tank_act_move_forward" } },
+                      ELSE: { block: { type: "tank_act_scan_around" } },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].body).toEqual([
+      {
+        kind: "if",
+        clauses: [
+          { cond: { type: "scan_detected", value: true }, body: [{ kind: "action", type: "SHOOT_FORWARD" }] },
+          { cond: { type: "can_move_forward", value: true }, body: [{ kind: "action", type: "MOVE_FORWARD" }] },
+        ],
+        else: [{ kind: "action", type: "SCAN_AROUND" }],
+      },
     ]);
     ws.dispose();
   });

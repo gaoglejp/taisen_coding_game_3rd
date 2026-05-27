@@ -81,7 +81,7 @@ const ENEMY_COLOUR = 0;
 const LAST_RESULT_COLOUR = 270;
 const SELF_COLOUR = 160;
 const CONTROL_CAT_COLOUR = 60;
-const CONTROL_BLOCK_COLOUR = 120;
+const CONTROL_BLOCK_COLOUR = "#5b6b8c";
 const LOGIC_COLOUR = 210;
 const NUMVAR_CAT_COLOUR = 174;
 const NUM_LITERAL_COLOUR = "#cfcfcf";
@@ -326,20 +326,24 @@ const NUMVAR_BLOCK_DEFINITIONS = [
   },
 ];
 
-// 制御 (control flow). The 「もし」 block nests inside a rule's 「実行」 stack: when
-// its condition is true the simulator descends into its body, otherwise it skips
-// it (see `collectBody` and the simulator's `runBody`).
+// 制御 (control flow). The 「もし」 block reuses Blockly's built-in controls_if
+// mutator (the gear), so the player can add 「そうでなければもし」(else-if) and
+// 「そうでなければ」(else) branches — inputs IF0/DO0, IF1/DO1…, ELSE. It nests in a
+// rule's 「実行」 stack; the simulator runs the first true branch (see
+// `collectBody` and the simulator's `runBody`).
 const CONTROL_BLOCK_DEFINITIONS = [
   {
     type: "tank_ctl_if",
     message0: "もし %1",
-    args0: [{ type: "input_value", name: "COND", check: "Boolean" }],
+    args0: [{ type: "input_value", name: "IF0", check: "Boolean" }],
     message1: "実行 %1",
-    args1: [{ type: "input_statement", name: "DO", check: "Action" }],
+    args1: [{ type: "input_statement", name: "DO0", check: "Action" }],
     previousStatement: "Action",
     nextStatement: "Action",
     colour: CONTROL_BLOCK_COLOUR,
-    tooltip: "条件が真のとき、中の行動だけを実行します。",
+    mutator: "controls_if_mutator",
+    tooltip:
+      "条件が真なら「実行」を行います。歯車で「そうでなければもし」「そうでなければ」を追加できます。",
     helpUrl: "",
   },
 ];
@@ -389,6 +393,16 @@ let defined = false;
 /** Registers the tank-strategy blocks. Safe to call more than once. */
 export function defineStrategyBlocks(): void {
   if (defined) return;
+  // Localize the built-in controls_if mutator (reused by tank_ctl_if) so its
+  // gear-added branches read もし / 実行 / そうでなければもし / そうでなければ.
+  const msg = Blockly.Msg as Record<string, string>;
+  msg.CONTROLS_IF_MSG_IF = "もし";
+  msg.CONTROLS_IF_MSG_THEN = "実行";
+  msg.CONTROLS_IF_MSG_ELSEIF = "そうでなければもし";
+  msg.CONTROLS_IF_MSG_ELSE = "そうでなければ";
+  msg.CONTROLS_IF_IF_TITLE_IF = "もし";
+  msg.CONTROLS_IF_ELSEIF_TITLE_ELSEIF = "そうでなければもし";
+  msg.CONTROLS_IF_ELSE_TITLE_ELSE = "そうでなければ";
   Blockly.defineBlocksWithJsonArray(BLOCK_DEFINITIONS as unknown as object[]);
   defined = true;
 }
@@ -563,9 +577,19 @@ function collectBody(start: Blockly.Block | null): StrategyStmt[] {
       const value = valueToNode(block.getInputTargetBlock("VALUE"));
       if (name && value) stmts.push({ kind: "set", name, value });
     } else if (block.type === "tank_ctl_if") {
-      const cond = conditionToNode(block.getInputTargetBlock("COND"));
-      const body = collectBody(block.getInputTargetBlock("DO"));
-      if (cond && body.length) stmts.push({ kind: "if", cond, body });
+      const clauses = [];
+      for (let i = 0; block.getInput("IF" + i); i++) {
+        const cond = conditionToNode(block.getInputTargetBlock("IF" + i));
+        if (cond) clauses.push({ cond, body: collectBody(block.getInputTargetBlock("DO" + i)) });
+      }
+      const elseBody = block.getInput("ELSE")
+        ? collectBody(block.getInputTargetBlock("ELSE"))
+        : [];
+      if (clauses.length) {
+        const node: StrategyStmt = { kind: "if", clauses };
+        if (elseBody.length) node.else = elseBody;
+        stmts.push(node);
+      }
     }
     block = block.getNextBlock();
   }
