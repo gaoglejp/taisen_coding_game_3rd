@@ -13,37 +13,27 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #66 — feat(blocks): 行動 / 状態確認 categories + relative-direction simulator
+- **PR**: #67 — feat(blocks): 敵情報 category (enemy detection + distance readouts)
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **New Blockly block language (行動 / 状態確認 categories).** Replaced the old
-  dropdown-based rule/condition/action blocks with individual blocks the player
-  drags from categories, matching the requested palette mockups:
-  - **行動 (actions)** — 10 statement blocks: 前/後ろ/左/右へ移動, 前/後ろ/左/右へ射撃,
-    周囲を索敵, 待機.
-  - **状態確認 (state checks)** — 4 boolean value blocks: 前/後ろ/左/右に進める？.
-  - `tank_rule` redesigned to `もし <Boolean>` (value input) + `実行 <Action>`
-    (statement input); `tank_fallback` takes an `実行` action stack.
-- **Simulator reworked to a relative-direction model** (per the agreed design):
-  movement and shooting are forward/back/left/right relative to facing (strafe,
-  facing never changes); `SCAN_AROUND` scans all four directions; rotation
-  (`TURN_LEFT`/`TURN_RIGHT`) removed. Added `can_move_{forward,back,left,right}`
-  perception/conditions backing the 状態確認 checks.
-- Updated the serializer (`workspaceToStrategy`), default workspace, practice
-  bots + API validation (`/api/practice/simulate`), and the practice action
-  labels to the new vocabulary. `Strategy` JSON shape is unchanged, so the
-  real-match flow (server.ts → `simulate`) is structurally unaffected.
-- **Also includes the earlier `/practice` replay-panel layout fix** (board
-  centered on top, P1/P2 panels in a row below, then controls + log) — this PR
-  was opened for that fix and the block work landed on the same branch.
-- **Verified visually**: built + ran locally, screenshotted the 行動 (10) and
-  状態確認 (4) flyouts and a practice battle (default strategy advances forward;
-  turn log shows 前進 → 成功). `tsc` / `lint` (0 errors, 4 pre-existing
-  warnings) / Vitest **152** / `build` all green.
+- **Added the 敵情報 (enemy info) block category** (red), matching the requested
+  mockup — 4 blocks:
+  - **敵を検出している？** — boolean value block. Maps to the existing
+    `scan_detected` condition, so it is **functional now**: drop it into a rule's
+    「もし」 to act when the last `SCAN_AROUND` found the enemy.
+  - **敵の前方距離 / 敵の右方向距離 / 敵までの距離** — Number value blocks. Defined
+    in the palette as forward progress; they output a Number and **become usable
+    inside rules once the 論理・比較 (comparison) category lands** (a comparison
+    will turn a number into the boolean 「もし」 expects). No simulator distance
+    plumbing yet — that lands with the comparison blocks so it ships testable.
+- Serializer + test: a rule whose 「もし」 holds 敵を検出している？ serializes to
+  `{ type: "scan_detected", value: true }`.
+- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **153** / `build`
+  green; screenshotted the 敵情報 flyout (4 red blocks) from a local run.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -73,6 +63,10 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #66** (merged) — feat(blocks): rebuilt the strategy palette into 行動
+  (10 action blocks) + 状態確認 (4 boolean checks); reworked the simulator to a
+  relative-direction model (strafe move/shoot, SCAN_AROUND, rotation removed,
+  `can_move_*` conditions); included the `/practice` replay layout fix. (Claude)
 - **PR #65** (merged) — feat(practice): standalone `/practice` solo battle —
   reuses Blockly + `simulate()` vs built-in bots via `POST /api/practice/simulate`
   (no Match/Socket.io/persistence); route tests + practice E2E. (Codex)
