@@ -155,6 +155,7 @@ interface Perception {
   scan_detected: boolean;
   damaged: number;
   moved: boolean;
+  shot_hit: boolean;
   can_move_forward: boolean;
   can_move_back: boolean;
   can_move_left: boolean;
@@ -186,6 +187,8 @@ function evaluateCondition(c: StrategyCondition, p: Perception): boolean {
       return p.damaged > 0 === Boolean(c.value);
     case "moved":
       return p.moved === Boolean(c.value);
+    case "shot_hit":
+      return p.shot_hit === Boolean(c.value);
     case "can_move_forward":
       return p.can_move_forward === Boolean(c.value);
     case "can_move_back":
@@ -239,12 +242,14 @@ function buildPerception(
   opponent: PlayerState,
   scan_detected: boolean,
   damaged: number,
-  moved: boolean
+  moved: boolean,
+  shot_hit: boolean
 ): Perception {
   return {
     scan_detected,
     damaged,
     moved,
+    shot_hit,
     can_move_forward: canMove(self, opponent, "FORWARD"),
     can_move_back: canMove(self, opponent, "BACK"),
     can_move_left: canMove(self, opponent, "LEFT"),
@@ -291,8 +296,8 @@ export function simulate(
   const maxTurns = normalizeMaxTurns(options?.maxTurns);
   const p1: PlayerState = { x: 0, y: 0, dir: "E", hp: INITIAL_HP };
   const p2: PlayerState = { x: GRID_SIZE - 1, y: GRID_SIZE - 1, dir: "W", hp: INITIAL_HP };
-  let perception1: Perception = buildPerception(p1, p2, false, 0, false);
-  let perception2: Perception = buildPerception(p2, p1, false, 0, false);
+  let perception1: Perception = buildPerception(p1, p2, false, 0, false, false);
+  let perception2: Perception = buildPerception(p2, p1, false, 0, false, false);
 
   const turns: TurnSnapshot[] = [];
   let endReason: "HP_ZERO" | "TIMEOUT" = "TIMEOUT";
@@ -375,8 +380,8 @@ export function simulate(
       ],
     });
 
-    perception1 = buildPerception(p1, p2, scan1, damaged1, moved1);
-    perception2 = buildPerception(p2, p1, scan2, damaged2, moved2);
+    perception1 = buildPerception(p1, p2, scan1, damaged1, moved1, shootResult1 === "HIT");
+    perception2 = buildPerception(p2, p1, scan2, damaged2, moved2, shootResult2 === "HIT");
 
     if (p1.hp <= 0 || p2.hp <= 0) {
       endReason = "HP_ZERO";

@@ -235,9 +235,11 @@ These are the calls the previous session made that the next session should
    relative-direction model (PR #66).** The Blockly palette is being rebuilt
    into categories of individual blocks (see the requested mockups). Landed so
    far: **行動** (10 action statement blocks), **状態確認** (4 boolean value
-   blocks), and **敵情報** (1 boolean `敵を検出している？` → `scan_detected`, plus
+   blocks), **敵情報** (1 boolean `敵を検出している？` → `scan_detected`, plus
    3 Number readouts `敵の前方/右方向距離`・`敵までの距離` that are palette-only until
-   comparisons land). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
+   comparisons land), and **前回結果** (`前回ダメージを受けた？` → `damaged`,
+   `前回敵に命中した？` → `shot_hit`, a perception flag set when last turn's shot
+   landed a HIT). A `tank_rule` is `もし <Boolean value>` + `実行 <Action statement>`;
    `tank_fallback` is `実行 <Action statement>`. The serializer still emits the
    same `Strategy` JSON (`rules[].{conditions,actions}` + `fallbackActions`), so
    the simulator / real-match flow are structurally unchanged. **Simulator
