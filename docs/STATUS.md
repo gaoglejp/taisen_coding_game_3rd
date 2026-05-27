@@ -13,24 +13,25 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #68 — feat(blocks): 前回結果 category (previous-turn outcome checks)
+- **PR**: #69 — feat(blocks): 自機情報 category (own HP / turns / facing readouts)
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Added the 前回結果 (previous result) block category** (purple), matching the
-  mockup — 2 boolean value blocks, both **functional now**:
-  - **前回ダメージを受けた？** → existing `damaged` condition (took damage last turn).
-  - **前回敵に命中した？** → **new `shot_hit` condition**. Added a `shot_hit`
-    perception field to the simulator (true when last turn's SHOOT_* landed a
-    HIT) + an `evaluateCondition` case, threaded through `buildPerception`.
-- Tests: serializer maps both checks to `damaged` / `shot_hit`; a simulator test
-  drives a hunter strategy to an adjacent shot and asserts the `shot_hit` rule
-  fires the turn after a HIT (P2 HP drops).
+- **Added the 自機情報 (own info) block category** (teal), matching the mockup —
+  7 value blocks:
+  - **自分のHP / 残りターン** — Number value blocks.
+  - **自分の向き** (output Direction) + the direction constants **上 / 右 / 下 / 左**
+    (N/E/S/W, output Direction) to compare it against.
+- Like the 敵情報 distance readouts, these are **palette-only value blocks** for
+  now — they output Number/Direction and **become usable inside rules once the
+  論理・比較 (comparison) category lands** (e.g. `自分のHP < 30`,
+  `自分の向き = 上`). No serializer/simulator plumbing yet, so it ships without
+  dead, unreachable code.
 - `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **155** / `build`
-  green; screenshotted the 前回結果 flyout (2 purple blocks) from a local run.
+  green; screenshotted the 自機情報 flyout (7 teal blocks) from a local run.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -60,6 +61,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #68** (merged) — feat(blocks): added the 前回結果 category — 前回ダメージを
+  受けた？ (→ `damaged`) + 前回敵に命中した？ (→ new `shot_hit` perception); both
+  functional. (Claude)
 - **PR #67** (merged) — feat(blocks): added the 敵情報 category — 敵を検出している？
   (→ `scan_detected`, functional) + three Number distance readouts (palette-only
   until comparisons land). (Claude)
