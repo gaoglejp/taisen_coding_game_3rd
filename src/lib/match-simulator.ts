@@ -98,6 +98,10 @@ export interface StrategyValue {
   type?: string;
   value?: number;
   dir?: Direction;
+  name?: string;
+  op?: string;
+  left?: StrategyValue;
+  right?: StrategyValue;
 }
 
 // A condition node. Legacy named perception checks keep the flat
@@ -118,14 +122,23 @@ interface StrategyAction {
   ap?: number;
 }
 
+// A variable assignment: `name に <value> をセット`. Applied (in order) when its
+// rule matches, before the rule's action is taken.
+export interface StrategySet {
+  name?: string;
+  value?: StrategyValue;
+}
+
 interface StrategyRule {
   conditions?: StrategyCondition[];
+  sets?: StrategySet[];
   actions?: StrategyAction[];
 }
 
 export interface Strategy {
   version?: string;
   rules?: StrategyRule[];
+  fallbackSets?: StrategySet[];
   fallbackActions?: StrategyAction[];
 }
 
@@ -196,21 +209,45 @@ function isAction(value: unknown): value is ActionType {
   return typeof value === "string" && ACTION_TYPES.has(value as ActionType);
 }
 
-function chooseAction(strategy: Strategy | null | undefined, perception: Perception): ActionType {
+// Per-player variable store, persisted across turns. Unset variables read as 0.
+type Vars = Record<string, number>;
+
+function applySets(sets: StrategySet[] | undefined, p: Perception, vars: Vars): void {
+  for (const s of sets ?? []) {
+    if (!s?.name) continue;
+    const v = evaluateValue(s.value, p, vars);
+    if (typeof v === "number") vars[s.name] = v;
+  }
+}
+
+// Walks rules top-down: a matched rule applies its variable sets, then — if it
+// yields a valid action — that action wins. Set-only matched rules apply their
+// sets and fall through, so later rules see the updated variables.
+function chooseAction(
+  strategy: Strategy | null | undefined,
+  perception: Perception,
+  vars: Vars
+): ActionType {
   const rules = strategy?.rules ?? [];
   for (const rule of rules) {
     const conds = rule?.conditions ?? [];
-    if (conds.every((c) => evaluateCondition(c, perception))) {
+    if (conds.every((c) => evaluateCondition(c, perception, vars))) {
+      applySets(rule?.sets, perception, vars);
       const action = rule?.actions?.[0]?.type;
       if (isAction(action)) return action;
     }
   }
+  applySets(strategy?.fallbackSets, perception, vars);
   const fallback = strategy?.fallbackActions?.[0]?.type;
   return isAction(fallback) ? fallback : "WAIT";
 }
 
 // Reads a value node into a number or direction; null when unresolved.
-function evaluateValue(v: StrategyValue | undefined, p: Perception): number | Direction | null {
+function evaluateValue(
+  v: StrategyValue | undefined,
+  p: Perception,
+  vars: Vars
+): number | Direction | null {
   switch (v?.type) {
     case "num":
       return typeof v.value === "number" && Number.isFinite(v.value) ? v.value : null;
@@ -228,14 +265,42 @@ function evaluateValue(v: StrategyValue | undefined, p: Perception): number | Di
       return p.self_hp;
     case "turns_left":
       return p.turns_left;
+    case "var":
+      return v.name ? (vars[v.name] ?? 0) : null;
+    case "arith":
+      return evaluateArith(v, p, vars);
+    case "mod": {
+      const l = evaluateValue(v.left, p, vars);
+      const r = evaluateValue(v.right, p, vars);
+      if (typeof l !== "number" || typeof r !== "number" || r === 0) return null;
+      return ((l % r) + r) % r;
+    }
     default:
       return null;
   }
 }
 
-function evaluateCompare(c: StrategyCondition, p: Perception): boolean {
-  const l = evaluateValue(c.left, p);
-  const r = evaluateValue(c.right, p);
+function evaluateArith(v: StrategyValue, p: Perception, vars: Vars): number | null {
+  const l = evaluateValue(v.left, p, vars);
+  const r = evaluateValue(v.right, p, vars);
+  if (typeof l !== "number" || typeof r !== "number") return null;
+  switch (v.op) {
+    case "ADD":
+      return l + r;
+    case "SUB":
+      return l - r;
+    case "MUL":
+      return l * r;
+    case "DIV":
+      return r === 0 ? null : l / r;
+    default:
+      return null;
+  }
+}
+
+function evaluateCompare(c: StrategyCondition, p: Perception, vars: Vars): boolean {
+  const l = evaluateValue(c.left, p, vars);
+  const r = evaluateValue(c.right, p, vars);
   if (l === null || r === null) return false;
   switch (c.cmp) {
     case "EQ":
@@ -255,7 +320,7 @@ function evaluateCompare(c: StrategyCondition, p: Perception): boolean {
   }
 }
 
-function evaluateCondition(c: StrategyCondition, p: Perception): boolean {
+function evaluateCondition(c: StrategyCondition, p: Perception, vars: Vars): boolean {
   switch (c?.type) {
     case "scan_detected":
       return p.scan_detected === Boolean(c.value);
@@ -276,13 +341,13 @@ function evaluateCondition(c: StrategyCondition, p: Perception): boolean {
     case "bool":
       return Boolean(c.value);
     case "not":
-      return c.arg ? !evaluateCondition(c.arg, p) : false;
+      return c.arg ? !evaluateCondition(c.arg, p, vars) : false;
     case "and":
-      return (c.args ?? []).every((a) => evaluateCondition(a, p));
+      return (c.args ?? []).every((a) => evaluateCondition(a, p, vars));
     case "or":
-      return (c.args ?? []).some((a) => evaluateCondition(a, p));
+      return (c.args ?? []).some((a) => evaluateCondition(a, p, vars));
     case "compare":
-      return evaluateCompare(c, p);
+      return evaluateCompare(c, p, vars);
     default:
       return false;
   }
@@ -395,13 +460,15 @@ export function simulate(
   const p2: PlayerState = { x: GRID_SIZE - 1, y: GRID_SIZE - 1, dir: "W", hp: INITIAL_HP };
   let perception1: Perception = buildPerception(p1, p2, false, 0, false, false, maxTurns);
   let perception2: Perception = buildPerception(p2, p1, false, 0, false, false, maxTurns);
+  const vars1: Vars = {};
+  const vars2: Vars = {};
 
   const turns: TurnSnapshot[] = [];
   let endReason: "HP_ZERO" | "TIMEOUT" = "TIMEOUT";
 
   for (let turn = 1; turn <= maxTurns; turn++) {
-    const action1 = chooseAction(strategy1, perception1);
-    const action2 = chooseAction(strategy2, perception2);
+    const action1 = chooseAction(strategy1, perception1, vars1);
+    const action2 = chooseAction(strategy2, perception2, vars2);
 
     // Resolve moves simultaneously: cannot move onto the opponent's current
     // cell, and if both target the same cell neither moves. Facing never

@@ -3,6 +3,7 @@ import type {
   Strategy,
   StrategyCondition,
   StrategyValue,
+  StrategySet,
   Direction,
 } from "@/lib/match-simulator";
 
@@ -82,6 +83,10 @@ const SELF_COLOUR = 160;
 const CONTROL_CAT_COLOUR = 60;
 const CONTROL_BLOCK_COLOUR = 120;
 const LOGIC_COLOUR = 210;
+const NUMVAR_CAT_COLOUR = 174;
+const NUM_LITERAL_COLOUR = "#cfcfcf";
+const MATH_COLOUR = 174;
+const VAR_COLOUR = 300;
 const RULE_COLOUR = 230;
 const FALLBACK_COLOUR = 290;
 
@@ -101,6 +106,7 @@ const DIRECTION_BLOCK_TO_VALUE: Record<string, string> = Object.fromEntries(
   SELF_DIRECTION_BLOCKS.map(([, block, value]) => [block, value])
 );
 const COMPARE_OPS: ReadonlySet<string> = new Set(["EQ", "NEQ", "LT", "LTE", "GT", "GTE"]);
+const ARITH_OPS: ReadonlySet<string> = new Set(["ADD", "SUB", "MUL", "DIV"]);
 
 const ACTION_BLOCK_DEFINITIONS = ACTION_BLOCKS.map(([label, type]) => ({
   type,
@@ -246,6 +252,80 @@ const LOGIC_BLOCK_DEFINITIONS = [
   },
 ];
 
+// 数値・変数 (numbers / variables). Number-output value blocks (literal,
+// arithmetic, modulo, variable read) feed comparisons; the 「セット」 statement
+// writes a variable and snaps into a rule's 「実行」 stack.
+const NUMVAR_BLOCK_DEFINITIONS = [
+  {
+    type: "tank_num_literal",
+    message0: "%1",
+    args0: [{ type: "field_number", name: "NUM", value: 0 }],
+    output: "Number",
+    colour: NUM_LITERAL_COLOUR,
+    tooltip: "数値。比較や計算の値として使います。",
+    helpUrl: "",
+  },
+  {
+    type: "tank_arith",
+    message0: "%1 %2 %3",
+    args0: [
+      { type: "input_value", name: "A", check: "Number" },
+      {
+        type: "field_dropdown",
+        name: "OP",
+        options: [
+          ["+", "ADD"],
+          ["−", "SUB"],
+          ["×", "MUL"],
+          ["÷", "DIV"],
+        ],
+      },
+      { type: "input_value", name: "B", check: "Number" },
+    ],
+    inputsInline: true,
+    output: "Number",
+    colour: MATH_COLOUR,
+    tooltip: "2つの数値を四則演算します。",
+    helpUrl: "",
+  },
+  {
+    type: "tank_mod",
+    message0: "%1 ÷ %2 の余り",
+    args0: [
+      { type: "input_value", name: "A", check: "Number" },
+      { type: "input_value", name: "B", check: "Number" },
+    ],
+    inputsInline: true,
+    output: "Number",
+    colour: MATH_COLOUR,
+    tooltip: "A を B で割った余り（剰余）を返します。",
+    helpUrl: "",
+  },
+  {
+    type: "tank_var_get",
+    message0: "%1",
+    args0: [{ type: "field_variable", name: "VAR", variable: "項目" }],
+    output: "Number",
+    colour: VAR_COLOUR,
+    tooltip: "変数の値を読み出します（未設定なら 0）。",
+    helpUrl: "",
+  },
+  {
+    type: "tank_var_set",
+    message0: "%1 に %2 をセット",
+    args0: [
+      { type: "field_variable", name: "VAR", variable: "項目" },
+      { type: "input_value", name: "VALUE", check: "Number" },
+    ],
+    inputsInline: true,
+    previousStatement: "Action",
+    nextStatement: "Action",
+    colour: VAR_COLOUR,
+    tooltip: "変数に値を代入します。ルールが一致したとき、行動の前に実行されます。",
+    helpUrl: "",
+  },
+];
+
 // 制御 (control flow). These snap into a rule's 「実行」 stack like actions, but
 // the rule-table runtime does not interpret them yet — their execution
 // semantics (especially 繰り返す, intentionally unimplemented for now) land with
@@ -312,6 +392,7 @@ const BLOCK_DEFINITIONS = [
   ...SELF_NUMBER_DEFINITIONS,
   ...SELF_DIRECTION_DEFINITIONS,
   ...LOGIC_BLOCK_DEFINITIONS,
+  ...NUMVAR_BLOCK_DEFINITIONS,
   ...CONTROL_BLOCK_DEFINITIONS,
   ...STRUCTURE_BLOCK_DEFINITIONS,
 ];
@@ -386,6 +467,18 @@ export const STRATEGY_TOOLBOX = {
     },
     {
       kind: "category",
+      name: "数値・変数",
+      colour: String(NUMVAR_CAT_COLOUR),
+      contents: [
+        { kind: "block", type: "tank_num_literal" },
+        { kind: "block", type: "tank_arith" },
+        { kind: "block", type: "tank_mod" },
+        { kind: "block", type: "tank_var_get" },
+        { kind: "block", type: "tank_var_set" },
+      ],
+    },
+    {
+      kind: "category",
       name: "ルール",
       colour: String(RULE_COLOUR),
       contents: [{ kind: "block", type: "tank_rule" }],
@@ -448,8 +541,9 @@ function collectActions(start: Blockly.Block | null): { type: string; ap: number
   return actions;
 }
 
-// Reads a value block (敵情報/自機情報 readout or direction constant) into a
-// `StrategyValue`. Returns null for an empty or unrecognized socket.
+// Reads a value block (敵情報/自機情報 readout, direction constant, number
+// literal, arithmetic/modulo, or variable read) into a `StrategyValue`. Returns
+// null for an empty or incompletely-wired socket.
 function valueToNode(block: Blockly.Block | null): StrategyValue | null {
   if (!block) return null;
   const metric = NUMBER_BLOCK_TO_METRIC[block.type];
@@ -457,7 +551,49 @@ function valueToNode(block: Blockly.Block | null): StrategyValue | null {
   const dir = DIRECTION_BLOCK_TO_VALUE[block.type];
   if (dir === "SELF") return { type: "self_facing" };
   if (dir) return { type: "dir", dir: dir as Direction };
-  return null;
+  switch (block.type) {
+    case "tank_num_literal": {
+      const n = Number(block.getFieldValue("NUM"));
+      return Number.isFinite(n) ? { type: "num", value: n } : null;
+    }
+    case "tank_var_get": {
+      const name = block.getField("VAR")?.getText();
+      return name ? { type: "var", name } : null;
+    }
+    case "tank_arith": {
+      const left = valueToNode(block.getInputTargetBlock("A"));
+      const right = valueToNode(block.getInputTargetBlock("B"));
+      const op = block.getFieldValue("OP");
+      if (!left || !right || !ARITH_OPS.has(op)) return null;
+      return { type: "arith", op, left, right };
+    }
+    case "tank_mod": {
+      const left = valueToNode(block.getInputTargetBlock("A"));
+      const right = valueToNode(block.getInputTargetBlock("B"));
+      if (!left || !right) return null;
+      return { type: "mod", left, right };
+    }
+    default:
+      return null;
+  }
+}
+
+// Collects variable-set statements that appear in a 「実行」 stack before its
+// first action. Sets after the first action never run (the turn ends at the
+// action), so they are dropped; control blocks and unknowns are skipped.
+function collectSets(start: Blockly.Block | null): StrategySet[] {
+  const sets: StrategySet[] = [];
+  let block: Blockly.Block | null = start;
+  while (block) {
+    if (ACTION_BLOCK_TO_TYPE[block.type]) break;
+    if (block.type === "tank_var_set") {
+      const name = block.getField("VAR")?.getText();
+      const value = valueToNode(block.getInputTargetBlock("VALUE"));
+      if (name && value) sets.push({ name, value });
+    }
+    block = block.getNextBlock();
+  }
+  return sets;
 }
 
 // Recursively reads a boolean block plugged into 「もし」 into the condition tree:
@@ -503,19 +639,25 @@ function conditionToNode(block: Blockly.Block | null): StrategyCondition | null 
 export function workspaceToStrategy(workspace: Blockly.Workspace): Strategy {
   const rules: NonNullable<Strategy["rules"]> = [];
   let fallback: { type: string; ap: number }[] | undefined;
+  let fallbackSets: StrategySet[] | undefined;
 
   for (const top of workspace.getTopBlocks(true)) {
     let block: Blockly.Block | null = top;
     while (block) {
       if (block.type === "tank_rule") {
         const cond = conditionToNode(block.getInputTargetBlock("COND"));
-        rules.push({
+        const sets = collectSets(block.getInputTargetBlock("DO"));
+        const rule: NonNullable<Strategy["rules"]>[number] = {
           conditions: cond ? [cond] : [],
           actions: collectActions(block.getInputTargetBlock("DO")),
-        });
+        };
+        if (sets.length) rule.sets = sets;
+        rules.push(rule);
       } else if (block.type === "tank_fallback" && !fallback) {
         const actions = collectActions(block.getInputTargetBlock("DO"));
+        const sets = collectSets(block.getInputTargetBlock("DO"));
         if (actions.length) fallback = actions;
+        if (sets.length) fallbackSets = sets;
       }
       block = block.getNextBlock();
     }
@@ -524,6 +666,7 @@ export function workspaceToStrategy(workspace: Blockly.Workspace): Strategy {
   return {
     version: "1.0",
     rules,
+    ...(fallbackSets ? { fallbackSets } : {}),
     fallbackActions: fallback ?? [{ type: "WAIT", ap: 0 }],
   };
 }

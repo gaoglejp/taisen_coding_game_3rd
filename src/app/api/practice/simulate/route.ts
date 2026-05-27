@@ -38,6 +38,7 @@ const METRIC_VALUE_TYPES = new Set([
 ]);
 
 const COMPARE_OPS = new Set(["EQ", "NEQ", "LT", "LTE", "GT", "GTE"]);
+const ARITH_OPS = new Set(["ADD", "SUB", "MUL", "DIV"]);
 const DIRECTIONS = new Set(["N", "E", "S", "W"]);
 
 const BOTS = {
@@ -75,13 +76,25 @@ function isValidAction(value: unknown): boolean {
   return value.ap === undefined || typeof value.ap === "number";
 }
 
-// A comparison value node: a number/direction literal or a perception metric.
+// A value node: a number/direction literal, a perception metric, a variable
+// read, or an arithmetic/modulo expression. Validated recursively.
 function isValidValue(value: unknown): boolean {
   if (!isRecord(value)) return false;
   const type = String(value.type);
   if (type === "num") return typeof value.value === "number" && Number.isFinite(value.value);
   if (type === "dir") return DIRECTIONS.has(String(value.dir));
+  if (type === "var") return typeof value.name === "string" && value.name.length > 0;
+  if (type === "arith") {
+    return ARITH_OPS.has(String(value.op)) && isValidValue(value.left) && isValidValue(value.right);
+  }
+  if (type === "mod") return isValidValue(value.left) && isValidValue(value.right);
   return METRIC_VALUE_TYPES.has(type);
+}
+
+// A variable assignment: a non-empty name and a valid value expression.
+function isValidSet(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return typeof value.name === "string" && value.name.length > 0 && isValidValue(value.value);
 }
 
 // A condition node: a named check leaf or a logic/comparison expression
@@ -115,10 +128,14 @@ function isValidStrategy(value: unknown): value is Strategy {
       if (!isRecord(rule)) return false;
       const conditions = rule.conditions;
       const actions = rule.actions;
+      const sets = rule.sets;
       if (conditions !== undefined && (!Array.isArray(conditions) || !conditions.every(isValidCondition))) {
         return false;
       }
       if (actions !== undefined && (!Array.isArray(actions) || !actions.every(isValidAction))) {
+        return false;
+      }
+      if (sets !== undefined && (!Array.isArray(sets) || !sets.every(isValidSet))) {
         return false;
       }
     }
@@ -129,6 +146,11 @@ function isValidStrategy(value: unknown): value is Strategy {
     fallbackActions !== undefined &&
     (!Array.isArray(fallbackActions) || !fallbackActions.every(isValidAction))
   ) {
+    return false;
+  }
+
+  const fallbackSets = value.fallbackSets;
+  if (fallbackSets !== undefined && (!Array.isArray(fallbackSets) || !fallbackSets.every(isValidSet))) {
     return false;
   }
 

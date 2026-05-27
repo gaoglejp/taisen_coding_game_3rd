@@ -256,9 +256,11 @@ These are the calls the previous session made that the next session should
    for the match and "relative" gives each player a stable four-direction frame.
    `SCAN_AROUND` detects in all four directions within range. New conditions
    `can_move_{forward,back,left,right}` report whether that relative cell is in
-   bounds and unoccupied. Still **to build** (future categories from the
-   mockup): 数値・変数 (number literals/variables — needed to type literals into
-   comparisons in the editor).
+   bounds and unoccupied. **数値・変数** (number literal, arithmetic `+−×÷`,
+   `÷ の余り` modulo, variable read `項目`, and `項目 に … をセット`) is the **last
+   mockup category — the palette rebuild is now complete** and wired (see
+   decision #17). The only blocks still inert are the 制御 `もし`/`繰り返す`
+   (palette-only, pending the sequential-program model).
 16. **論理・比較 conditions are a boolean expression tree; enemy metrics are
    omniscient (PR).** A rule's `もし` is serialized into one condition node, now
    recursive: legacy named checks keep the flat `{type, value}` leaf shape, and
@@ -275,9 +277,26 @@ These are the calls the previous session made that the next session should
    `LT/GT/LTE/GTE` require numbers. Unresolved operands fail closed (condition
    false). The same node shapes are validated server-side in
    `/api/practice/simulate` (recursive `isValidCondition`/`isValidValue`) — that
-   route's allow-list previously also rejected `shot_hit`, now fixed. Numeric
-   comparisons need a number **source** in the editor; until 数値・変数 lands you
-   can compare two metrics or use direction-equality, which work today.
+   route's allow-list previously also rejected `shot_hit`, now fixed.
+17. **数値・変数 extends the value tree and adds a per-player variable store
+   (PR).** Value nodes gained `{type:"num", value}` (literal),
+   `{type:"arith", op:ADD|SUB|MUL|DIV, left, right}`, `{type:"mod", left, right}`
+   (DIV/MOD by zero → null = fail closed), and `{type:"var", name}` (reads the
+   player's variable, **unset = 0**). **Variables** are stored per player in a
+   `Vars` dict that **persists across turns** (`vars1`/`vars2` in `simulate`).
+   The `項目 に … をセット` block is a **statement** that snaps into a rule's 「実行」
+   stack; the serializer's `collectSets` captures the set-statements that appear
+   **before the first action** (sets after it never run, since the turn ends at
+   the action). **Execution model**: `chooseAction` walks rules top-down; a
+   matched rule applies its sets (in order) and, if it yields a valid action,
+   that action wins — a **set-only matched rule applies its sets and falls
+   through**, so later rules/conditions see the updated variables. The fallback
+   may also carry `fallbackSets`. Variable names come from Blockly's
+   `field_variable` (read via `getField("VAR").getText()`). Server-side
+   validation covers the new value nodes and `sets`/`fallbackSets`. **Caveat**:
+   this is a bounded variable model on top of the rule table — it is *not* the
+   general sequential-program model, so the 制御 `もし`/`繰り返す` blocks remain
+   inert (they would need statement-level control flow, deferred).
 
 ## 4. Known unfinished work (in priority order)
 

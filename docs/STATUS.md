@@ -13,44 +13,45 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## Latest
 
-- **PR**: #71 — feat(blocks): 論理・比較 category, fully wired into evaluation
+- **PR**: #72 — feat(blocks): 数値・変数 category, fully wired (incl. variables)
 - **Branch**: `claude/v0.2-implementation-handoff-ZapvB`
 - **Date**: 2026-05-27
 - **Status**: open, awaiting CI
 
 ### What changed
 
-- **Added the 論理・比較 (logic / comparison) category** (blue), matching the
-  mockup — 4 blocks: comparison (`= ≠ < ≤ > ≥`), `かつ/または`, `ではない`,
-  `true/false`.
-- **Per the product decision, this is wired end-to-end** (not palette-only). The
-  serializer now turns a rule's 「もし」 into a recursive **boolean expression
-  tree** (`and`/`or`/`not`/`bool`/`compare`); legacy named checks keep their flat
-  leaf shape. A comparison reads **value nodes** — a number literal, a direction
-  constant, or a perception **metric**. This finally makes the accumulated value
-  blocks usable: `自分のHP`, `残りターン`, `自分の向き`, and the enemy distances now
-  drive real conditions.
-- **Simulator**: extended `Perception` with `self_hp` / `turns_left` /
-  `self_facing` and enemy distance metrics (ground-truth Manhattan +
-  signed forward/right projections — consistent with the existing omniscient
-  `can_move_*`/shooting); `evaluateCondition` gained the tree operators.
-- **API hardening**: `/api/practice/simulate` validates the new node shapes
-  recursively; its allow-list previously rejected `shot_hit` too — now fixed.
-- **Design calls recorded** in `docs/HANDOFF.md` decision #16 (expression tree;
-  omniscient enemy metrics; `EQ/NEQ` on numbers or directions; unresolved
-  operands fail closed). Numeric literals in the editor still need 数値・変数;
-  direction-equality and metric-vs-metric comparisons work today.
-- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **166** / `build`
-  green. Screenshotted the 論理・比較 flyout, and ran a **live authenticated**
-  end-to-end check: `自分の向き = 右` → moves; `= 上` → waits; malformed compare
-  → 400.
+- **Added the 数値・変数 (numbers / variables) category** — the **last mockup
+  category**, so the palette rebuild is now complete. 5 blocks: number literal
+  `( 0 )`, arithmetic (`+ − × ÷`), `÷ の余り` (modulo), variable read `項目 ▼`,
+  and `項目 ▼ に … をセット` (variable set statement).
+- **Per the product decision, fully wired including variables.** Number /
+  arithmetic / modulo extend the value-expression tree (`num`/`arith`/`mod`), so
+  numeric comparisons like `自分のHP < 30` now work in the editor. **Variables**
+  introduce a per-player store persisted across turns: a `set` statement snaps
+  into a rule's 「実行」 stack and, when that rule matches, applies (in order,
+  before the action) — see HANDOFF decision #17 for the execution model.
+- **Simulator**: `evaluateValue` gained `var`/`arith`/`mod` (DIV/MOD by zero and
+  unresolved operands fail closed → number null); `chooseAction` now threads a
+  `Vars` store and applies a matched rule's sets, with **set-only matched rules
+  falling through** so later rules see updated variables. `simulate` keeps a
+  persistent `vars` per player.
+- **Serializer**: `field_variable`-based get/set (name read via
+  `getField("VAR").getText()`); `collectSets` gathers set statements **before**
+  the first action in a 「実行」 stack (later sets never run).
+- **API**: `/api/practice/simulate` validates the new value nodes and `sets` /
+  `fallbackSets` recursively.
+- `tsc` / `lint` (0 errors, 4 pre-existing warnings) / Vitest **174** / `build`
+  green. Screenshotted the 数値・変数 flyout; ran a **live authenticated** e2e: a
+  counter that increments each turn → `WAIT, WAIT, MOVE, MOVE` once `count ≥ 3`;
+  malformed set → 400.
 
-### Open question
+### Next steps
 
-- **`数値・変数` is the last mockup category.** It needs a number-literal block
-  (and possibly variables) so players can type the right-hand side of numeric
-  comparisons (e.g. `自分のHP < 30`) in the editor. Confirm scope when picking
-  it up.
+- **Palette is feature-complete vs. the mockups.** Remaining wiring follow-ups
+  (deferred, not blocking): the 制御 `もし`/`繰り返す` blocks are still palette-only
+  and would need a sequential-program execution model to interpret (the same
+  reason 繰り返す was deferred). Otherwise this milestone item (HANDOFF #15/16/17)
+  is done; suggest a manual browser pass on the full editor UX next.
 
 ### Next 1–3 PRs (recommended order)
 
@@ -80,6 +81,9 @@ When you push, do these three things in `docs/STATUS.md`:
 
 ## History
 
+- **PR #71** (merged) — feat(blocks): added the 論理・比較 category, wired into a
+  boolean expression tree (and/or/not/bool/compare) so value blocks drive real
+  conditions; fixed the API allow-list also rejecting `shot_hit`. (Claude)
 - **PR #70** (merged) — feat(blocks): added the 制御 category — もし if-block +
   N回繰り返す repeat-block; palette-only (繰り返す intentionally unimplemented per
   product decision). (Claude)

@@ -281,6 +281,135 @@ describe("workspaceToStrategy", () => {
     ws.dispose();
   });
 
+  it("serializes a number literal into a compare's right operand", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                COND: {
+                  block: {
+                    type: "tank_cmp",
+                    fields: { OP: "LT" },
+                    inputs: {
+                      A: { block: { type: "tank_num_self_hp" } },
+                      B: { block: { type: "tank_num_literal", fields: { NUM: 30 } } },
+                    },
+                  },
+                },
+                DO: { block: { type: "tank_act_move_back" } },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].conditions).toEqual([
+      { type: "compare", cmp: "LT", left: { type: "self_hp" }, right: { type: "num", value: 30 } },
+    ]);
+    ws.dispose();
+  });
+
+  it("serializes a variable-set statement (with an arithmetic value) into rule.sets", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        variables: [{ name: "count", id: "v1" }],
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                COND: { block: { type: "tank_bool", fields: { VAL: "TRUE" } } },
+                DO: {
+                  block: {
+                    type: "tank_var_set",
+                    fields: { VAR: { id: "v1" } },
+                    inputs: {
+                      VALUE: {
+                        block: {
+                          type: "tank_arith",
+                          fields: { OP: "ADD" },
+                          inputs: {
+                            A: { block: { type: "tank_var_get", fields: { VAR: { id: "v1" } } } },
+                            B: { block: { type: "tank_num_literal", fields: { NUM: 1 } } },
+                          },
+                        },
+                      },
+                    },
+                    next: { block: { type: "tank_act_scan_around" } },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].sets).toEqual([
+      {
+        name: "count",
+        value: {
+          type: "arith",
+          op: "ADD",
+          left: { type: "var", name: "count" },
+          right: { type: "num", value: 1 },
+        },
+      },
+    ]);
+    expect(strategy.rules![0].actions).toEqual([{ type: "SCAN_AROUND", ap: 1 }]);
+    ws.dispose();
+  });
+
+  it("drops variable-set statements that appear after the first action", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        variables: [{ name: "count", id: "v1" }],
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule",
+              inputs: {
+                COND: { block: { type: "tank_bool", fields: { VAL: "TRUE" } } },
+                DO: {
+                  block: {
+                    type: "tank_act_move_forward",
+                    next: {
+                      block: {
+                        type: "tank_var_set",
+                        fields: { VAR: { id: "v1" } },
+                        inputs: { VALUE: { block: { type: "tank_num_literal", fields: { NUM: 9 } } } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].sets).toBeUndefined();
+    expect(strategy.rules![0].actions).toEqual([{ type: "MOVE_FORWARD", ap: 1 }]);
+    ws.dispose();
+  });
+
   it("drops a comparison with an empty value socket (returns no condition)", () => {
     const ws = new Blockly.Workspace();
     Blockly.serialization.workspaces.load(
