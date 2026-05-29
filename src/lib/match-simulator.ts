@@ -7,9 +7,8 @@
 //
 // The simulator is intentionally small: no obstacles, no items, no AP budget,
 // one action per player per turn. Movement and shooting are relative to the
-// player's facing (forward / back / left / right). There is no rotation, so a
-// player's facing is fixed for the whole match — "relative" simply gives each
-// player a stable four-direction frame.
+// player's facing (forward / back / left / right). A successful movement turns
+// the player to face the absolute direction they moved.
 
 export type Direction = "N" | "E" | "S" | "W";
 
@@ -528,8 +527,8 @@ export function simulate(
   options?: { maxTurns?: number }
 ): SimulationResult {
   const maxTurns = normalizeMaxTurns(options?.maxTurns);
-  const p1: PlayerState = { x: 0, y: 0, dir: "E", hp: INITIAL_HP };
-  const p2: PlayerState = { x: GRID_SIZE - 1, y: GRID_SIZE - 1, dir: "W", hp: INITIAL_HP };
+  const p1: PlayerState = { x: 0, y: GRID_SIZE - 1, dir: "N", hp: INITIAL_HP };
+  const p2: PlayerState = { x: GRID_SIZE - 1, y: 0, dir: "S", hp: INITIAL_HP };
   let perception1: Perception = buildPerception(p1, p2, false, 0, false, false, maxTurns);
   let perception2: Perception = buildPerception(p2, p1, false, 0, false, false, maxTurns);
   const vars1: Vars = {};
@@ -543,8 +542,9 @@ export function simulate(
     const action2 = chooseAction(strategy2, perception2, vars2);
 
     // Resolve moves simultaneously: cannot move onto the opponent's current
-    // cell, and if both target the same cell neither moves. Facing never
-    // changes, so the move direction is purely the player's relative frame.
+    // cell, and if both target the same cell neither moves. Movement targets
+    // are calculated from the pre-move facing; successful moves then update
+    // both position and facing to the absolute movement direction.
     const moveRel1 = MOVE_ACTIONS[action1];
     const moveRel2 = MOVE_ACTIONS[action2];
     const move1 = moveRel1 ? relCell(p1, moveRel1) : null;
@@ -557,10 +557,12 @@ export function simulate(
     if (moved1) {
       p1.x = move1![0];
       p1.y = move1![1];
+      p1.dir = relDirection(p1.dir, moveRel1!);
     }
     if (moved2) {
       p2.x = move2![0];
       p2.y = move2![1];
+      p2.dir = relDirection(p2.dir, moveRel2!);
     }
 
     // Shoots and scans use post-move positions.

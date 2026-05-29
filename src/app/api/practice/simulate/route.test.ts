@@ -50,6 +50,21 @@ describe("POST /api/practice/simulate", () => {
     });
   });
 
+  it("accepts a rule-only strategy without fallback fields", async () => {
+    getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
+
+    const strategy: Strategy = {
+      version: "1.0",
+      rules: [{ conditions: [{ type: "can_move_left", value: true }], actions: [{ type: "MOVE_LEFT" }] }],
+    };
+
+    const res = await POST(request({ strategy, difficulty: "weak" }));
+
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.result.turns[0].p1.action).toBe("WAIT");
+  });
+
   it("400 for an invalid strategy body", async () => {
     getSessionMock.mockResolvedValue({ id: "u1", role: "ROOM_USER" });
 
@@ -82,7 +97,7 @@ describe("POST /api/practice/simulate", () => {
                     type: "compare",
                     cmp: "EQ",
                     left: { type: "self_facing" },
-                    right: { type: "dir", dir: "N" },
+                    right: { type: "dir", dir: "E" },
                   },
                 },
                 { type: "bool", value: true },
@@ -99,7 +114,7 @@ describe("POST /api/practice/simulate", () => {
 
     expect(res.status).toBe(200);
     const json = await res.json();
-    // P1 starts at full HP facing E, so the rule matches turn 1 and it advances.
+    // P1 starts at full HP facing N, so the rule matches turn 1 and it advances.
     expect(json.result.turns[0].p1.moved).toBe(true);
   });
 

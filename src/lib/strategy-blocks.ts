@@ -75,20 +75,20 @@ const SELF_DIRECTION_BLOCKS: [string, string, string][] = [
   ["左", "tank_dir_west", "W"],
 ];
 
-const ACTION_COLOUR = 30;
-const CHECK_COLOUR = 210;
-const ENEMY_COLOUR = 0;
-const LAST_RESULT_COLOUR = 270;
-const SELF_COLOUR = 160;
-const CONTROL_CAT_COLOUR = 60;
-const CONTROL_BLOCK_COLOUR = "#5b6b8c";
-const LOGIC_COLOUR = 210;
-const NUMVAR_CAT_COLOUR = 174;
-const NUM_LITERAL_COLOUR = "#cfcfcf";
-const MATH_COLOUR = 174;
-const VAR_COLOUR = 300;
-const RULE_COLOUR = 230;
-const FALLBACK_COLOUR = 290;
+const ACTION_COLOUR = "#ff761a";
+const CHECK_COLOUR = "#1bb3e8";
+const ENEMY_COLOUR = "#f04b4e";
+const LAST_RESULT_COLOUR = "#7868ff";
+const SELF_COLOUR = "#18bd84";
+const CONTROL_CAT_COLOUR = "#f0b400";
+const CONTROL_BLOCK_COLOUR = "#5f86aa";
+const LOGIC_COLOUR = "#2fb8a3";
+const NUMVAR_CAT_COLOUR = "#21bea4";
+const NUM_LITERAL_COLOUR = "#d7d7d7";
+const MATH_COLOUR = "#21bea4";
+const VAR_COLOUR = "#9b5bb5";
+const RULE_COLOUR = "#5f86aa";
+const FALLBACK_COLOUR = "#a653b0";
 
 const ACTION_BLOCK_TO_TYPE: Record<string, string> = Object.fromEntries(
   ACTION_BLOCKS.map(([, block, type]) => [block, type])
@@ -364,6 +364,18 @@ const STRUCTURE_BLOCK_DEFINITIONS = [
     helpUrl: "",
   },
   {
+    type: "tank_rule_always",
+    message0: "ルール",
+    message1: "実行 %1",
+    args1: [{ type: "input_statement", name: "DO", check: "Action" }],
+    previousStatement: "Rule",
+    nextStatement: "Rule",
+    colour: RULE_COLOUR,
+    tooltip:
+      "条件を確認せず、順番が来たら実行します。上のルールから順に評価され、先に行動が決まると下のルールは実行されません。",
+    helpUrl: "",
+  },
+  {
     type: "tank_fallback",
     message0: "フォールバック",
     message1: "実行 %1",
@@ -479,20 +491,16 @@ export const STRATEGY_TOOLBOX = {
       kind: "category",
       name: "ルール",
       colour: String(RULE_COLOUR),
-      contents: [{ kind: "block", type: "tank_rule" }],
-    },
-    {
-      kind: "category",
-      name: "フォールバック",
-      colour: String(FALLBACK_COLOUR),
-      contents: [{ kind: "block", type: "tank_fallback" }],
+      contents: [
+        { kind: "block", type: "tank_rule" },
+        { kind: "block", type: "tank_rule_always" },
+      ],
     },
   ],
 };
 
-// Starter workspace: advance forward while possible, otherwise sidestep right,
-// and shoot forward as a fallback. Demonstrates rules + checks + actions and
-// gives a fresh player a working example to edit.
+// Starter workspace: advance forward while possible, otherwise sidestep right.
+// If no rule matches, the serializer supplies WAIT as the implicit fallback.
 export const DEFAULT_WORKSPACE_STATE = {
   blocks: {
     languageVersion: 0,
@@ -514,12 +522,6 @@ export const DEFAULT_WORKSPACE_STATE = {
             },
           },
         },
-      },
-      {
-        type: "tank_fallback",
-        x: 40,
-        y: 320,
-        inputs: { DO: { block: { type: "tank_act_shoot_forward" } } },
       },
     ],
   },
@@ -631,11 +633,12 @@ function conditionToNode(block: Blockly.Block | null): StrategyCondition | null 
 
 /**
  * Walks a Blockly workspace and produces the `Strategy` JSON the simulator
- * consumes. Top-level `tank_rule` stacks become ordered rules (first match
- * wins); the first `tank_fallback` becomes `fallbackBody`. A rule's 「もし」
- * boolean becomes its single condition (a boolean expression tree); its 「実行」
- * stack becomes an ordered `body` of statements (actions, variable sets, and
- * nested 「もし」), of which the simulator runs the first reachable action.
+ * consumes. Top-level `tank_rule` / `tank_rule_always` stacks become ordered
+ * rules (first match wins); the first `tank_fallback` becomes `fallbackBody`.
+ * A rule's 「もし」 boolean becomes its single condition (a boolean expression
+ * tree); its 「実行」 stack becomes an ordered `body` of statements (actions,
+ * variable sets, and nested 「もし」), of which the simulator runs the first
+ * reachable action.
  */
 export function workspaceToStrategy(workspace: Blockly.Workspace): Strategy {
   const rules: NonNullable<Strategy["rules"]> = [];
@@ -644,10 +647,11 @@ export function workspaceToStrategy(workspace: Blockly.Workspace): Strategy {
   for (const top of workspace.getTopBlocks(true)) {
     let block: Blockly.Block | null = top;
     while (block) {
-      if (block.type === "tank_rule") {
-        const cond = conditionToNode(block.getInputTargetBlock("COND"));
+      if (block.type === "tank_rule" || block.type === "tank_rule_always") {
+        const cond =
+          block.type === "tank_rule" ? conditionToNode(block.getInputTargetBlock("COND")) : null;
         rules.push({
-          conditions: cond ? [cond] : [],
+          conditions: block.type === "tank_rule" && cond ? [cond] : [],
           body: collectBody(block.getInputTargetBlock("DO")),
         });
       } else if (block.type === "tank_fallback" && !fallbackBody) {

@@ -36,8 +36,8 @@ interface Player {
   maxHp: number;
 }
 
-const INITIAL_P1: Player = { x: 0, y: 0, dir: "E", hp: 100, maxHp: 100 };
-const INITIAL_P2: Player = { x: 9, y: 9, dir: "W", hp: 100, maxHp: 100 };
+const INITIAL_P1: Player = { x: 0, y: 9, dir: "N", hp: 100, maxHp: 100 };
+const INITIAL_P2: Player = { x: 9, y: 0, dir: "S", hp: 100, maxHp: 100 };
 
 const DIR_ARROW: Record<string, string> = { N: "↑", E: "→", S: "↓", W: "←" };
 
@@ -148,6 +148,9 @@ function RecognitionPanel({
   inkColor: string;
 }) {
   const name = player === "p1" ? MOCK_MATCH.p1Name : MOCK_MATCH.p2Name;
+  const displayX = "ABCDEFGHIJ"[playerData.x] ?? String(playerData.x);
+  const displayY = 10 - playerData.y;
+
   return (
     <div
       style={{
@@ -198,13 +201,13 @@ function RecognitionPanel({
           <span style={{ fontSize: 12 }}>
             <span style={{ color: "var(--ink-soft)" }}>x=</span>
             <span style={{ fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>
-              {playerData.x}
+              {displayX}
             </span>
           </span>
           <span style={{ fontSize: 12 }}>
             <span style={{ color: "var(--ink-soft)" }}>y=</span>
             <span style={{ fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>
-              {playerData.y}
+              {displayY}
             </span>
           </span>
           <span
@@ -600,7 +603,7 @@ export default function BattlePage({
                       fontFamily: "JetBrains Mono, monospace",
                     }}
                   >
-                    {row + 1}
+                    {10 - row}
                   </div>
                   {Array.from({ length: 10 }, (_, col) => {
                     const key = `${col},${row}`;
@@ -876,51 +879,54 @@ export default function BattlePage({
               border: "1px solid var(--line)",
               borderRadius: 12,
               padding: 12,
-              maxHeight: 180,
-              overflow: "auto",
             }}
           >
             <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 8, color: "var(--ink-soft)" }}>
-              ターンログ (最新5件)
+              ターンログ
             </div>
-            {turns
-              .flatMap((snap) =>
-                snap.logs.map((log) => ({
-                  turn: snap.turn,
-                  text: `${log.playerId === "p1" ? MOCK_MATCH.p1Name : MOCK_MATCH.p2Name}: ${log.text}`,
-                  color: log.playerId === "p1" ? "var(--p1)" : "var(--p2)",
-                }))
-              )
-              .slice(-5)
-              .map((log, i, arr) => (
-                <div
-                  key={i}
-                  style={{
-                    fontSize: 12,
-                    padding: "4px 0",
-                    borderBottom: i < arr.length - 1 ? "1px solid var(--line)" : "none",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <span
+            <div style={{ maxHeight: 132, overflowY: "auto", paddingRight: 4 }}>
+              {turns
+                .filter((snap) => snap.turn <= currentTurn)
+                .reverse()
+                .flatMap((snap) =>
+                  snap.logs.map((log) => ({
+                    turn: snap.turn,
+                    text: `${log.playerId === "p1" ? MOCK_MATCH.p1Name : MOCK_MATCH.p2Name}: ${log.text}`,
+                    color: log.playerId === "p1" ? "var(--p1)" : "var(--p2)",
+                  }))
+                )
+                .map((log, i) => (
+                  <div
+                    key={`${log.turn}-${i}`}
                     style={{
-                      fontFamily: "JetBrains Mono, monospace",
-                      fontSize: 10,
-                      fontWeight: 700,
-                      color: "#fff",
-                      background: log.color,
-                      padding: "1px 5px",
-                      borderRadius: 4,
-                      flexShrink: 0,
+                      fontSize: 12,
+                      padding: "5px 6px",
+                      border: i === 0 ? "1px solid #f3d27d" : "1px solid transparent",
+                      borderRadius: 8,
+                      background: i === 0 ? "var(--accent-soft)" : "transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
                     }}
                   >
-                    T{log.turn}
-                  </span>
-                  <span>{log.text}</span>
-                </div>
-              ))}
+                    <span
+                      style={{
+                        fontFamily: "JetBrains Mono, monospace",
+                        fontSize: 10,
+                        fontWeight: 700,
+                        color: "#fff",
+                        background: log.color,
+                        padding: "1px 5px",
+                        borderRadius: 4,
+                        flexShrink: 0,
+                      }}
+                    >
+                      T{log.turn}
+                    </span>
+                    <span>{log.text}</span>
+                  </div>
+                ))}
+            </div>
           </div>
         </div>
 

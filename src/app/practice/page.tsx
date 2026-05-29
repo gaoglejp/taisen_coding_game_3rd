@@ -28,8 +28,8 @@ const EMPTY_STRATEGY: Strategy = {
   fallbackActions: [{ type: "WAIT", ap: 0 }],
 };
 
-const INITIAL_P1 = { x: 0, y: 0, dir: "E" as Direction, hp: INITIAL_HP };
-const INITIAL_P2 = { x: GRID_SIZE - 1, y: GRID_SIZE - 1, dir: "W" as Direction, hp: INITIAL_HP };
+const INITIAL_P1 = { x: 0, y: GRID_SIZE - 1, dir: "N" as Direction, hp: INITIAL_HP };
+const INITIAL_P2 = { x: GRID_SIZE - 1, y: 0, dir: "S" as Direction, hp: INITIAL_HP };
 const DIR_ARROW: Record<Direction, string> = { N: "↑", E: "→", S: "↓", W: "←" };
 const ACTION_LABEL: Record<string, string> = {
   MOVE_FORWARD: "前進",
@@ -83,6 +83,9 @@ function PlayerPanel({
   state: { x: number; y: number; dir: Direction; hp: number };
   turn?: TurnSnapshot["p1"];
 }) {
+  const displayX = "ABCDEFGHIJ"[state.x] ?? String(state.x);
+  const displayY = GRID_SIZE - state.y;
+
   return (
     <aside
       style={{
@@ -116,8 +119,8 @@ function PlayerPanel({
 
       <div style={{ background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 10, padding: 12 }}>
         <div style={{ display: "flex", gap: 10, marginBottom: 10, fontSize: 12 }}>
-          <span><span style={{ color: "var(--ink-soft)" }}>x=</span><strong>{state.x}</strong></span>
-          <span><span style={{ color: "var(--ink-soft)" }}>y=</span><strong>{state.y}</strong></span>
+          <span><span style={{ color: "var(--ink-soft)" }}>x=</span><strong>{displayX}</strong></span>
+          <span><span style={{ color: "var(--ink-soft)" }}>y=</span><strong>{displayY}</strong></span>
           <span
             style={{
               background: soft,
@@ -176,7 +179,7 @@ function Board({
       {Array.from({ length: GRID_SIZE }, (_, row) => (
         <div key={row} style={{ display: "flex", alignItems: "center" }}>
           <div style={{ width: 24, textAlign: "right", paddingRight: 4, fontSize: 10, fontWeight: 800, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
-            {row + 1}
+            {GRID_SIZE - row}
           </div>
           {Array.from({ length: GRID_SIZE }, (_, col) => {
             const isP1 = p1.x === col && p1.y === row;
@@ -472,20 +475,44 @@ export default function PracticePage() {
                 />
               </div>
 
-              <div style={{ width: "100%", background: "var(--bg)", border: "1px solid var(--line)", borderRadius: 12, padding: 12, minHeight: 112 }}>
+              <div
+                style={{
+                  width: "100%",
+                  background: "var(--bg)",
+                  border: "1px solid var(--line)",
+                  borderRadius: 12,
+                  padding: 12,
+                  minHeight: 112,
+                }}
+              >
                 <div style={{ fontSize: 12, fontWeight: 800, color: "var(--ink-soft)", marginBottom: 8 }}>ターンログ</div>
-                {(simulation?.result.turns ?? [])
-                  .slice(Math.max(0, currentTurn - 4), currentTurn)
-                  .flatMap((snap) => snap.logs.map((log) => ({ turn: snap.turn, log })))
-                  .map(({ turn, log }, index) => (
-                    <div key={`${turn}-${index}`} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, padding: "3px 0" }}>
-                      <span style={{ background: log.playerId === "p1" ? "var(--p1)" : "var(--p2)", color: "#fff", borderRadius: 4, padding: "1px 5px", fontFamily: "JetBrains Mono, monospace", fontSize: 10, fontWeight: 800 }}>
-                        T{turn}
-                      </span>
-                      <span>{log.playerId === "p1" ? "あなた" : "Bot"}: {log.text}</span>
-                    </div>
-                  ))}
-                {!simulation && <div style={{ color: "var(--ink-soft)", fontSize: 13 }}>まだリプレイはありません</div>}
+                <div style={{ maxHeight: 132, overflowY: "auto", paddingRight: 4 }}>
+                  {(simulation?.result.turns ?? [])
+                    .slice(0, currentTurn)
+                    .reverse()
+                    .flatMap((snap) => snap.logs.map((log) => ({ turn: snap.turn, log })))
+                    .map(({ turn, log }, index) => (
+                      <div
+                        key={`${turn}-${index}`}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          fontSize: 12,
+                          padding: "4px 6px",
+                          borderRadius: 8,
+                          background: index === 0 ? "var(--accent-soft)" : "transparent",
+                          border: index === 0 ? "1px solid #f3d27d" : "1px solid transparent",
+                        }}
+                      >
+                        <span style={{ background: log.playerId === "p1" ? "var(--p1)" : "var(--p2)", color: "#fff", borderRadius: 4, padding: "1px 5px", fontFamily: "JetBrains Mono, monospace", fontSize: 10, fontWeight: 800 }}>
+                          T{turn}
+                        </span>
+                        <span>{log.playerId === "p1" ? "あなた" : "Bot"}: {log.text}</span>
+                      </div>
+                    ))}
+                  {!simulation && <div style={{ color: "var(--ink-soft)", fontSize: 13 }}>まだリプレイはありません</div>}
+                </div>
               </div>
             </div>
 

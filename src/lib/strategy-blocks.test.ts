@@ -4,6 +4,7 @@ import * as Blockly from "blockly";
 import {
   defineStrategyBlocks,
   DEFAULT_WORKSPACE_STATE,
+  STRATEGY_TOOLBOX,
   workspaceToStrategy,
 } from "./strategy-blocks";
 
@@ -28,9 +29,21 @@ describe("workspaceToStrategy", () => {
       conditions: [{ type: "can_move_right", value: true }],
       body: [{ kind: "action", type: "MOVE_RIGHT" }],
     });
-    expect(strategy.fallbackBody).toEqual([{ kind: "action", type: "SHOOT_FORWARD" }]);
+    expect(strategy.fallbackBody).toEqual([{ kind: "action", type: "WAIT" }]);
 
     ws.dispose();
+  });
+
+  it("does not expose the fallback block in the toolbox", () => {
+    const toolboxText = JSON.stringify(STRATEGY_TOOLBOX);
+    expect(toolboxText).not.toContain("tank_fallback");
+    expect(toolboxText).not.toContain("フォールバック");
+  });
+
+  it("exposes the conditionless rule block in the rule toolbox category", () => {
+    const toolboxText = JSON.stringify(STRATEGY_TOOLBOX);
+    expect(toolboxText).toContain("tank_rule");
+    expect(toolboxText).toContain("tank_rule_always");
   });
 
   it("defaults fallback to WAIT when the workspace has no fallback block", () => {
@@ -159,6 +172,29 @@ describe("workspaceToStrategy", () => {
     const strategy = workspaceToStrategy(ws);
     expect(strategy.rules![0].conditions).toEqual([]);
     expect(strategy.rules![0].body).toEqual([{ kind: "action", type: "WAIT" }]);
+    ws.dispose();
+  });
+
+  it("serializes the conditionless rule block as an always-matching rule", () => {
+    const ws = new Blockly.Workspace();
+    Blockly.serialization.workspaces.load(
+      {
+        blocks: {
+          languageVersion: 0,
+          blocks: [
+            {
+              type: "tank_rule_always",
+              inputs: { DO: { block: { type: "tank_act_move_forward" } } },
+            },
+          ],
+        },
+      },
+      ws
+    );
+
+    const strategy = workspaceToStrategy(ws);
+    expect(strategy.rules![0].conditions).toEqual([]);
+    expect(strategy.rules![0].body).toEqual([{ kind: "action", type: "MOVE_FORWARD" }]);
     ws.dispose();
   });
 

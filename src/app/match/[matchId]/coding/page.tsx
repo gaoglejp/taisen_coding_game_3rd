@@ -593,10 +593,6 @@ export default function CodingPage({
                     title: "AP予算を計算しよう",
                     body: "1ターンのAP上限は3です。MOVE(1)+SHOOT(1)+SCAN(2)=4 となり超過します。優先順位を考えましょう。",
                   },
-                  {
-                    title: "fallbackActionsを設定しよう",
-                    body: "全条件がFalseの場合のデフォルト行動です。WAITを設定しておくと安全です。",
-                  },
                 ].map((hint) => (
                   <div
                     key={hint.title}
@@ -732,7 +728,7 @@ export default function CodingPage({
                 <span style={{ fontWeight: 700 }}>5 ブロック</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                <span style={{ color: "var(--ink-soft)" }}>fallbackActions</span>
+                <span style={{ color: "var(--ink-soft)" }}>全ルール不一致時</span>
                 <span
                   style={{
                     background: "#f3f4f6",

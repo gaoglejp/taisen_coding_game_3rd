@@ -77,9 +77,9 @@ ELSE
   },
   {
     icon: "⚡",
-    title: "fallbackActions を設定しよう",
-    body: "どのルールにも当てはまらないときの保険です。WAIT のままだと AP を無駄にしてしまうので MOVE_FORWARD を入れておくと安全です。",
-    code: `fallbackActions:
+    title: "最後のルールで保険を作ろう",
+    body: "どの条件にも当てはまらない場面を減らすには、条件なしのルールや true 条件のルールを最後に置くと安全です。",
+    code: `IF true
   MOVE_FORWARD`,
   },
   {

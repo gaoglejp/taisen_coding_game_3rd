@@ -17,20 +17,21 @@ describe("simulate", () => {
 
   it("MOVE_FORWARD advances when the path is clear and the cell is in bounds", () => {
     const result = simulate(alwaysMove, waitOnly);
-    // P1 starts at (0,0) facing E. After turn 1 it should be at (1,0).
-    expect(result.turns[0].p1.x).toBe(1);
-    expect(result.turns[0].p1.y).toBe(0);
+    // P1 starts at the player's lower-left corner (0,9) facing N.
+    // After turn 1 it should advance upward to (0,8).
+    expect(result.turns[0].p1.x).toBe(0);
+    expect(result.turns[0].p1.y).toBe(8);
     expect(result.turns[0].p1.moved).toBe(true);
-    // P2 just waits, stays at (9,9).
-    expect(result.turns[0].p2).toMatchObject({ x: 9, y: 9, moved: false });
+    // P2 just waits, stays at the upper-right corner.
+    expect(result.turns[0].p2).toMatchObject({ x: 9, y: 0, moved: false });
   });
 
   it("MOVE_FORWARD stays in place when the next cell is out of bounds", () => {
-    // P1 starts at (0,0) facing E. Walks east 9 times to reach (9,0), then
+    // P1 starts at (0,9) facing N. Walks north 9 times to reach (0,0), then
     // the next MOVE attempt at turn 10 should bounce off the wall.
     const result = simulate(alwaysMove, waitOnly);
     const turn10 = result.turns[9];
-    expect(turn10.p1).toMatchObject({ x: 9, y: 0, moved: false });
+    expect(turn10.p1).toMatchObject({ x: 0, y: 0, moved: false });
   });
 
   it("SCAN_AROUND does not detect a distant opponent (out of scan range)", () => {
@@ -41,35 +42,89 @@ describe("simulate", () => {
     expect(both.turns[0].p2.scan_detected).toBe(false);
   });
 
-  it("MOVE_RIGHT strafes relative to facing without changing direction", () => {
-    // P1 faces E at (0,0); its right is S, so MOVE_RIGHT steps to (0,1).
+  it("MOVE_RIGHT changes facing to the absolute direction moved", () => {
+    // P1 faces N at (0,9); its right is E, so MOVE_RIGHT steps to (1,9)
+    // and turns to face E.
     const moveRight: Strategy = { fallbackActions: [{ type: "MOVE_RIGHT" }] };
     const result = simulate(moveRight, waitOnly);
-    expect(result.turns[0].p1).toMatchObject({ x: 0, y: 1, dir: "E", moved: true });
+    expect(result.turns[0].p1).toMatchObject({ x: 1, y: 9, dir: "E", moved: true });
+  });
+
+  it("keeps facing unchanged when a movement action is blocked", () => {
+    // P1 faces N at (0,9); MOVE_LEFT targets W and is out of bounds.
+    const moveLeft: Strategy = { fallbackActions: [{ type: "MOVE_LEFT" }] };
+    const result = simulate(moveLeft, waitOnly);
+    expect(result.turns[0].p1).toMatchObject({ x: 0, y: 9, dir: "N", moved: false });
   });
 
   it("can_move_* conditions reflect board edges", () => {
-    // P1 faces E at (0,0): forward (E) is open, but left (N) is out of bounds.
+    // P1 faces N at (0,9): forward (N) is open, but left (W) is out of bounds.
     // So a rule gated on can_move_left never fires; the fallback MOVE_FORWARD
-    // runs and the tank advances east.
+    // runs and the tank advances north.
     const strategy: Strategy = {
       rules: [{ conditions: [{ type: "can_move_left", value: true }], actions: [{ type: "MOVE_LEFT" }] }],
       fallbackActions: [{ type: "MOVE_FORWARD" }],
     };
     const result = simulate(strategy, waitOnly);
-    expect(result.turns[0].p1).toMatchObject({ x: 1, y: 0, moved: true });
+    expect(result.turns[0].p1).toMatchObject({ x: 0, y: 8, moved: true });
+  });
+
+  it("uses WAIT when no rule matches and no fallback is provided", () => {
+    const strategy: Strategy = {
+      rules: [{ conditions: [{ type: "can_move_left", value: true }], actions: [{ type: "MOVE_LEFT" }] }],
+    };
+
+    const result = simulate(strategy, waitOnly);
+
+    expect(result.turns[0].p1).toMatchObject({ action: "WAIT", x: 0, y: 9, moved: false });
   });
 
   it("exposes shot_hit: the turn after a SHOOT_FORWARD hits, the shot_hit rule fires", () => {
-    // P1 descends column 0 to row 9, advances east toward the idle P2 at (9,9),
-    // and shoots when adjacent. After a hit, the shot_hit rule makes it WAIT.
+    // P1 starts in the lower-left facing north. It turns east to align the
+    // column, turns back north, then advances until P2 is in range. After a hit,
+    // the shot_hit rule makes it WAIT.
     const hunter: Strategy = {
       rules: [
         { conditions: [{ type: "shot_hit", value: true }], actions: [{ type: "WAIT" }] },
-        { conditions: [{ type: "can_move_right", value: true }], actions: [{ type: "MOVE_RIGHT" }] },
-        { conditions: [{ type: "can_move_forward", value: true }], actions: [{ type: "MOVE_FORWARD" }] },
+        {
+          conditions: [
+            { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "N" } },
+            { type: "compare", cmp: "EQ", left: { type: "enemy_right_distance" }, right: { type: "num", value: 0 } },
+            { type: "compare", cmp: "GT", left: { type: "enemy_forward_distance" }, right: { type: "num", value: 0 } },
+            { type: "compare", cmp: "LTE", left: { type: "enemy_forward_distance" }, right: { type: "num", value: 3 } },
+          ],
+          actions: [{ type: "SHOOT_FORWARD" }],
+        },
+        {
+          conditions: [
+            { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "N" } },
+            { type: "compare", cmp: "GT", left: { type: "enemy_right_distance" }, right: { type: "num", value: 0 } },
+          ],
+          actions: [{ type: "MOVE_RIGHT" }],
+        },
+        {
+          conditions: [
+            { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "E" } },
+            { type: "compare", cmp: "GT", left: { type: "enemy_forward_distance" }, right: { type: "num", value: 0 } },
+          ],
+          actions: [{ type: "MOVE_FORWARD" }],
+        },
+        {
+          conditions: [
+            { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "E" } },
+            { type: "compare", cmp: "EQ", left: { type: "enemy_forward_distance" }, right: { type: "num", value: 0 } },
+          ],
+          actions: [{ type: "MOVE_LEFT" }],
+        },
+        {
+          conditions: [
+            { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "N" } },
+            { type: "can_move_forward", value: true },
+          ],
+          actions: [{ type: "MOVE_FORWARD" }],
+        },
       ],
-      fallbackActions: [{ type: "SHOOT_FORWARD" }],
+      fallbackActions: [{ type: "WAIT" }],
     };
     const result = simulate(hunter, waitOnly, { maxTurns: 30 });
 
@@ -81,7 +136,7 @@ describe("simulate", () => {
 
   it("decides on HP_ZERO when one side reaches 0 HP", () => {
     // Both shoot constantly. The simulator's deterministic positioning has
-    // P1 at (0,0) facing E and P2 at (9,9) facing W — neither on each
+    // P1 at (0,9) facing N and P2 at (9,0) facing S — neither on each
     // other's ray. So nobody hits unless they move first. Use a strategy
     // that moves until in range, then shoots when scan succeeds.
     const seekAndShoot: Strategy = {
@@ -96,8 +151,8 @@ describe("simulate", () => {
   });
 
   it("damages the target when SHOOT_FORWARD lines up within range", () => {
-    // Construct: place P1 facing east at (0,0). P2 sits at (9,9). Neither
-    // can hit at start. But if we send P1 east on row 0 it never crosses
+    // Construct: place P1 facing north at (0,9). P2 sits at (9,0). Neither
+    // can hit at start. But if we send P1 north on column 0 it never crosses
     // P2. To get a deterministic hit without changing initial positions,
     // we use a strategy that just shoots while standing still — and we
     // confirm via the perception that SHOOT runs but registers MISS.
@@ -154,7 +209,7 @@ describe("simulate", () => {
 });
 
 describe("condition expression evaluation (論理・比較)", () => {
-  // P1 starts at (0,0) facing E with 100 HP; P2 waits at (9,9).
+  // P1 starts at (0,9) facing N with 100 HP; P2 waits at (9,0).
   const moveIf = (rules: Strategy["rules"]): Strategy => ({ rules });
 
   it("compares a self metric against a number literal", () => {
@@ -173,7 +228,7 @@ describe("condition expression evaluation (論理・比較)", () => {
     const match = moveIf([
       {
         conditions: [
-          { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "E" } },
+          { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "N" } },
         ],
         actions: [{ type: "MOVE_FORWARD" }],
       },
@@ -181,7 +236,7 @@ describe("condition expression evaluation (論理・比較)", () => {
     const miss = moveIf([
       {
         conditions: [
-          { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "N" } },
+          { type: "compare", cmp: "EQ", left: { type: "self_facing" }, right: { type: "dir", dir: "E" } },
         ],
         actions: [{ type: "MOVE_FORWARD" }],
       },
@@ -315,7 +370,7 @@ describe("variables (数値・変数)", () => {
 
 describe("rule body / もし statement (制御)", () => {
   it("takes the action inside a true if-branch; skips it when false and falls through", () => {
-    // P1 starts facing E. The if-branch fires only when facing == E.
+    // P1 starts facing N. The if-branch fires only when facing == N.
     const facingIf = (dir: "E" | "N"): Strategy => ({
       rules: [
         {
@@ -331,15 +386,15 @@ describe("rule body / もし statement (制御)", () => {
         },
       ],
     });
-    // dir=E: if-branch true -> SHOOT_FORWARD wins over the trailing MOVE_FORWARD.
-    expect(simulate(facingIf("E"), waitOnly).turns[0].p1.action).toBe("SHOOT_FORWARD");
-    // dir=N: if-branch skipped -> falls through to MOVE_FORWARD.
-    expect(simulate(facingIf("N"), waitOnly).turns[0].p1.action).toBe("MOVE_FORWARD");
+    // dir=N: if-branch true -> SHOOT_FORWARD wins over the trailing MOVE_FORWARD.
+    expect(simulate(facingIf("N"), waitOnly).turns[0].p1.action).toBe("SHOOT_FORWARD");
+    // dir=E: if-branch skipped -> falls through to MOVE_FORWARD.
+    expect(simulate(facingIf("E"), waitOnly).turns[0].p1.action).toBe("MOVE_FORWARD");
   });
 
   it("takes the first true else-if branch, else the else branch (if/else-if/else)", () => {
-    // P1 starts at (0,0) facing E, full HP. The if-branch needs HP<0 (never),
-    // the else-if needs facing==E (true) -> MOVE_FORWARD; a third strategy makes
+    // P1 starts at (0,9) facing N, full HP. The if-branch needs HP<0 (never),
+    // the else-if needs facing==N (true) -> MOVE_FORWARD; a third strategy makes
     // both clauses false so the else (SCAN_AROUND) runs.
     const branch = (firstDir: "E" | "N"): Strategy => ({
       rules: [
@@ -364,10 +419,10 @@ describe("rule body / もし statement (制御)", () => {
         },
       ],
     });
-    // else-if (facing==E) true -> MOVE_FORWARD.
-    expect(simulate(branch("E"), waitOnly).turns[0].p1.action).toBe("MOVE_FORWARD");
-    // both clauses false (facing!=N) -> else -> SCAN_AROUND.
-    expect(simulate(branch("N"), waitOnly).turns[0].p1.action).toBe("SCAN_AROUND");
+    // else-if (facing==N) true -> MOVE_FORWARD.
+    expect(simulate(branch("N"), waitOnly).turns[0].p1.action).toBe("MOVE_FORWARD");
+    // both clauses false (facing!=E) -> else -> SCAN_AROUND.
+    expect(simulate(branch("E"), waitOnly).turns[0].p1.action).toBe("SCAN_AROUND");
   });
 
   it("does not run the else when a clause matched but produced no action", () => {

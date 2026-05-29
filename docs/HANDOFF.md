@@ -247,13 +247,20 @@ These are the calls the previous session made that the next session should
    `=/≠/<≤/>≥`, `かつ/または`, `ではない`, `true/false`) is **functional**: it
    wires the accumulated value blocks into evaluable conditions (see decision
    #16). A `tank_rule` is `もし <Boolean value>` + `実行 <statement body>`;
-   `tank_fallback` is `実行 <statement body>`. The serializer emits the
-   `Strategy` JSON the simulator consumes (`rules[].{conditions, body}` +
+   `tank_rule_always` is the conditionless `ルール` variant and serializes
+   to an always-matching rule (`conditions: []`). `tank_fallback` remains
+   readable for old saved workspaces but is no longer
+   exposed in the toolbox; when no rule matches and no fallback is present, the
+   serializer/simulator uses `WAIT`. The serializer emits the `Strategy` JSON
+   the simulator consumes (`rules[].{conditions, body}` + optional legacy
    `fallbackBody`; legacy `actions`/`sets` still execute — decision #18), so the
    simulator / real-match flow are structurally unchanged. **Simulator
-   semantics**: move and shoot are **relative to facing** (FORWARD/BACK/LEFT/
-   RIGHT); a player never rotates (rotation actions removed), so facing is fixed
-   for the match and "relative" gives each player a stable four-direction frame.
+   semantics**: P1 starts from the lower-left cell facing north and P2 starts
+   from the upper-right cell facing south. Board row labels are player-facing:
+   bottom-to-top is `1` through `10`, with columns still `A` through `J`. Move
+   and shoot are **relative to facing** (FORWARD/BACK/LEFT/RIGHT). A successful
+   move updates the player's facing to the absolute direction moved; blocked
+   moves leave facing unchanged.
    `SCAN_AROUND` detects in all four directions within range. New conditions
    `can_move_{forward,back,left,right}` report whether that relative cell is in
    bounds and unoccupied. **数値・変数** (number literal, arithmetic `+−×÷`,
