@@ -1,7 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { ActionEffects } from "@/components/battle/ActionEffects";
 import { TopbarPaper } from "@/components/layout/TopbarPaper";
 import { DEFAULT_WORKSPACE_STATE } from "@/lib/strategy-blocks";
 import { GRID_SIZE, INITIAL_HP, MAX_TURNS, type Direction, type SimulationResult, type Strategy, type TurnSnapshot } from "@/lib/match-simulator";
@@ -31,6 +32,8 @@ const EMPTY_STRATEGY: Strategy = {
 const INITIAL_P1 = { x: 0, y: GRID_SIZE - 1, dir: "N" as Direction, hp: INITIAL_HP };
 const INITIAL_P2 = { x: GRID_SIZE - 1, y: 0, dir: "S" as Direction, hp: INITIAL_HP };
 const DIR_ARROW: Record<Direction, string> = { N: "↑", E: "→", S: "↓", W: "←" };
+const CELL_PX = 40;
+const TURN_EFFECT_MS = 860;
 const ACTION_LABEL: Record<string, string> = {
   MOVE_FORWARD: "前進",
   MOVE_BACK: "後退",
@@ -43,6 +46,12 @@ const ACTION_LABEL: Record<string, string> = {
   SCAN_AROUND: "全方位索敵",
   WAIT: "待機",
 };
+
+const subscribeHydration = () => () => {};
+
+function useHydrated() {
+  return useSyncExternalStore(subscribeHydration, () => true, () => false);
+}
 
 function HpBar({ hp, color }: { hp: number; color: string }) {
   return (
@@ -162,52 +171,63 @@ function PlayerPanel({
 function Board({
   p1,
   p2,
+  snapshot,
 }: {
   p1: { x: number; y: number; dir: Direction; hp: number };
   p2: { x: number; y: number; dir: Direction; hp: number };
+  snapshot?: TurnSnapshot;
 }) {
   const cols = "ABCDEFGHIJ";
   return (
     <div aria-label="練習バトル盤面">
       <div style={{ display: "flex", marginLeft: 28 }}>
         {Array.from({ length: GRID_SIZE }, (_, i) => (
-          <div key={i} style={{ width: 40, textAlign: "center", fontSize: 10, fontWeight: 800, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
+          <div key={i} style={{ width: CELL_PX, textAlign: "center", fontSize: 10, fontWeight: 800, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
             {cols[i]}
           </div>
         ))}
       </div>
-      {Array.from({ length: GRID_SIZE }, (_, row) => (
-        <div key={row} style={{ display: "flex", alignItems: "center" }}>
-          <div style={{ width: 24, textAlign: "right", paddingRight: 4, fontSize: 10, fontWeight: 800, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
-            {GRID_SIZE - row}
-          </div>
-          {Array.from({ length: GRID_SIZE }, (_, col) => {
-            const isP1 = p1.x === col && p1.y === row;
-            const isP2 = p2.x === col && p2.y === row;
-            return (
-              <div
-                key={col}
-                style={{
-                  width: 40,
-                  height: 40,
-                  border: "1px solid var(--line)",
-                  background: "var(--surface)",
-                  display: "grid",
-                  placeItems: "center",
-                  position: "relative",
-                }}
-              >
-                {isP1 && (
-                  <TankGlyph arrow={DIR_ARROW[p1.dir]} background="var(--p1)" shadow="rgba(37,99,235,.38)" />
-                )}
-                {isP2 && (
-                  <TankGlyph arrow={DIR_ARROW[p2.dir]} background="var(--p2)" shadow="rgba(239,68,68,.38)" />
-                )}
-              </div>
-            );
-          })}
+      <div style={{ display: "flex", alignItems: "stretch" }}>
+        <div>
+          {Array.from({ length: GRID_SIZE }, (_, row) => (
+            <div key={row} style={{ width: 24, height: CELL_PX, textAlign: "right", paddingRight: 4, fontSize: 10, fontWeight: 800, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace", display: "grid", alignItems: "center" }}>
+              {GRID_SIZE - row}
+            </div>
+          ))}
         </div>
-      ))}
+        <div style={{ position: "relative", width: CELL_PX * GRID_SIZE, height: CELL_PX * GRID_SIZE }}>
+          {Array.from({ length: GRID_SIZE }, (_, row) => (
+            <div key={row} style={{ display: "flex", alignItems: "center" }}>
+              {Array.from({ length: GRID_SIZE }, (_, col) => {
+                const isP1 = p1.x === col && p1.y === row;
+                const isP2 = p2.x === col && p2.y === row;
+                return (
+                  <div
+                    key={col}
+                    style={{
+                      width: CELL_PX,
+                      height: CELL_PX,
+                      border: "1px solid var(--line)",
+                      background: "var(--surface)",
+                      display: "grid",
+                      placeItems: "center",
+                      position: "relative",
+                    }}
+                  >
+                    {isP1 && (
+                      <TankGlyph arrow={DIR_ARROW[p1.dir]} background="var(--p1)" shadow="rgba(37,99,235,.38)" />
+                    )}
+                    {isP2 && (
+                      <TankGlyph arrow={DIR_ARROW[p2.dir]} background="var(--p2)" shadow="rgba(239,68,68,.38)" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+          <ActionEffects snapshot={snapshot} cellSize={CELL_PX} />
+        </div>
+      </div>
     </div>
   );
 }
@@ -241,6 +261,7 @@ export default function PracticePage() {
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const hydrated = useHydrated();
 
   const handleStrategyChange = useCallback((next: Strategy) => {
     setStrategy(next);
@@ -255,6 +276,7 @@ export default function PracticePage() {
     ? { x: activeSnapshot.p2.x, y: activeSnapshot.p2.y, dir: activeSnapshot.p2.dir, hp: activeSnapshot.p2.hp }
     : INITIAL_P2;
   const replayComplete = Boolean(simulation && currentTurn >= simulation.result.totalTurns);
+  const replayControlsDisabled = hydrated && !simulation;
 
   const resultLabel = useMemo(() => {
     const winner = simulation?.result.winner;
@@ -270,7 +292,7 @@ export default function PracticePage() {
         if (next >= simulation.result.totalTurns) setPlaying(false);
         return next;
       });
-    }, 650);
+    }, TURN_EFFECT_MS);
     return () => clearInterval(id);
   }, [playing, simulation]);
 
@@ -406,7 +428,7 @@ export default function PracticePage() {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, flex: 1, minHeight: 0, overflowY: "auto" }}>
               <div style={{ display: "flex", justifyContent: "center", overflowX: "auto", paddingBottom: 4 }}>
-                <Board p1={p1} p2={p2} />
+                <Board p1={p1} p2={p2} snapshot={activeSnapshot} />
               </div>
 
               <div style={{ display: "flex", gap: 12 }}>
@@ -444,7 +466,7 @@ export default function PracticePage() {
                       type="button"
                       title={String(title)}
                       onClick={action as () => void}
-                      disabled={!simulation}
+                      disabled={replayControlsDisabled}
                       style={{
                         width: 36,
                         height: 36,
@@ -466,7 +488,7 @@ export default function PracticePage() {
                   min={0}
                   max={totalTurns}
                   value={currentTurn}
-                  disabled={!simulation}
+                  disabled={replayControlsDisabled}
                   onChange={(e) => {
                     setPlaying(false);
                     setCurrentTurn(Number(e.target.value));

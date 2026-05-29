@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, use } from "react";
+import { useState, useEffect, use } from "react";
 import Link from "next/link";
+import { ActionEffects } from "@/components/battle/ActionEffects";
 import { connectSocket, disconnectSocket } from "@/lib/socket-client";
 import type { TurnSnapshot } from "@/lib/match-simulator";
 
@@ -15,6 +16,8 @@ const MOCK_MATCH = {
 };
 
 const MAX_TURNS = 20;
+const CELL_PX = 44;
+const TURN_EFFECT_MS = 860;
 
 // 10x10 grid: null=empty, "WALL"=obstacle, "CROSS"=cross attack item, "BARRIER"=barrier item, "REPEAT"=repeat item
 const GRID_DATA: Record<string, string> = {
@@ -27,6 +30,9 @@ const GRID_DATA: Record<string, string> = {
   "8,3": "BARRIER",
   "5,6": "REPEAT",
 };
+const OBSTACLE_CELLS = Object.entries(GRID_DATA)
+  .filter(([, value]) => value === "WALL")
+  .map(([key]) => key.split(",").map(Number) as [number, number]);
 
 interface Player {
   x: number;
@@ -66,12 +72,6 @@ function HpBar({ hp, max, color }: { hp: number; max: number; color: string }) {
 }
 
 function CompassGrid({ player }: { player: string }) {
-  const cells = [
-    { pos: "N", label: "↑" },
-    { pos: "E", label: "→" },
-    { pos: "S", label: "↓" },
-    { pos: "W", label: "←" },
-  ];
   const mockStates: Record<string, { state: string; color: string }> = {
     N: { state: "OPEN", color: "#dcfce7" },
     E: { state: "PLAYER", color: player === "p1" ? "#dbeafe" : "#fee2e2" },
@@ -398,9 +398,8 @@ export default function BattlePage({
   const [turns, setTurns] = useState<TurnSnapshot[]>([]);
   const [currentTurn, setCurrentTurn] = useState(0);
   const [ended, setEnded] = useState(false);
-  const [playing, setPlaying] = useState(false);
+  const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     const socket = connectSocket(matchId);
@@ -409,7 +408,7 @@ export default function BattlePage({
         if (prev.some((t) => t.turn === snap.turn)) return prev;
         return [...prev, snap];
       });
-      setCurrentTurn(snap.turn);
+      setCurrentTurn((turn) => (turn === 0 ? 1 : turn));
     };
     const onResult = () => setEnded(true);
     socket.on("turn_event", onTurn);
@@ -430,25 +429,17 @@ export default function BattlePage({
     : INITIAL_P2;
 
   useEffect(() => {
-    if (playing) {
-      intervalRef.current = setInterval(() => {
-        setCurrentTurn((t) => {
-          if (t >= turns.length) {
-            setPlaying(false);
-            return t;
-          }
-          return t + 1;
-        });
-      }, 1000 / speed);
-    } else {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [playing, speed, turns.length]);
+    if (!playing || turns.length === 0) return;
+    if (currentTurn === 0 || currentTurn >= turns.length) return;
+
+    const id = setTimeout(() => {
+      setCurrentTurn((turn) => Math.min(turn + 1, turns.length));
+    }, speed < 1 ? TURN_EFFECT_MS / speed : TURN_EFFECT_MS);
+    return () => clearTimeout(id);
+  }, [currentTurn, playing, speed, turns.length]);
 
   const COLS = "ABCDEFGHIJ";
+  const resultReady = ended && currentTurn >= turns.length;
 
   return (
     <div
@@ -516,13 +507,13 @@ export default function BattlePage({
             style={{
               fontSize: 13,
               fontWeight: 600,
-              color: ended ? "var(--p1-ink)" : "#9ca3af",
+              color: resultReady ? "var(--p1-ink)" : "#9ca3af",
               textDecoration: "none",
               padding: "6px 14px",
               borderRadius: 8,
-              border: `1px solid ${ended ? "var(--p1)" : "var(--line)"}`,
+              border: `1px solid ${resultReady ? "var(--p1)" : "var(--line)"}`,
               background: "var(--surface)",
-              pointerEvents: ended ? "auto" : "none",
+              pointerEvents: resultReady ? "auto" : "none",
             }}
           >
             結果へ →
@@ -571,13 +562,12 @@ export default function BattlePage({
           {/* Board */}
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
             <div>
-              {/* Column labels */}
               <div style={{ display: "flex", marginLeft: 28 }}>
                 {Array.from({ length: 10 }, (_, i) => (
                   <div
                     key={i}
                     style={{
-                      width: 44,
+                      width: CELL_PX,
                       textAlign: "center",
                       fontSize: 11,
                       fontWeight: 700,
@@ -589,134 +579,146 @@ export default function BattlePage({
                   </div>
                 ))}
               </div>
-              {/* Grid rows */}
-              {Array.from({ length: 10 }, (_, row) => (
-                <div key={row} style={{ display: "flex", alignItems: "center" }}>
-                  <div
-                    style={{
-                      width: 24,
-                      textAlign: "right",
-                      paddingRight: 4,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      color: "var(--ink-soft)",
-                      fontFamily: "JetBrains Mono, monospace",
-                    }}
-                  >
-                    {10 - row}
-                  </div>
-                  {Array.from({ length: 10 }, (_, col) => {
-                    const key = `${col},${row}`;
-                    const cell = GRID_DATA[key];
-                    const isP1 = p1.x === col && p1.y === row;
-                    const isP2 = p2.x === col && p2.y === row;
-                    return (
-                      <div
-                        key={col}
-                        style={{
-                          width: 44,
-                          height: 44,
-                          border: "1px solid var(--line)",
-                          background: cell === "WALL"
-                            ? "repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 3px, #f9fafb 3px, #f9fafb 9px)"
-                            : "var(--surface)",
-                          display: "grid",
-                          placeItems: "center",
-                          position: "relative",
-                          fontSize: 10,
-                        }}
-                      >
-                        {cell === "CROSS" && (
-                          <div
-                            style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: "50%",
-                              background: "#fee2e2",
-                              border: "2px solid var(--p2)",
-                              display: "grid",
-                              placeItems: "center",
-                              fontSize: 10,
-                            }}
-                          >
-                            ✕
-                          </div>
-                        )}
-                        {cell === "BARRIER" && (
-                          <div
-                            style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: "50%",
-                              background: "var(--p1-soft)",
-                              border: "2px solid var(--p1)",
-                              display: "grid",
-                              placeItems: "center",
-                              fontSize: 10,
-                            }}
-                          >
-                            🛡
-                          </div>
-                        )}
-                        {cell === "REPEAT" && (
-                          <div
-                            style={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: "50%",
-                              background: "#dcfce7",
-                              border: "2px solid #16a34a",
-                              display: "grid",
-                              placeItems: "center",
-                              fontSize: 10,
-                            }}
-                          >
-                            ↻
-                          </div>
-                        )}
-                        {isP1 && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              width: 32,
-                              height: 32,
-                              borderRadius: 6,
-                              background: "var(--p1)",
-                              color: "#fff",
-                              display: "grid",
-                              placeItems: "center",
-                              fontWeight: 700,
-                              fontSize: 14,
-                              boxShadow: "0 2px 8px rgba(37,99,235,.4)",
-                            }}
-                          >
-                            {DIR_ARROW[p1.dir]}
-                          </div>
-                        )}
-                        {isP2 && (
-                          <div
-                            style={{
-                              position: "absolute",
-                              width: 32,
-                              height: 32,
-                              borderRadius: 6,
-                              background: "var(--p2)",
-                              color: "#fff",
-                              display: "grid",
-                              placeItems: "center",
-                              fontWeight: 700,
-                              fontSize: 14,
-                              boxShadow: "0 2px 8px rgba(239,68,68,.4)",
-                            }}
-                          >
-                            {DIR_ARROW[p2.dir]}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+              <div style={{ display: "flex", alignItems: "stretch" }}>
+                <div>
+                  {Array.from({ length: 10 }, (_, row) => (
+                    <div
+                      key={row}
+                      style={{
+                        width: 24,
+                        height: CELL_PX,
+                        textAlign: "right",
+                        paddingRight: 4,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        color: "var(--ink-soft)",
+                        fontFamily: "JetBrains Mono, monospace",
+                        display: "grid",
+                        alignItems: "center",
+                      }}
+                    >
+                      {10 - row}
+                    </div>
+                  ))}
                 </div>
-              ))}
+                <div style={{ position: "relative", width: CELL_PX * 10, height: CELL_PX * 10 }}>
+                  {Array.from({ length: 10 }, (_, row) => (
+                    <div key={row} style={{ display: "flex", alignItems: "center" }}>
+                      {Array.from({ length: 10 }, (_, col) => {
+                        const key = `${col},${row}`;
+                        const cell = GRID_DATA[key];
+                        const isP1 = p1.x === col && p1.y === row;
+                        const isP2 = p2.x === col && p2.y === row;
+                        return (
+                          <div
+                            key={col}
+                            style={{
+                              width: CELL_PX,
+                              height: CELL_PX,
+                              border: "1px solid var(--line)",
+                              background: cell === "WALL"
+                                ? "repeating-linear-gradient(45deg, #e5e7eb, #e5e7eb 3px, #f9fafb 3px, #f9fafb 9px)"
+                                : "var(--surface)",
+                              display: "grid",
+                              placeItems: "center",
+                              position: "relative",
+                              fontSize: 10,
+                            }}
+                          >
+                            {cell === "CROSS" && (
+                              <div
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: "50%",
+                                  background: "#fee2e2",
+                                  border: "2px solid var(--p2)",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  fontSize: 10,
+                                }}
+                              >
+                                ✕
+                              </div>
+                            )}
+                            {cell === "BARRIER" && (
+                              <div
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: "50%",
+                                  background: "var(--p1-soft)",
+                                  border: "2px solid var(--p1)",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  fontSize: 10,
+                                }}
+                              >
+                                🛡
+                              </div>
+                            )}
+                            {cell === "REPEAT" && (
+                              <div
+                                style={{
+                                  width: 24,
+                                  height: 24,
+                                  borderRadius: "50%",
+                                  background: "#dcfce7",
+                                  border: "2px solid #16a34a",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  fontSize: 10,
+                                }}
+                              >
+                                ↻
+                              </div>
+                            )}
+                            {isP1 && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 6,
+                                  background: "var(--p1)",
+                                  color: "#fff",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  fontWeight: 700,
+                                  fontSize: 14,
+                                  boxShadow: "0 2px 8px rgba(37,99,235,.4)",
+                                }}
+                              >
+                                {DIR_ARROW[p1.dir]}
+                              </div>
+                            )}
+                            {isP2 && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  width: 32,
+                                  height: 32,
+                                  borderRadius: 6,
+                                  background: "var(--p2)",
+                                  color: "#fff",
+                                  display: "grid",
+                                  placeItems: "center",
+                                  fontWeight: 700,
+                                  fontSize: 14,
+                                  boxShadow: "0 2px 8px rgba(239,68,68,.4)",
+                                }}
+                              >
+                                {DIR_ARROW[p2.dir]}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                  <ActionEffects snapshot={activeSnapshot} cellSize={CELL_PX} obstacles={OBSTACLE_CELLS} />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -771,8 +773,8 @@ export default function BattlePage({
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
               {/* Buttons */}
               {[
-                { icon: "⏮", action: () => setCurrentTurn(0), title: "最初へ" },
-                { icon: "⏪", action: () => setCurrentTurn((t) => Math.max(0, t - 1)), title: "前のターン" },
+                { icon: "⏮", action: () => { setPlaying(false); setCurrentTurn(0); }, title: "最初へ" },
+                { icon: "⏪", action: () => { setPlaying(false); setCurrentTurn((t) => Math.max(0, t - 1)); }, title: "前のターン" },
                 {
                   icon: playing ? "⏸" : "▶",
                   action: () => setPlaying((p) => !p),
@@ -780,10 +782,10 @@ export default function BattlePage({
                 },
                 {
                   icon: "⏩",
-                  action: () => setCurrentTurn((t) => Math.min(MAX_TURNS, t + 1)),
+                  action: () => { setPlaying(false); setCurrentTurn((t) => Math.min(turns.length, t + 1)); },
                   title: "次のターン",
                 },
-                { icon: "⏭", action: () => setCurrentTurn(MAX_TURNS), title: "最後へ" },
+                { icon: "⏭", action: () => { setPlaying(false); setCurrentTurn(turns.length); }, title: "最後へ" },
               ].map((btn) => (
                 <button
                   key={btn.icon}
