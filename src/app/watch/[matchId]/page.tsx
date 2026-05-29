@@ -6,6 +6,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useParams } from "next/navigation";
+import { ActionEffects } from "@/components/battle/ActionEffects";
 import { TopbarPaper } from "@/components/layout/TopbarPaper";
 import { connectSocket, disconnectSocket } from "@/lib/socket-client";
 import type { TurnSnapshot, Direction } from "@/lib/match-simulator";
@@ -100,6 +101,7 @@ const COMMENTARY = [
 ];
 
 const CELL_PX = 44;
+const TURN_EFFECT_MS = 860;
 
 /* ===========================================================================
    Small helpers
@@ -639,18 +641,26 @@ interface ReplayPayload {
 const DIR_LABEL: Record<Direction, string> = { N: "↑ NORTH", E: "→ EAST", S: "↓ SOUTH", W: "← WEST" };
 const ACTION_KIND: Record<string, PanelData["actions"][number]["kind"]> = {
   MOVE_FORWARD: "move",
+  MOVE_BACK: "move",
+  MOVE_LEFT: "move",
+  MOVE_RIGHT: "move",
   SHOOT_FORWARD: "shoot",
-  TURN_LEFT: "turn",
-  TURN_RIGHT: "turn",
-  SCAN: "scan",
+  SHOOT_BACK: "shoot",
+  SHOOT_LEFT: "shoot",
+  SHOOT_RIGHT: "shoot",
+  SCAN_AROUND: "scan",
   WAIT: "turn",
 };
 const ACTION_LABEL: Record<string, string> = {
   MOVE_FORWARD: "MOVE FWD",
-  SHOOT_FORWARD: "SHOOT",
-  TURN_LEFT: "TURN L",
-  TURN_RIGHT: "TURN R",
-  SCAN: "SCAN",
+  MOVE_BACK: "MOVE BACK",
+  MOVE_LEFT: "MOVE LEFT",
+  MOVE_RIGHT: "MOVE RIGHT",
+  SHOOT_FORWARD: "SHOOT FWD",
+  SHOOT_BACK: "SHOOT BACK",
+  SHOOT_LEFT: "SHOOT LEFT",
+  SHOOT_RIGHT: "SHOOT RIGHT",
+  SCAN_AROUND: "SCAN",
   WAIT: "WAIT",
 };
 
@@ -662,6 +672,7 @@ export default function WatchPage() {
   const [copied, setCopied] = useState(false);
   const [publicData, setPublicData] = useState<PublicMatch | null>(null);
   const [turns, setTurns] = useState<TurnSnapshot[]>([]);
+  const [displayedTurn, setDisplayedTurn] = useState(0);
   const [ended, setEnded] = useState(false);
   const [viewerCount, setViewerCount] = useState(0);
   const [resultSummary, setResultSummary] = useState<{ winnerId: string | null; endReason: string } | null>(null);
@@ -687,7 +698,10 @@ export default function WatchPage() {
       .then((r) => (r.ok ? r.json() : null))
       .then((data: ReplayPayload | null) => {
         if (cancelled || !data) return;
-        if (data.replayData?.turns?.length) setTurns(data.replayData.turns);
+        if (data.replayData?.turns?.length) {
+          setTurns(data.replayData.turns);
+          setDisplayedTurn((turn) => (turn === 0 ? 1 : turn));
+        }
         if (data.endReason) {
           setEnded(true);
           setResultSummary({ winnerId: data.winnerId ?? null, endReason: data.endReason });
@@ -704,6 +718,7 @@ export default function WatchPage() {
     const socket = connectSocket(matchId);
     const onTurn = (snap: TurnSnapshot) => {
       setTurns((prev) => (prev.some((t) => t.turn === snap.turn) ? prev : [...prev, snap]));
+      setDisplayedTurn((turn) => (turn === 0 ? 1 : turn));
     };
     const onResult = (payload: { winnerId: string | null; endReason: string }) => {
       setEnded(true);
@@ -722,6 +737,16 @@ export default function WatchPage() {
       disconnectSocket();
     };
   }, [matchId]);
+
+  useEffect(() => {
+    if (displayedTurn === 0 || displayedTurn >= turns.length) return;
+
+    const id = setTimeout(() => {
+      setDisplayedTurn((turn) => Math.min(turn + 1, turns.length));
+    }, speed < 1 ? TURN_EFFECT_MS / speed : TURN_EFFECT_MS);
+    return () => clearTimeout(id);
+  }, [displayedTurn, speed, turns.length]);
+
   const shareUrl = useMemo(
     () => (typeof window !== "undefined" ? `${window.location.origin}/watch/${matchId}` : `/watch/${matchId}`),
     [matchId]
@@ -738,7 +763,7 @@ export default function WatchPage() {
     p1: { id: "P1", name: p1Name, initials: initialsFor(p1Name, "P1") },
     p2: { id: "P2", name: p2Name, initials: initialsFor(p2Name, "P2") },
     viewerCount,
-    currentTurn: turns.length,
+    currentTurn: displayedTurn,
     mode: (ended ? "ENDED" : "LIVE") as "LIVE" | "REPLAY" | "ENDED",
   };
   const winnerLabel = resultSummary?.winnerId
@@ -750,7 +775,7 @@ export default function WatchPage() {
     : "引き分け";
   const timelineEvents = timelineFromTurns(turns, winnerLabel, resultSummary?.endReason);
 
-  const latest = turns[turns.length - 1];
+  const latest = displayedTurn > 0 ? turns[displayedTurn - 1] : undefined;
   const fmtAction = (
     action: string | undefined
   ): { kind: PanelData["actions"][number]["kind"]; label: string } => ({
@@ -763,7 +788,7 @@ export default function WatchPage() {
     name: meta.p1.name,
     initials: meta.p1.initials,
     x: latest?.p1.x ?? 0,
-    y: latest?.p1.y ?? 0,
+    y: latest?.p1.y ?? 9,
     dir: latest ? DIR_LABEL[latest.p1.dir] : "↑ NORTH",
     hp: latest?.p1.hp ?? 100,
     maxHp: 100,
@@ -787,7 +812,7 @@ export default function WatchPage() {
     name: meta.p2.name,
     initials: meta.p2.initials,
     x: latest?.p2.x ?? 9,
-    y: latest?.p2.y ?? 9,
+    y: latest?.p2.y ?? 0,
     dir: latest ? DIR_LABEL[latest.p2.dir] : "↓ SOUTH",
     hp: latest?.p2.hp ?? 100,
     maxHp: 100,
@@ -1044,9 +1069,10 @@ export default function WatchPage() {
             }}
           >
             <Board
+              snapshot={latest}
               tanks={[
-                { id: "P1", x: p1Data.x, y: p1Data.y, dir: (latest?.p1.dir ?? "E") as Direction, name: meta.p1.initials },
-                { id: "P2", x: p2Data.x, y: p2Data.y, dir: (latest?.p2.dir ?? "W") as Direction, name: meta.p2.initials },
+                { id: "P1", x: p1Data.x, y: p1Data.y, dir: (latest?.p1.dir ?? "N") as Direction, name: meta.p1.initials },
+                { id: "P2", x: p2Data.x, y: p2Data.y, dir: (latest?.p2.dir ?? "S") as Direction, name: meta.p2.initials },
               ]}
             />
           </div>
@@ -1742,7 +1768,7 @@ function PlayerChip({ side, initials, name }: { side: "p1" | "p2"; initials: str
    Board (10x10)
    =========================================================================== */
 
-function Board({ tanks }: { tanks: LiveTank[] }) {
+function Board({ tanks, snapshot }: { tanks: LiveTank[]; snapshot?: TurnSnapshot }) {
   return (
     <div
       aria-label="10x10 盤面"
@@ -1821,6 +1847,7 @@ function Board({ tanks }: { tanks: LiveTank[] }) {
           <TankGlyph side={t.id === "P1" ? "p1" : "p2"} name={t.name} dir={t.dir} />
         </div>
       ))}
+      <ActionEffects snapshot={snapshot} cellSize={CELL_PX} obstacles={BOARD.obstacles} />
     </div>
   );
 }

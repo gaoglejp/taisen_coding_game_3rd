@@ -172,7 +172,7 @@ export const MAX_TURNS = 20;
 export const INITIAL_HP = 100;
 const MIN_TURNS = 1;
 const MAX_TURNS_LIMIT = 200;
-const SHOOT_RANGE = 3;
+const SHOOT_RANGE = GRID_SIZE - 1;
 const SHOOT_DAMAGE = 15;
 const SCAN_RANGE = 3;
 

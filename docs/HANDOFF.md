@@ -327,6 +327,21 @@ These are the calls the previous session made that the next session should
    clause matched. The legacy single-branch `{cond, body}` shape still works.
    Per a product call, **action block labels stay Japanese-only** (no English
    command suffix).
+19. **Battle action feedback is derived client-side from `TurnSnapshot`.**
+   `src/components/battle/ActionEffects.tsx` renders the shared visual feedback
+   used by `/practice`, `/match/:id/battle`, and `/watch/:id`: round projectile
+   shots along the relative shoot ray until they hit the enemy, an obstacle, or
+   the board edge; comic-style hit bursts; scan-range coloring; and
+   blocked-move bump labels. `/match/:id/battle` and `/watch/:id` pass their
+   visible obstacle coordinates into the effect renderer so projectile visuals
+   stop on obstacles before targets. The simulator wire shape was kept
+   unchanged; the component derives effects from existing fields (`action`,
+   `moved`, `shoot_result`, `scan_detected`, position/facing). Live battle/watch
+   pages intentionally keep **received turns** separate from the **displayed
+   turn** so the next turn is not shown until the current action effect has
+   cleared. Simulator shooting now uses line-of-sight to the board edge
+   (`GRID_SIZE - 1`) rather than the scan range; true obstacle blocking is still
+   only visual because obstacles are not yet part of `match-simulator.ts`.
 
 ## 4. Known unfinished work (in priority order)
 
