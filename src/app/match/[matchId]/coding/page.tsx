@@ -667,7 +667,7 @@ export default function CodingPage({
           アクション/ターン: <span style={{ color: "#e5e7eb", fontWeight: 600 }}>2</span>
         </span>
         <span style={{ color: "#374151" }}>|</span>
-        <span>AP: MOVE=1, SHOOT=1, SCAN=2, WAIT=0</span>
+        <span>AP: MOVE=1, SHOOT=1, SCAN=1, WAIT=1</span>
         <span style={{ color: "#374151" }}>|</span>
         <span style={{ marginLeft: "auto" }}>
           確定フラグ:{" "}
