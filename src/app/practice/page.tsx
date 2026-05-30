@@ -564,7 +564,7 @@ export default function PracticePage() {
           alignItems: "center",
           gap: 12,
           boxShadow: "0 -6px 18px rgba(31,35,48,0.06)",
-          zIndex: 50,
+          zIndex: 100,
         }}
       >
         <div style={{ maxWidth: 1360, margin: "0 auto", width: "100%", display: "flex", alignItems: "center", gap: 12 }}>
