@@ -34,6 +34,25 @@ function userIdFromToken(token: string | null): string | null {
 }
 
 const TURN_DELAY_MS = 1200;
+// How long the server will wait for both players' `battle_ready` before
+// starting the match anyway. Protects against a disconnect / stuck client
+// keeping the other player frozen at "starting…" forever.
+const BATTLE_READY_TIMEOUT_MS = 20000;
+
+interface PendingBattle {
+  p1Id: string | null;
+  p2Id: string | null;
+  strategy1: unknown;
+  strategy2: unknown;
+  rulePreset: unknown;
+  ready: Set<string>;
+  timeout: NodeJS.Timeout;
+  started: boolean;
+}
+
+// matchId → pending battle waiting for both players' battle_ready signal.
+// Cleared once the simulation kicks off (or the timeout fires).
+const pendingBattles = new Map<string, PendingBattle>();
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -204,7 +223,9 @@ app.prepare().then(() => {
           io.to(`match:${matchId}`).emit("match_started", { matchId });
 
           // Strategy on `match` is stale — it was fetched before this update —
-          // so re-read both fields and run the turn loop.
+          // so re-read both fields and stage the pending battle. The actual
+          // turn loop kicks off in the `battle_ready` handshake below once both
+          // participants have signalled that their battle page is ready.
           const fresh = await prisma.match.findUnique({
             where: { id: matchId },
             select: {
@@ -216,20 +237,67 @@ app.prepare().then(() => {
             },
           });
           if (fresh) {
-            runMatch(
-              matchId,
-              fresh.player1Id,
-              fresh.player2Id,
-              fresh.strategy1,
-              fresh.strategy2,
-              fresh.room?.rulePreset
-            ).catch(
-              (err) => console.error(`Match ${matchId} simulation failed:`, err)
-            );
+            const pending: PendingBattle = {
+              p1Id: fresh.player1Id,
+              p2Id: fresh.player2Id,
+              strategy1: fresh.strategy1,
+              strategy2: fresh.strategy2,
+              rulePreset: fresh.room?.rulePreset,
+              ready: new Set(),
+              started: false,
+              timeout: setTimeout(() => {
+                const stale = pendingBattles.get(matchId);
+                if (!stale || stale.started) return;
+                stale.started = true;
+                pendingBattles.delete(matchId);
+                runMatch(
+                  matchId,
+                  stale.p1Id,
+                  stale.p2Id,
+                  stale.strategy1,
+                  stale.strategy2,
+                  stale.rulePreset
+                ).catch((err) =>
+                  console.error(`Match ${matchId} simulation failed:`, err)
+                );
+              }, BATTLE_READY_TIMEOUT_MS),
+            };
+            pendingBattles.set(matchId, pending);
           }
         }
       }
     );
+
+    // Battle page handshake. Both participants signal `battle_ready` once
+    // their replay UI has mounted; only then does the server start emitting
+    // turn_events. Prevents the "pieces already moving" race where the slower
+    // client misses early turns. Spectators do nothing here.
+    socket.on("battle_ready", ({ matchId }: { matchId: string }) => {
+      const userId = socket.data.userId as string | undefined;
+      if (!userId || !matchId) return;
+      const pending = pendingBattles.get(matchId);
+      if (!pending || pending.started) return;
+      const isParticipant = userId === pending.p1Id || userId === pending.p2Id;
+      if (!isParticipant) return;
+      pending.ready.add(userId);
+      const bothReady =
+        (!pending.p1Id || pending.ready.has(pending.p1Id)) &&
+        (!pending.p2Id || pending.ready.has(pending.p2Id));
+      if (!bothReady) return;
+      pending.started = true;
+      clearTimeout(pending.timeout);
+      pendingBattles.delete(matchId);
+      runMatch(
+        matchId,
+        pending.p1Id,
+        pending.p2Id,
+        pending.strategy1,
+        pending.strategy2,
+        pending.rulePreset
+      ).catch((err) =>
+        console.error(`Match ${matchId} simulation failed:`, err)
+      );
+    });
 
     socket.on("disconnecting", () => {
       for (const room of socket.rooms) {

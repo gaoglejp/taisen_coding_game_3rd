@@ -28,7 +28,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       createdAt: true,
       player1: { select: { id: true, username: true, displayName: true } },
       player2: { select: { id: true, username: true, displayName: true } },
-      room: { select: { id: true, name: true, roomNumber: true } },
+      room: { select: { id: true, name: true, roomNumber: true, rulePreset: true } },
     },
   });
 

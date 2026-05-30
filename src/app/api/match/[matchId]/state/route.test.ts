@@ -36,7 +36,7 @@ const baseMatch = {
   createdAt: new Date("2026-05-24T10:00:00Z"),
   player1: { id: "p1", username: "u1", displayName: "P1" },
   player2: { id: "p2", username: "u2", displayName: "P2" },
-  room: { id: "room-1", name: "R", roomNumber: "ROOM-1" },
+  room: { id: "room-1", name: "R", roomNumber: "ROOM-1", rulePreset: {} },
 };
 
 beforeEach(() => {
@@ -81,7 +81,7 @@ describe("GET /api/match/:matchId/state", () => {
     const json = await res.json();
     expect(json.match.player1.id).toBe("p1");
     expect(json.match.player2.id).toBe("p2");
-    expect(json.match.room).toEqual({ id: "room-1", name: "R", roomNumber: "ROOM-1" });
+    expect(json.match.room).toEqual({ id: "room-1", name: "R", roomNumber: "ROOM-1", rulePreset: {} });
     expect(json.match.codingDeadlineAt).toBeTruthy();
     expect(matchUpdateMock).not.toHaveBeenCalled();
   });
