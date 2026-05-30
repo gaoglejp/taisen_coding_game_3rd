@@ -37,6 +37,19 @@ export function lockCoding(
   s.emit("coding_lock", { matchId, strategy, blocklyXml });
 }
 
+// Signal to the server that the local battle page has finished mounting and
+// is ready to receive turn_event payloads. The server waits for both
+// participants' battle_ready before kicking off the turn loop — see
+// server.ts pendingBattles for the handshake.
+export function emitBattleReady(matchId: string): void {
+  const s = getSocket();
+  if (s.connected) {
+    s.emit("battle_ready", { matchId });
+  } else {
+    s.once("connect", () => s.emit("battle_ready", { matchId }));
+  }
+}
+
 export function disconnectSocket(): void {
   socket?.disconnect();
   socket = undefined;

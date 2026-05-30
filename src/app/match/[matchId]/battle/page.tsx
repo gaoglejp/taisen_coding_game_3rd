@@ -3,8 +3,8 @@
 import { useState, useEffect, use } from "react";
 import Link from "next/link";
 import { ActionEffects } from "@/components/battle/ActionEffects";
-import { connectSocket, disconnectSocket } from "@/lib/socket-client";
-import type { TurnSnapshot } from "@/lib/match-simulator";
+import { connectSocket, disconnectSocket, emitBattleReady } from "@/lib/socket-client";
+import { MAX_TURNS as DEFAULT_MAX_TURNS, type TurnSnapshot } from "@/lib/match-simulator";
 
 const MOCK_MATCH = {
   matchId: "match-001",
@@ -15,7 +15,7 @@ const MOCK_MATCH = {
   spectatorCount: 12,
 };
 
-const MAX_TURNS = 20;
+const GRID_SIZE = 10;
 const CELL_PX = 44;
 const TURN_EFFECT_MS = 860;
 
@@ -400,6 +400,45 @@ export default function BattlePage({
   const [ended, setEnded] = useState(false);
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
+  const [maxTurns, setMaxTurns] = useState<number>(DEFAULT_MAX_TURNS);
+  // "p1" / "p2" if the viewer is a participant; "spectator" otherwise. Used to
+  // flip the board so the viewer's own piece sits at the bottom of the grid.
+  const [viewer, setViewer] = useState<"p1" | "p2" | "spectator">("spectator");
+
+  // Pull viewer identity, the match's player slots, and the room's maxTurns
+  // so the header and the board can render with real values instead of the
+  // prototype mocks. Also signals battle_ready once everything is in place.
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([
+      fetch("/api/me", { credentials: "include" }),
+      fetch(`/api/match/${matchId}/state`, { credentials: "include" }),
+    ]).then(async ([meRes, stateRes]) => {
+      if (cancelled) return;
+      let myUserId: string | null = null;
+      if (meRes.status === "fulfilled" && meRes.value.ok) {
+        const data = await meRes.value.json();
+        myUserId = data?.user?.id ?? null;
+      }
+      if (stateRes.status === "fulfilled" && stateRes.value.ok) {
+        const data = await stateRes.value.json();
+        const m = data?.match;
+        const ruleMax = m?.room?.rulePreset?.maxTurns;
+        if (typeof ruleMax === "number" && Number.isFinite(ruleMax) && ruleMax > 0) {
+          setMaxTurns(ruleMax);
+        }
+        if (myUserId && m?.player1?.id === myUserId) setViewer("p1");
+        else if (myUserId && m?.player2?.id === myUserId) setViewer("p2");
+        else setViewer("spectator");
+      }
+      // The state fetch + identity are in place; tell the server we're ready
+      // for turn_events. Spectators emit too — the server filters them out.
+      emitBattleReady(matchId);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [matchId]);
 
   useEffect(() => {
     const socket = connectSocket(matchId);
@@ -439,6 +478,13 @@ export default function BattlePage({
   }, [currentTurn, playing, speed, turns.length]);
 
   const COLS = "ABCDEFGHIJ";
+  // P2 views the board flipped 180° so their own piece sits at the bottom.
+  // We rotate the cells via CSS (so the tank arrows naturally read as
+  // "forward = up" from the viewer's perspective) and reverse the axis
+  // labels so they stay upright and aligned with the rotated coordinates.
+  const flipBoard = viewer === "p2";
+  const colLabels = flipBoard ? COLS.split("").reverse().join("") : COLS;
+  const rowLabel = (row: number) => (flipBoard ? row + 1 : GRID_SIZE - row);
   const resultReady = ended && currentTurn >= turns.length;
 
   return (
@@ -555,7 +601,7 @@ export default function BattlePage({
                 borderRadius: 999,
               }}
             >
-              TURN {currentTurn} / {MAX_TURNS}
+              TURN {currentTurn} / {maxTurns}
             </span>
           </div>
 
@@ -575,7 +621,7 @@ export default function BattlePage({
                       fontFamily: "JetBrains Mono, monospace",
                     }}
                   >
-                    {COLS[i]}
+                    {colLabels[i]}
                   </div>
                 ))}
               </div>
@@ -597,11 +643,18 @@ export default function BattlePage({
                         alignItems: "center",
                       }}
                     >
-                      {10 - row}
+                      {rowLabel(row)}
                     </div>
                   ))}
                 </div>
-                <div style={{ position: "relative", width: CELL_PX * 10, height: CELL_PX * 10 }}>
+                <div
+                  style={{
+                    position: "relative",
+                    width: CELL_PX * 10,
+                    height: CELL_PX * 10,
+                    transform: flipBoard ? "rotate(180deg)" : undefined,
+                  }}
+                >
                   {Array.from({ length: 10 }, (_, row) => (
                     <div key={row} style={{ display: "flex", alignItems: "center" }}>
                       {Array.from({ length: 10 }, (_, col) => {
@@ -837,7 +890,7 @@ export default function BattlePage({
               <input
                 type="range"
                 min={0}
-                max={MAX_TURNS}
+                max={maxTurns}
                 value={currentTurn}
                 onChange={(e) => {
                   setPlaying(false);
@@ -856,7 +909,7 @@ export default function BattlePage({
                   title={`T${marker.turn}: ${marker.label}`}
                   style={{
                     position: "absolute",
-                    left: `${(marker.turn / MAX_TURNS) * 100}%`,
+                    left: `${(marker.turn / maxTurns) * 100}%`,
                     top: -4,
                     width: 8,
                     height: 8,
@@ -870,7 +923,7 @@ export default function BattlePage({
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
               <span>T0</span>
-              <span>T{MAX_TURNS}</span>
+              <span>T{maxTurns}</span>
             </div>
           </div>
 
@@ -975,7 +1028,7 @@ export default function BattlePage({
                 position: "absolute",
                 top: "50%",
                 left: 0,
-                width: `${(currentTurn / MAX_TURNS) * 100}%`,
+                width: `${(currentTurn / maxTurns) * 100}%`,
                 height: 4,
                 background: "var(--p1)",
                 borderRadius: 999,
@@ -995,7 +1048,7 @@ export default function BattlePage({
                 title={`T${m.turn}: ${m.label}`}
                 style={{
                   position: "absolute",
-                  left: `${(m.turn / MAX_TURNS) * 100}%`,
+                  left: `${(m.turn / maxTurns) * 100}%`,
                   top: "50%",
                   transform: "translate(-50%, -50%)",
                   width: 10,
