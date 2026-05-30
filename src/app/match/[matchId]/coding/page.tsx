@@ -175,10 +175,10 @@ export default function CodingPage({
     timeLeft <= 30 ? "#dc2626" : timeLeft <= 60 ? "#f59e0b" : "#1f2330";
 
   const tabs = [
-    { key: "status", label: "自機ステータス" },
+    { key: "status", label: "自機" },
     { key: "lastTurn", label: "直前ターン" },
-    { key: "hints", label: "ブロックヒント" },
-    { key: "json", label: "JSONプレビュー" },
+    { key: "hints", label: "ヒント" },
+    { key: "json", label: "JSON" },
   ] as const;
 
   return (
@@ -188,7 +188,7 @@ export default function CodingPage({
         style={{
           background: "linear-gradient(180deg, #fbf8ef, #f6f1e2)",
           borderBottom: "1px solid var(--line)",
-          padding: "12px 24px",
+          padding: "10px 20px",
           display: "grid",
           gridTemplateColumns: "1fr auto 1fr",
           alignItems: "center",
@@ -245,14 +245,35 @@ export default function CodingPage({
             <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>vs</span>
             <span
               style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
                 fontSize: 12,
-                fontWeight: 600,
-                background: "var(--line)",
-                padding: "1px 8px",
+                fontWeight: 700,
+                background: "var(--surface)",
+                padding: "2px 10px 2px 2px",
                 borderRadius: 999,
-                color: "var(--ink-soft)",
+                border: "1px solid var(--line)",
+                color: "var(--ink)",
               }}
             >
+              <span
+                aria-hidden="true"
+                style={{
+                  width: 18,
+                  height: 18,
+                  borderRadius: "50%",
+                  background: "var(--p2-soft)",
+                  color: "var(--p2-ink)",
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: 10,
+                  fontWeight: 800,
+                  fontFamily: "JetBrains Mono, monospace",
+                }}
+              >
+                {opponentName?.[0]?.toUpperCase() ?? "?"}
+              </span>
               {opponentName}
             </span>
           </div>
@@ -279,11 +300,11 @@ export default function CodingPage({
           <div
             style={{
               fontFamily: "JetBrains Mono, monospace",
-              fontSize: 28,
+              fontSize: 24,
               fontWeight: 700,
               color: timerColor,
               letterSpacing: "0.05em",
-              minWidth: 80,
+              minWidth: 72,
               textAlign: "right",
               transition: "color 0.3s",
             }}
@@ -320,7 +341,7 @@ export default function CodingPage({
         {/* Right Pane: Tabs */}
         <div
           style={{
-            width: 360,
+            width: 320,
             flexShrink: 0,
             borderLeft: "1px solid var(--line)",
             display: "flex",
@@ -345,13 +366,14 @@ export default function CodingPage({
                 style={{
                   flex: 1,
                   padding: "10px 4px",
-                  fontSize: 11,
-                  fontWeight: 600,
+                  fontSize: 12,
+                  fontWeight: 700,
                   border: "none",
                   background: "transparent",
                   borderBottom: activeTab === tab.key ? "2px solid var(--accent)" : "2px solid transparent",
                   color: activeTab === tab.key ? "var(--ink)" : "var(--ink-soft)",
                   cursor: "pointer",
+                  whiteSpace: "nowrap",
                 }}
               >
                 {tab.label}
@@ -642,38 +664,38 @@ export default function CodingPage({
         </div>
       </div>
 
-      {/* Bottom status bar */}
+      {/* Bottom status bar — matches the practice page's light footer chrome. */}
       <div
         style={{
-          background: "#1f2330",
-          borderTop: "1px solid #374151",
-          padding: "8px 24px",
+          background: "var(--surface)",
+          borderTop: "1px solid var(--line)",
+          padding: "8px 20px",
           display: "flex",
           alignItems: "center",
-          gap: 24,
+          gap: 20,
           flexShrink: 0,
           fontSize: 12,
-          color: "#9ca3af",
+          color: "var(--ink-soft)",
           fontFamily: "JetBrains Mono, monospace",
+          boxShadow: "0 -4px 12px rgba(31,35,48,0.04)",
         }}
       >
         <span>
-          ブロック数: <span style={{ color: "#e5e7eb", fontWeight: 600 }}>5</span>
+          ブロック数: <span style={{ color: "var(--ink)", fontWeight: 700 }}>5</span>
         </span>
         <span>
-          ネスト深度: <span style={{ color: "#e5e7eb", fontWeight: 600 }}>2</span>
+          ネスト深度: <span style={{ color: "var(--ink)", fontWeight: 700 }}>2</span>
         </span>
         <span>
-          アクション/ターン: <span style={{ color: "#e5e7eb", fontWeight: 600 }}>2</span>
+          アクション/ターン: <span style={{ color: "var(--ink)", fontWeight: 700 }}>2</span>
         </span>
-        <span style={{ color: "#374151" }}>|</span>
-        <span>AP: MOVE=1, SHOOT=1, SCAN=1, WAIT=1</span>
-        <span style={{ color: "#374151" }}>|</span>
+        <span style={{ color: "var(--line-2)" }}>|</span>
+        <span>AP: 全アクション 1</span>
         <span style={{ marginLeft: "auto" }}>
           確定フラグ:{" "}
           <span
             style={{
-              color: locked ? "#4ade80" : "#f87171",
+              color: locked ? "var(--success)" : "var(--danger)",
               fontWeight: 700,
             }}
           >
