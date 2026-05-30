@@ -324,7 +324,7 @@ export default function PracticePage() {
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
       <TopbarPaper title="練習モード" />
-      <main style={{ maxWidth: 1360, margin: "0 auto", padding: "18px 20px 28px" }}>
+      <main style={{ maxWidth: 1360, margin: "0 auto", padding: "18px 20px 100px" }}>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(520px, 1.05fr) minmax(520px, .95fr)", gap: 16, alignItems: "stretch" }}>
           <section
             style={{
@@ -370,26 +370,6 @@ export default function PracticePage() {
             <div style={{ flex: 1, minHeight: 520 }}>
               <BlocklyEditor onChange={handleStrategyChange} initialState={DEFAULT_WORKSPACE_STATE} />
             </div>
-            <footer style={{ padding: "12px 16px", borderTop: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 10 }}>
-              <button
-                type="button"
-                onClick={runPractice}
-                disabled={busy}
-                style={{
-                  background: busy ? "#d1d5db" : "var(--accent)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 9,
-                  padding: "10px 18px",
-                  fontSize: 14,
-                  fontWeight: 800,
-                  cursor: busy ? "wait" : "pointer",
-                }}
-              >
-                {busy ? "対戦準備中…" : "対戦開始"}
-              </button>
-              {error && <span role="alert" style={{ color: "var(--danger)", fontSize: 13, fontWeight: 700 }}>{error}</span>}
-            </footer>
           </section>
 
           <section
@@ -569,6 +549,50 @@ export default function PracticePage() {
           </section>
         </div>
       </main>
+      <footer
+        role="contentinfo"
+        aria-label="対戦開始フッタ"
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: "var(--surface)",
+          borderTop: "1px solid var(--line)",
+          padding: "12px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+          boxShadow: "0 -6px 18px rgba(31,35,48,0.06)",
+          zIndex: 50,
+        }}
+      >
+        <div style={{ maxWidth: 1360, margin: "0 auto", width: "100%", display: "flex", alignItems: "center", gap: 12 }}>
+          <button
+            type="button"
+            onClick={runPractice}
+            disabled={busy}
+            style={{
+              background: busy ? "#d1d5db" : "var(--accent)",
+              color: "#fff",
+              border: "none",
+              borderRadius: 9,
+              padding: "10px 22px",
+              fontSize: 14,
+              fontWeight: 800,
+              cursor: busy ? "wait" : "pointer",
+              boxShadow: busy ? "none" : "0 2px 0 #c2740a",
+            }}
+          >
+            {busy ? "対戦準備中…" : "対戦開始"}
+          </button>
+          {error && (
+            <span role="alert" style={{ color: "var(--danger)", fontSize: 13, fontWeight: 700 }}>
+              {error}
+            </span>
+          )}
+        </div>
+      </footer>
     </div>
   );
 }
