@@ -32,7 +32,6 @@ const EMPTY_STRATEGY: Strategy = {
 const INITIAL_P1 = { x: 0, y: GRID_SIZE - 1, dir: "N" as Direction, hp: INITIAL_HP };
 const INITIAL_P2 = { x: GRID_SIZE - 1, y: 0, dir: "S" as Direction, hp: INITIAL_HP };
 const DIR_ARROW: Record<Direction, string> = { N: "↑", E: "→", S: "↓", W: "←" };
-const CELL_PX = 40;
 const TURN_EFFECT_MS = 860;
 const ACTION_LABEL: Record<string, string> = {
   MOVE_FORWARD: "前進",
@@ -172,17 +171,20 @@ function Board({
   p1,
   p2,
   snapshot,
+  cellSize,
 }: {
   p1: { x: number; y: number; dir: Direction; hp: number };
   p2: { x: number; y: number; dir: Direction; hp: number };
   snapshot?: TurnSnapshot;
+  cellSize: number;
 }) {
   const cols = "ABCDEFGHIJ";
+  const glyphSize = Math.max(20, cellSize - 10);
   return (
     <div aria-label="練習バトル盤面">
       <div style={{ display: "flex", marginLeft: 28 }}>
         {Array.from({ length: GRID_SIZE }, (_, i) => (
-          <div key={i} style={{ width: CELL_PX, textAlign: "center", fontSize: 10, fontWeight: 800, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
+          <div key={i} style={{ width: cellSize, textAlign: "center", fontSize: 10, fontWeight: 800, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace" }}>
             {cols[i]}
           </div>
         ))}
@@ -190,12 +192,12 @@ function Board({
       <div style={{ display: "flex", alignItems: "stretch" }}>
         <div>
           {Array.from({ length: GRID_SIZE }, (_, row) => (
-            <div key={row} style={{ width: 24, height: CELL_PX, textAlign: "right", paddingRight: 4, fontSize: 10, fontWeight: 800, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace", display: "grid", alignItems: "center" }}>
+            <div key={row} style={{ width: 24, height: cellSize, textAlign: "right", paddingRight: 4, fontSize: 10, fontWeight: 800, color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace", display: "grid", alignItems: "center" }}>
               {GRID_SIZE - row}
             </div>
           ))}
         </div>
-        <div style={{ position: "relative", width: CELL_PX * GRID_SIZE, height: CELL_PX * GRID_SIZE }}>
+        <div style={{ position: "relative", width: cellSize * GRID_SIZE, height: cellSize * GRID_SIZE }}>
           {Array.from({ length: GRID_SIZE }, (_, row) => (
             <div key={row} style={{ display: "flex", alignItems: "center" }}>
               {Array.from({ length: GRID_SIZE }, (_, col) => {
@@ -205,8 +207,8 @@ function Board({
                   <div
                     key={col}
                     style={{
-                      width: CELL_PX,
-                      height: CELL_PX,
+                      width: cellSize,
+                      height: cellSize,
                       border: "1px solid var(--line)",
                       background: "var(--surface)",
                       display: "grid",
@@ -215,36 +217,36 @@ function Board({
                     }}
                   >
                     {isP1 && (
-                      <TankGlyph arrow={DIR_ARROW[p1.dir]} background="var(--p1)" shadow="rgba(37,99,235,.38)" />
+                      <TankGlyph arrow={DIR_ARROW[p1.dir]} background="var(--p1)" shadow="rgba(37,99,235,.38)" size={glyphSize} />
                     )}
                     {isP2 && (
-                      <TankGlyph arrow={DIR_ARROW[p2.dir]} background="var(--p2)" shadow="rgba(239,68,68,.38)" />
+                      <TankGlyph arrow={DIR_ARROW[p2.dir]} background="var(--p2)" shadow="rgba(239,68,68,.38)" size={glyphSize} />
                     )}
                   </div>
                 );
               })}
             </div>
           ))}
-          <ActionEffects snapshot={snapshot} cellSize={CELL_PX} />
+          <ActionEffects snapshot={snapshot} cellSize={cellSize} />
         </div>
       </div>
     </div>
   );
 }
 
-function TankGlyph({ arrow, background, shadow }: { arrow: string; background: string; shadow: string }) {
+function TankGlyph({ arrow, background, shadow, size }: { arrow: string; background: string; shadow: string; size: number }) {
   return (
     <div
       style={{
-        width: 30,
-        height: 30,
+        width: size,
+        height: size,
         borderRadius: 6,
         background,
         color: "#fff",
         display: "grid",
         placeItems: "center",
         fontWeight: 800,
-        fontSize: 14,
+        fontSize: Math.max(11, Math.round(size * 0.47)),
         boxShadow: `0 2px 8px ${shadow}`,
       }}
     >
@@ -261,6 +263,19 @@ export default function PracticePage() {
   const [playing, setPlaying] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Board cell size scales with viewport height so the 10×10 board ends up at
+  // roughly half the viewport tall, leaving room for the scrollable player /
+  // controls / turn-log pane below.
+  const [cellPx, setCellPx] = useState(40);
+  useEffect(() => {
+    const compute = () => {
+      const px = Math.max(30, Math.min(44, Math.floor(window.innerHeight * 0.045)));
+      setCellPx(px);
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    return () => window.removeEventListener("resize", compute);
+  }, []);
   const hydrated = useHydrated();
 
   const handleStrategyChange = useCallback((next: Strategy) => {
@@ -408,7 +423,7 @@ export default function PracticePage() {
 
             {/* Board: stays visible regardless of scrolling below. */}
             <div style={{ display: "flex", justifyContent: "center", overflowX: "auto", padding: "14px 14px 10px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
-              <Board p1={p1} p2={p2} snapshot={activeSnapshot} />
+              <Board p1={p1} p2={p2} snapshot={activeSnapshot} cellSize={cellPx} />
             </div>
 
             {/* Scrollable lower pane: player panels, replay controls, turn log. */}
