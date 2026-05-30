@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ActionEffects } from "@/components/battle/ActionEffects";
 import { TopbarPaper } from "@/components/layout/TopbarPaper";
@@ -354,6 +355,20 @@ export default function PracticePage() {
           >
             <header style={{ padding: "13px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexShrink: 0 }}>
               <div>
+                <Link
+                  href="/dashboard"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    fontSize: 12,
+                    color: "var(--ink-soft)",
+                    textDecoration: "none",
+                    marginBottom: 4,
+                  }}
+                >
+                  ← ダッシュボードへ戻る
+                </Link>
                 <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>ソロバトル</h1>
                 <div style={{ marginTop: 2, fontSize: 12, color: "var(--ink-soft)" }}>ブロックで自分のストラテジーを組む</div>
               </div>
