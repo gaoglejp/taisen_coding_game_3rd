@@ -322,22 +322,22 @@ export default function PracticePage() {
   };
 
   return (
-    <div style={{ background: "var(--bg)", minHeight: "100vh" }}>
+    <div style={{ background: "var(--bg)", height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <TopbarPaper title="練習モード" />
-      <main style={{ maxWidth: 1360, margin: "0 auto", padding: "18px 20px 100px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(520px, 1.05fr) minmax(520px, .95fr)", gap: 16, alignItems: "stretch" }}>
+      <main style={{ flex: 1, minHeight: 0, width: "100%", maxWidth: 1360, margin: "0 auto", padding: "18px 20px 16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(520px, 1.05fr) minmax(520px, .95fr)", gap: 16, height: "100%", minHeight: 0 }}>
           <section
             style={{
               background: "var(--surface)",
               border: "1px solid var(--line)",
               borderRadius: 12,
               overflow: "hidden",
-              minHeight: 640,
+              minHeight: 0,
               display: "flex",
               flexDirection: "column",
             }}
           >
-            <header style={{ padding: "13px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <header style={{ padding: "13px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexShrink: 0 }}>
               <div>
                 <h1 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>ソロバトル</h1>
                 <div style={{ marginTop: 2, fontSize: 12, color: "var(--ink-soft)" }}>ブロックで自分のストラテジーを組む</div>
@@ -367,7 +367,7 @@ export default function PracticePage() {
                 ))}
               </div>
             </header>
-            <div style={{ flex: 1, minHeight: 520 }}>
+            <div style={{ flex: 1, minHeight: 0 }}>
               <BlocklyEditor onChange={handleStrategyChange} initialState={DEFAULT_WORKSPACE_STATE} />
             </div>
           </section>
@@ -378,12 +378,12 @@ export default function PracticePage() {
               border: "1px solid var(--line)",
               borderRadius: 12,
               overflow: "hidden",
-              minHeight: 640,
+              minHeight: 0,
               display: "flex",
               flexDirection: "column",
             }}
           >
-            <header style={{ padding: "13px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            <header style={{ padding: "13px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexShrink: 0 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>リプレイ</h2>
                 <div style={{ marginTop: 2, fontSize: 12, color: "var(--ink-soft)" }}>
@@ -406,11 +406,13 @@ export default function PracticePage() {
               </span>
             </header>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, flex: 1, minHeight: 0, overflowY: "auto" }}>
-              <div style={{ display: "flex", justifyContent: "center", overflowX: "auto", paddingBottom: 4 }}>
-                <Board p1={p1} p2={p2} snapshot={activeSnapshot} />
-              </div>
+            {/* Board: stays visible regardless of scrolling below. */}
+            <div style={{ display: "flex", justifyContent: "center", overflowX: "auto", padding: "14px 14px 10px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
+              <Board p1={p1} p2={p2} snapshot={activeSnapshot} />
+            </div>
 
+            {/* Scrollable lower pane: player panels, replay controls, turn log. */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, padding: 14, flex: 1, minHeight: 0, overflowY: "auto" }}>
               <div style={{ display: "flex", gap: 12 }}>
                 <PlayerPanel
                   label="P1"
@@ -553,10 +555,7 @@ export default function PracticePage() {
         role="contentinfo"
         aria-label="対戦開始フッタ"
         style={{
-          position: "fixed",
-          left: 0,
-          right: 0,
-          bottom: 0,
+          flexShrink: 0,
           background: "var(--surface)",
           borderTop: "1px solid var(--line)",
           padding: "12px 20px",
@@ -564,7 +563,6 @@ export default function PracticePage() {
           alignItems: "center",
           gap: 12,
           boxShadow: "0 -6px 18px rgba(31,35,48,0.06)",
-          zIndex: 100,
         }}
       >
         <div style={{ maxWidth: 1360, margin: "0 auto", width: "100%", display: "flex", alignItems: "center", gap: 12 }}>
