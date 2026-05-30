@@ -101,6 +101,11 @@ export default function CodingPage({
   const router = useRouter();
   const [timeLeft, setTimeLeft] = useState(300);
   const [codingDeadlineAt, setCodingDeadlineAt] = useState<string | null>(null);
+  // `deadlineLoaded` becomes true once /api/match/{id}/state has returned. We
+  // use it (combined with `codingDeadlineAt === null`) to distinguish the brief
+  // pre-load "deadline unknown" state from a real unlimited match — see the
+  // timer effect and the timer/modal rendering below.
+  const [deadlineLoaded, setDeadlineLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<"info" | "hints">("info");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
@@ -139,6 +144,7 @@ export default function CodingPage({
         const data = await stateRes.value.json();
         const m = data?.match;
         setCodingDeadlineAt(typeof m?.codingDeadlineAt === "string" ? m.codingDeadlineAt : null);
+        setDeadlineLoaded(true);
         if (m?.room?.name) {
           setMatchMeta({
             roomName: m.room.name,
@@ -192,7 +198,14 @@ export default function CodingPage({
     };
   }, [matchId, myUserId, router]);
 
+  // `null` codingDeadlineAt after the state load is the signal for an
+  // "unlimited" match (admin set codingTimeLimitSec = -1 or simply created the
+  // match without a deadline — used for test-play). In that mode we skip the
+  // countdown and the timeout modal entirely.
+  const isUnlimited = deadlineLoaded && codingDeadlineAt === null;
+
   useEffect(() => {
+    if (isUnlimited) return;
     const localFallbackStartedAt = Date.now();
 
     const updateTimeLeft = () => {
@@ -211,11 +224,12 @@ export default function CodingPage({
     updateTimeLeft();
     const id = setInterval(updateTimeLeft, 1000);
     return () => clearInterval(id);
-  }, [codingDeadlineAt]);
+  }, [codingDeadlineAt, isUnlimited]);
 
 
-  const timerColor =
-    timeLeft <= 30 ? "#dc2626" : timeLeft <= 60 ? "#f59e0b" : "#1f2330";
+  const timerColor = isUnlimited
+    ? "var(--ink-soft)"
+    : timeLeft <= 30 ? "#dc2626" : timeLeft <= 60 ? "#f59e0b" : "#1f2330";
 
   const tabs = [
     { key: "info", label: "対戦情報" },
@@ -368,7 +382,7 @@ export default function CodingPage({
               transition: "color 0.3s",
             }}
           >
-            {formatTime(timeLeft)}
+            {isUnlimited ? "∞" : formatTime(timeLeft)}
           </div>
           <button
             onClick={() => !locked && setShowConfirmModal(true)}
@@ -771,7 +785,7 @@ export default function CodingPage({
       {/* Timeout Modal — two states:
           • timeLeft <= 0: 続行不能。ダッシュボードへ戻る導線を主役にする。
           • timeLeft > 0 (30 秒未満警告): 確定促進。閉じて編集に戻れる。 */}
-      {showTimeoutModal && !locked && (
+      {showTimeoutModal && !locked && !isUnlimited && (
         <div
           style={{
             position: "fixed",

@@ -888,22 +888,26 @@ export default function RoomSettingsPage({ params }: { params: Promise<{ roomId:
               <Field
                 label="codingTimeLimitSec"
                 required
-                hint="60〜900 秒。標準は 300 秒 (5 分)。低学年は 360 秒以上を推奨します。"
+                hint="60〜900 秒。標準は 300 秒 (5 分)。低学年は 360 秒以上を推奨します。-1 で「無制限」(テストプレイ用)。"
               >
                 <InputWithSuffix
-                  suffix="秒"
+                  suffix={s.coding.codingTimeLimitSec <= 0 ? "無制限" : "秒"}
                   type="number"
                   value={s.coding.codingTimeLimitSec}
-                  min={60}
+                  min={-1}
                   max={900}
                   step={30}
                   disabled={readOnly}
                   onChange={(v) => {
+                    const n = Number(v);
                     setS({
                       ...s,
                       coding: {
                         ...s.coding,
-                        codingTimeLimitSec: Number(v),
+                        // Anything <= 0 collapses to the unlimited sentinel (-1)
+                        // so the saved value is well-defined and the UI label
+                        // stays in sync.
+                        codingTimeLimitSec: n <= 0 ? -1 : n,
                       },
                     });
                     markDirty("coding");
