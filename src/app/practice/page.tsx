@@ -567,6 +567,24 @@ export default function PracticePage() {
         }}
       >
         <div style={{ maxWidth: 1360, margin: "0 auto", width: "100%", display: "flex", alignItems: "center", gap: 12 }}>
+          <Link
+            href="/dashboard"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4,
+              border: "1px solid var(--line)",
+              background: "var(--surface)",
+              color: "var(--ink)",
+              borderRadius: 9,
+              padding: "9px 14px",
+              fontSize: 13,
+              fontWeight: 800,
+              textDecoration: "none",
+            }}
+          >
+            ← ダッシュボードへ戻る
+          </Link>
           <button
             type="button"
             onClick={runPractice}
