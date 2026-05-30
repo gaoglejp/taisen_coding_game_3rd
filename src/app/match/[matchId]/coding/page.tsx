@@ -3,6 +3,7 @@
 import { useState, useEffect, use, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import {
   connectSocket,
   disconnectSocket,
@@ -100,7 +101,7 @@ export default function CodingPage({
   const router = useRouter();
   const [timeLeft, setTimeLeft] = useState(300);
   const [codingDeadlineAt, setCodingDeadlineAt] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"info" | "hints" | "json">("info");
+  const [activeTab, setActiveTab] = useState<"info" | "hints">("info");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -219,7 +220,6 @@ export default function CodingPage({
   const tabs = [
     { key: "info", label: "対戦情報" },
     { key: "hints", label: "ヒント" },
-    { key: "json", label: "JSON" },
   ] as const;
   const stats = strategyStats(strategy);
 
@@ -273,6 +273,23 @@ export default function CodingPage({
           >
             v0.2
           </span>
+          <Link
+            href="/dashboard"
+            style={{
+              marginLeft: 6,
+              display: "inline-flex",
+              alignItems: "center",
+              fontSize: 12,
+              color: "var(--ink-soft)",
+              textDecoration: "none",
+              padding: "4px 10px",
+              borderRadius: 8,
+              border: "1px solid var(--line)",
+              background: "var(--surface)",
+            }}
+          >
+            ← ダッシュボード
+          </Link>
         </div>
 
         {/* Center: Match info */}
@@ -561,31 +578,6 @@ export default function CodingPage({
                 ))}
               </div>
             )}
-
-            {activeTab === "json" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>JSON プレビュー</div>
-                <div style={{ fontSize: 11, color: "var(--ink-soft)" }}>
-                  ブロックから自動生成 (読み取り専用)
-                </div>
-                <pre
-                  style={{
-                    background: "#1f2330",
-                    color: "#e5e7eb",
-                    borderRadius: 10,
-                    padding: 16,
-                    fontSize: 11,
-                    fontFamily: "JetBrains Mono, monospace",
-                    lineHeight: 1.7,
-                    overflow: "auto",
-                    border: "1px solid #374151",
-                    userSelect: "text",
-                  }}
-                >
-                  {JSON.stringify(strategy, null, 2)}
-                </pre>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -776,7 +768,9 @@ export default function CodingPage({
         </div>
       )}
 
-      {/* Timeout Warning Modal */}
+      {/* Timeout Modal — two states:
+          • timeLeft <= 0: 続行不能。ダッシュボードへ戻る導線を主役にする。
+          • timeLeft > 0 (30 秒未満警告): 確定促進。閉じて編集に戻れる。 */}
       {showTimeoutModal && !locked && (
         <div
           style={{
@@ -793,37 +787,69 @@ export default function CodingPage({
               background: "var(--surface)",
               borderRadius: 16,
               padding: 32,
-              width: 420,
+              width: 440,
               maxWidth: "90vw",
               textAlign: "center",
               boxShadow: "0 20px 60px rgba(0,0,0,.3)",
-              border: "2px solid #fde047",
+              border: timeLeft <= 0 ? "2px solid var(--danger)" : "2px solid #fde047",
             }}
           >
             <div style={{ fontSize: 40, marginBottom: 12 }}>⏰</div>
-            <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 8, color: "#dc2626" }}>
-              時間切れ警告
+            <div style={{ fontWeight: 800, fontSize: 20, marginBottom: 8, color: "var(--danger)" }}>
+              {timeLeft <= 0 ? "時間切れ" : "時間切れ警告"}
             </div>
             <div style={{ fontSize: 14, color: "var(--ink-soft)", marginBottom: 24, lineHeight: 1.7 }}>
-              残り30秒を切りました。<br />
-              時間内に確定しない場合、<br />
-              <strong>WAIT戦略が自動提出されます。</strong>
+              {timeLeft <= 0 ? (
+                <>
+                  コーディング時間が終了しました。<br />
+                  この対戦はもう編集できません。<br />
+                  ダッシュボードに戻って次のマッチへ進みましょう。
+                </>
+              ) : (
+                <>
+                  残り 30 秒を切りました。<br />
+                  時間内に確定しない場合、<br />
+                  <strong>WAIT 戦略が自動提出されます。</strong>
+                </>
+              )}
             </div>
-            <button
-              onClick={() => setShowTimeoutModal(false)}
-              style={{
-                padding: "11px 32px",
-                border: "none",
-                borderRadius: 10,
-                background: "var(--accent)",
-                color: "#fff",
-                fontSize: 14,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              コードを確定する
-            </button>
+            <div style={{ display: "flex", justifyContent: "center", gap: 12, flexWrap: "wrap" }}>
+              {timeLeft > 0 && (
+                <button
+                  onClick={() => setShowTimeoutModal(false)}
+                  style={{
+                    padding: "11px 22px",
+                    border: "none",
+                    borderRadius: 10,
+                    background: "var(--accent)",
+                    color: "#fff",
+                    fontSize: 14,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  編集に戻る
+                </button>
+              )}
+              <Link
+                href="/dashboard"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  padding: "11px 22px",
+                  borderRadius: 10,
+                  background: timeLeft <= 0 ? "var(--accent)" : "var(--surface)",
+                  color: timeLeft <= 0 ? "#fff" : "var(--ink)",
+                  border: timeLeft <= 0 ? "none" : "1px solid var(--line)",
+                  fontSize: 14,
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  boxShadow: timeLeft <= 0 ? "0 2px 0 #c2740a" : "none",
+                }}
+              >
+                ← ダッシュボードへ戻る
+              </Link>
+            </div>
           </div>
         </div>
       )}
