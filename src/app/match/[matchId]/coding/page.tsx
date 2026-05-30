@@ -182,7 +182,7 @@ export default function CodingPage({
   ] as const;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg)", maxWidth: 1440, margin: "0 auto" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg)" }}>
       {/* Top Header */}
       <header
         style={{
@@ -341,7 +341,7 @@ export default function CodingPage({
         {/* Right Pane: Tabs */}
         <div
           style={{
-            width: 320,
+            width: 360,
             flexShrink: 0,
             borderLeft: "1px solid var(--line)",
             display: "flex",
