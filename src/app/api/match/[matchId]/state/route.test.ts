@@ -2,12 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getSessionMock = vi.fn();
 const matchFindUniqueMock = vi.fn();
+const matchUpdateMock = vi.fn();
 const roomFindFirstMock = vi.fn();
 
 vi.mock("@/lib/auth", () => ({ getSession: () => getSessionMock() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    match: { findUnique: (...a: unknown[]) => matchFindUniqueMock(...a) },
+    match: {
+      findUnique: (...a: unknown[]) => matchFindUniqueMock(...a),
+      update: (...a: unknown[]) => matchUpdateMock(...a),
+    },
     room: { findFirst: (...a: unknown[]) => roomFindFirstMock(...a) },
   },
 }));
@@ -38,6 +42,7 @@ const baseMatch = {
 beforeEach(() => {
   getSessionMock.mockReset();
   matchFindUniqueMock.mockReset();
+  matchUpdateMock.mockReset();
   roomFindFirstMock.mockReset();
 });
 
@@ -65,7 +70,11 @@ describe("GET /api/match/:matchId/state", () => {
 
   it("allows participant and returns room/players/codingDeadlineAt", async () => {
     getSessionMock.mockResolvedValue({ id: "p1", role: "ROOM_USER" });
-    matchFindUniqueMock.mockResolvedValue(baseMatch);
+    // Use a future deadline so the lazy-refresh path doesn't fire here.
+    matchFindUniqueMock.mockResolvedValue({
+      ...baseMatch,
+      codingDeadlineAt: new Date(Date.now() + 60 * 60 * 1000),
+    });
 
     const res = await GET(req, ctx);
     expect(res.status).toBe(200);
@@ -74,5 +83,52 @@ describe("GET /api/match/:matchId/state", () => {
     expect(json.match.player2.id).toBe("p2");
     expect(json.match.room).toEqual({ id: "room-1", name: "R", roomNumber: "ROOM-1" });
     expect(json.match.codingDeadlineAt).toBeTruthy();
+    expect(matchUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("refreshes a past codingDeadlineAt when a participant enters a CODING match", async () => {
+    getSessionMock.mockResolvedValue({ id: "p1", role: "ROOM_USER" });
+    matchFindUniqueMock.mockResolvedValue({
+      ...baseMatch,
+      // Hours in the past — exactly the seed-aging scenario the user reported.
+      codingDeadlineAt: new Date(Date.now() - 60 * 60 * 1000),
+    });
+    matchUpdateMock.mockResolvedValue({});
+
+    const before = Date.now();
+    const res = await GET(req, ctx);
+    const after = Date.now();
+
+    expect(res.status).toBe(200);
+    expect(matchUpdateMock).toHaveBeenCalledTimes(1);
+    const call = matchUpdateMock.mock.calls[0][0] as { where: { id: string }; data: { codingDeadlineAt: Date } };
+    expect(call.where.id).toBe("m-1");
+    const ms = call.data.codingDeadlineAt.getTime();
+    expect(ms).toBeGreaterThanOrEqual(before + 5 * 60 * 1000 - 1000);
+    expect(ms).toBeLessThanOrEqual(after + 5 * 60 * 1000 + 1000);
+    const json = await res.json();
+    expect(new Date(json.match.codingDeadlineAt).getTime()).toBe(ms);
+  });
+
+  it("does NOT refresh deadline for an admin viewer (only participants extend it)", async () => {
+    getSessionMock.mockResolvedValue({ id: "admin-1", role: "ROOM_ADMIN" });
+    matchFindUniqueMock.mockResolvedValue({
+      ...baseMatch,
+      isPublicWatch: true,
+      codingDeadlineAt: new Date(Date.now() - 60 * 60 * 1000),
+    });
+
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(200);
+    expect(matchUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("does NOT refresh when codingDeadlineAt is null (unlimited mode)", async () => {
+    getSessionMock.mockResolvedValue({ id: "p1", role: "ROOM_USER" });
+    matchFindUniqueMock.mockResolvedValue({ ...baseMatch, codingDeadlineAt: null });
+
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(200);
+    expect(matchUpdateMock).not.toHaveBeenCalled();
   });
 });

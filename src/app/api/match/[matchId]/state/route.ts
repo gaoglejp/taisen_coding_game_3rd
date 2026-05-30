@@ -51,5 +51,25 @@ export async function GET(_req: NextRequest, { params }: Params) {
     }
   }
 
+  // Lazy initialization of the coding deadline. If a participant enters a
+  // CODING-phase match whose deadline has already passed (e.g. seed data set
+  // the deadline N minutes after seed time, then nobody opened it for hours),
+  // refresh the deadline to NOW + 5 minutes so the player isn't greeted with
+  // an instant 時間切れ. Unlimited mode (codingDeadlineAt === null) is preserved
+  // — only stale, past timestamps get refreshed. Admin viewers don't extend.
+  if (
+    isParticipant &&
+    match.status === "CODING" &&
+    match.codingDeadlineAt &&
+    new Date(match.codingDeadlineAt) < new Date()
+  ) {
+    const refreshed = new Date(Date.now() + 5 * 60 * 1000);
+    await prisma.match.update({
+      where: { id: match.id },
+      data: { codingDeadlineAt: refreshed },
+    });
+    match.codingDeadlineAt = refreshed;
+  }
+
   return NextResponse.json({ match });
 }
