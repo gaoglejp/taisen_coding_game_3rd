@@ -534,35 +534,6 @@ export default function PracticePage() {
                 </div>
               </div>
             </div>
-
-            {simulation && replayComplete && (
-              <footer style={{ borderTop: "1px solid var(--line)", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, background: "linear-gradient(180deg, #fff, #fbf8ef)" }}>
-                <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-                  <strong style={{ fontSize: 18 }}>{resultLabel}</strong>
-                  <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>終了理由: {simulation.result.endReason}</span>
-                  <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>ターン数: {simulation.result.totalTurns}</span>
-                  <span style={{ fontSize: 13, color: "var(--ink-soft)" }}>残HP: あなた {simulation.result.finalHp.p1} / Bot {simulation.result.finalHp.p2}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSimulation(null);
-                    setCurrentTurn(0);
-                    setPlaying(false);
-                  }}
-                  style={{
-                    border: "1px solid var(--line)",
-                    background: "var(--surface)",
-                    borderRadius: 8,
-                    padding: "8px 12px",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                >
-                  再挑戦
-                </button>
-              </footer>
-            )}
           </section>
         </div>
       </main>
@@ -603,6 +574,33 @@ export default function PracticePage() {
             <span role="alert" style={{ color: "var(--danger)", fontSize: 13, fontWeight: 700 }}>
               {error}
             </span>
+          )}
+          {simulation && replayComplete && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto", flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <strong style={{ fontSize: 16 }}>{resultLabel}</strong>
+              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>終了理由: {simulation.result.endReason}</span>
+              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>ターン数: {simulation.result.totalTurns}</span>
+              <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>残HP: あなた {simulation.result.finalHp.p1} / Bot {simulation.result.finalHp.p2}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setSimulation(null);
+                  setCurrentTurn(0);
+                  setPlaying(false);
+                }}
+                style={{
+                  border: "1px solid var(--line)",
+                  background: "var(--surface)",
+                  borderRadius: 8,
+                  padding: "8px 14px",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                再挑戦
+              </button>
+            </div>
           )}
         </div>
       </footer>
