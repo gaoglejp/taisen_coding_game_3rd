@@ -266,10 +266,10 @@ export default function PracticePage() {
   // Board cell size scales with viewport height so the 10×10 board ends up at
   // roughly half the viewport tall, leaving room for the scrollable player /
   // controls / turn-log pane below.
-  const [cellPx, setCellPx] = useState(40);
+  const [cellPx, setCellPx] = useState(32);
   useEffect(() => {
     const compute = () => {
-      const px = Math.max(30, Math.min(44, Math.floor(window.innerHeight * 0.045)));
+      const px = Math.max(28, Math.min(36, Math.floor(window.innerHeight * 0.035)));
       setCellPx(px);
     };
     compute();
