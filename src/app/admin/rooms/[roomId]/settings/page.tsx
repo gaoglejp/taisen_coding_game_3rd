@@ -638,7 +638,7 @@ export default function RoomSettingsPage({ params }: { params: Promise<{ roomId:
               <Field
                 label="AP / ターン"
                 required
-                hint="1 ターンで使える合計コスト。MOVE/SHOOT=1, SCAN=2, WAIT=0。"
+                hint="1 ターンで使える合計コスト。MOVE=1, SHOOT=1, SCAN=1, WAIT=1。"
               >
                 <input
                   type="number"
