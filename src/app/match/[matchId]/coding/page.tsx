@@ -8,7 +8,13 @@ import {
   disconnectSocket,
   lockCoding,
 } from "@/lib/socket-client";
-import type { Strategy } from "@/lib/match-simulator";
+import {
+  GRID_SIZE,
+  INITIAL_HP,
+  MAX_TURNS,
+  type Strategy,
+  type StrategyStmt,
+} from "@/lib/match-simulator";
 import { secondsUntil } from "@/lib/coding-timer";
 
 // <!-- bind: WS recv coding_start { codingDeadlineAt } -->
@@ -32,16 +38,52 @@ const EMPTY_STRATEGY: Strategy = {
   fallbackActions: [{ type: "WAIT", ap: 0 }],
 };
 
-const MOCK_LAST_TURN = {
-  damaged: 15,
-  shoot_result: "HIT",
-  scan_detected: true,
-  moved: true,
-  detected_targets: [
-    { direction: "forward", distance: 2, age: 1 },
-    { direction: "right", distance: -1, age: 3 },
-  ],
-};
+// Statement walkers used by the right tab pane and the bottom status bar to
+// summarize the live strategy (rule count, block count, max if-depth) — these
+// replace the mock numbers that lingered from the original prototype.
+function countStmts(stmts: StrategyStmt[] | undefined): number {
+  if (!stmts) return 0;
+  let n = 0;
+  for (const s of stmts) {
+    n++;
+    if (s.kind === "if") {
+      for (const cl of s.clauses ?? []) n += countStmts(cl.body);
+      n += countStmts(s.else);
+    }
+  }
+  return n;
+}
+
+function stmtDepth(stmts: StrategyStmt[] | undefined): number {
+  if (!stmts) return 0;
+  let max = 0;
+  for (const s of stmts) {
+    if (s.kind === "if") {
+      let inner = 0;
+      for (const cl of s.clauses ?? []) inner = Math.max(inner, stmtDepth(cl.body));
+      inner = Math.max(inner, stmtDepth(s.else));
+      max = Math.max(max, 1 + inner);
+    }
+  }
+  return max;
+}
+
+function strategyStats(strategy: Strategy): { rules: number; blocks: number; depth: number } {
+  let blocks = 0;
+  let depth = 0;
+  for (const rule of strategy.rules ?? []) {
+    blocks += rule.conditions?.length ?? 0;
+    blocks += countStmts(rule.body);
+    blocks += rule.actions?.length ?? 0;
+    blocks += rule.sets?.length ?? 0;
+    depth = Math.max(depth, stmtDepth(rule.body));
+  }
+  blocks += countStmts(strategy.fallbackBody);
+  blocks += strategy.fallbackActions?.length ?? 0;
+  blocks += strategy.fallbackSets?.length ?? 0;
+  depth = Math.max(depth, stmtDepth(strategy.fallbackBody));
+  return { rules: strategy.rules?.length ?? 0, blocks, depth };
+}
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -58,7 +100,7 @@ export default function CodingPage({
   const router = useRouter();
   const [timeLeft, setTimeLeft] = useState(300);
   const [codingDeadlineAt, setCodingDeadlineAt] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"status" | "lastTurn" | "hints" | "json">("status");
+  const [activeTab, setActiveTab] = useState<"info" | "hints" | "json">("info");
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
   const [locked, setLocked] = useState(false);
@@ -175,11 +217,11 @@ export default function CodingPage({
     timeLeft <= 30 ? "#dc2626" : timeLeft <= 60 ? "#f59e0b" : "#1f2330";
 
   const tabs = [
-    { key: "status", label: "自機" },
-    { key: "lastTurn", label: "直前ターン" },
+    { key: "info", label: "対戦情報" },
     { key: "hints", label: "ヒント" },
     { key: "json", label: "JSON" },
   ] as const;
+  const stats = strategyStats(strategy);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "var(--bg)" }}>
@@ -383,237 +425,121 @@ export default function CodingPage({
 
           {/* Tab content */}
           <div style={{ flex: 1, overflow: "auto", padding: 16 }}>
-            {activeTab === "status" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>自機ステータス</div>
-                {/* Position */}
-                <div
-                  style={{
-                    background: "var(--bg)",
-                    borderRadius: 10,
-                    padding: 12,
-                    border: "1px solid var(--line)",
-                  }}
-                >
-                  <div style={{ display: "flex", gap: 16, marginBottom: 8 }}>
-                    <div style={{ fontSize: 12 }}>
-                      <span style={{ color: "var(--ink-soft)" }}>x = </span>
-                      <span style={{ fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>4</span>
+            {activeTab === "info" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {/* Match meta: room name, match number, opponent. */}
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>
+                    対戦
+                  </div>
+                  <div
+                    style={{
+                      background: "var(--bg)",
+                      borderRadius: 10,
+                      padding: 12,
+                      border: "1px solid var(--line)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                      <span style={{ color: "var(--ink-soft)" }}>ルーム</span>
+                      <span style={{ fontWeight: 700 }}>{roomName}</span>
                     </div>
-                    <div style={{ fontSize: 12 }}>
-                      <span style={{ color: "var(--ink-soft)" }}>y = </span>
-                      <span style={{ fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>6</span>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                      <span style={{ color: "var(--ink-soft)" }}>マッチ番号</span>
+                      <span style={{ fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>#{matchNumber}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                      <span style={{ color: "var(--ink-soft)" }}>対戦相手</span>
+                      <span style={{ fontWeight: 700 }}>{opponentName}</span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 12, color: "var(--ink-soft)" }}>向き:</span>
-                    <span
-                      style={{
-                        background: "var(--p1-soft)",
-                        color: "var(--p1-ink)",
-                        fontSize: 11,
-                        fontWeight: 700,
-                        padding: "2px 10px",
-                        borderRadius: 999,
-                        fontFamily: "JetBrains Mono, monospace",
-                      }}
-                    >
-                      ↑ NORTH
-                    </span>
-                  </div>
                 </div>
 
-                {/* HP Bar */}
+                {/* Game rules — what the player is designing for. */}
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12, fontWeight: 600 }}>
-                    <span>HP</span>
-                    <span style={{ fontFamily: "JetBrains Mono, monospace" }}>84 / 100</span>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>
+                    対戦ルール
                   </div>
-                  <div style={{ height: 12, background: "var(--line)", borderRadius: 999, overflow: "hidden" }}>
-                    <div
-                      style={{
-                        width: "84%",
-                        height: "100%",
-                        background: "var(--p1)",
-                        borderRadius: 999,
-                        transition: "width 0.3s",
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Turn progress */}
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-                    ターン進捗 (4/20)
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {Array.from({ length: 20 }, (_, i) => (
-                      <div
-                        key={i}
-                        style={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: 3,
-                          background: i < 4 ? "var(--p1)" : "var(--line)",
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeTab === "lastTurn" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>直前ターン (T3)</div>
-
-                {/* Action badges */}
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 6 }}>last_actions</div>
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                    {["MOVE_FORWARD", "SCAN"].map((a) => (
-                      <span
-                        key={a}
-                        style={{
-                          background: a === "MOVE_FORWARD" ? "var(--p1-soft)" : "#e0f2fe",
-                          color: a === "MOVE_FORWARD" ? "var(--p1-ink)" : "#0369a1",
-                          fontSize: 10,
-                          fontWeight: 700,
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          fontFamily: "JetBrains Mono, monospace",
-                        }}
-                      >
-                        {a}
-                      </span>
+                  <div
+                    style={{
+                      background: "var(--bg)",
+                      borderRadius: 10,
+                      padding: 12,
+                      border: "1px solid var(--line)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    {[
+                      ["盤面", `${GRID_SIZE} × ${GRID_SIZE}`],
+                      ["最大ターン数", `${MAX_TURNS} ターン`],
+                      ["開始 HP", `${INITIAL_HP}`],
+                      ["1 ターンの行動", "1 アクション"],
+                      ["AP", "全アクション 1"],
+                    ].map(([label, value]) => (
+                      <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                        <span style={{ color: "var(--ink-soft)" }}>{label}</span>
+                        <span style={{ fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>{value}</span>
+                      </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Results */}
-                <div
-                  style={{
-                    background: "var(--bg)",
-                    borderRadius: 10,
-                    padding: 12,
-                    border: "1px solid var(--line)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
-                  {[
-                    { key: "damaged", value: `${MOCK_LAST_TURN.damaged} ダメージ受けた`, color: "#fee2e2", textColor: "var(--p2-ink)" },
-                    { key: "shoot_result", value: `射撃: ${MOCK_LAST_TURN.shoot_result}`, color: "#dcfce7", textColor: "#166534" },
-                    { key: "scan_detected", value: `索敵: ${MOCK_LAST_TURN.scan_detected ? "検知あり" : "なし"}`, color: "#f0fdf4", textColor: "#166534" },
-                    { key: "moved", value: `移動: ${MOCK_LAST_TURN.moved ? "成功" : "失敗"}`, color: "var(--p1-soft)", textColor: "var(--p1-ink)" },
-                  ].map((row) => (
-                    <div
-                      key={row.key}
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        fontSize: 12,
-                      }}
-                    >
-                      <span style={{ color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace", fontSize: 11 }}>
-                        {row.key}
-                      </span>
-                      <span
-                        style={{
-                          background: row.color,
-                          color: row.textColor,
-                          padding: "1px 8px",
-                          borderRadius: 6,
-                          fontWeight: 600,
-                          fontSize: 11,
-                        }}
-                      >
-                        {row.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Detected targets table */}
+                {/* Live block summary derived from the current strategy. */}
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 6 }}>
-                    detected_targets
-                    <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 6 }}>
-                      ※絶対座標・HP・向きは取得不可
-                    </span>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-soft)", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 6 }}>
+                    ブロック構成
                   </div>
-                  <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
-                    <thead>
-                      <tr style={{ background: "var(--bg)" }}>
-                        {["forward", "right", "age"].map((h) => (
-                          <th
-                            key={h}
-                            style={{
-                              padding: "4px 8px",
-                              textAlign: "left",
-                              fontFamily: "JetBrains Mono, monospace",
-                              fontWeight: 600,
-                              color: "var(--ink-soft)",
-                              borderBottom: "1px solid var(--line)",
-                            }}
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {MOCK_LAST_TURN.detected_targets.map((t, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
-                          <td style={{ padding: "4px 8px", fontFamily: "JetBrains Mono, monospace" }}>
-                            {t.direction === "forward" ? t.distance : "—"}
-                          </td>
-                          <td style={{ padding: "4px 8px", fontFamily: "JetBrains Mono, monospace" }}>
-                            {t.direction === "right" ? t.distance : "—"}
-                          </td>
-                          <td style={{ padding: "4px 8px", fontFamily: "JetBrains Mono, monospace" }}>{t.age}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  <div
+                    style={{
+                      background: "var(--bg)",
+                      borderRadius: 10,
+                      padding: 12,
+                      border: "1px solid var(--line)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                    }}
+                  >
+                    {[
+                      ["ルール数", stats.rules],
+                      ["ブロック数", stats.blocks],
+                      ["「もし」ネスト深度", stats.depth],
+                    ].map(([label, value]) => (
+                      <div key={String(label)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12 }}>
+                        <span style={{ color: "var(--ink-soft)" }}>{label}</span>
+                        <span style={{ fontWeight: 700, fontFamily: "JetBrains Mono, monospace" }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
             {activeTab === "hints" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>ブロックヒント</div>
-
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-                  {["索敵を活用しよう", "AP管理が重要", "WAIT戦略を覚えよう"].map((tag) => (
-                    <span
-                      key={tag}
-                      style={{
-                        background: "#fef9c3",
-                        color: "#92400e",
-                        fontSize: 11,
-                        fontWeight: 600,
-                        padding: "2px 10px",
-                        borderRadius: 999,
-                        border: "1px solid #fde047",
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>ヒント</div>
 
                 {[
                   {
-                    title: "SCANで先手を取ろう",
-                    body: "SCAN(AP:2)を先に実行することで敵の位置を把握し、SHOOT_FORWARDへ繋げると命中率が上がります。",
+                    title: "ルールは上から評価される",
+                    body: "「ルール」ブロックは上から順に「もし」を評価し、最初に真になったルールの「実行」を 1 つだけ実行します。優先したい条件を上に置きましょう。",
                   },
                   {
-                    title: "AP予算を計算しよう",
-                    body: "1ターンのAP上限は3です。MOVE(1)+SHOOT(1)+SCAN(2)=4 となり超過します。優先順位を考えましょう。",
+                    title: "「もし」は分岐を増やせる",
+                    body: "「もし」ブロック左上の歯車から「そうでなければもし」「そうでなければ」を追加できます。条件を細かく分けたいときに便利です。",
+                  },
+                  {
+                    title: "1 ターン = 1 アクション",
+                    body: "1 ターンに実行できる行動は 1 つだけです。実行スタックの先頭の行動が実際に走り、残りはその回には実行されません。",
+                  },
+                  {
+                    title: "JSON で確認できる",
+                    body: "JSON タブで現在のストラテジーが構造化された JSON として確認できます。確定前に意図通りか見直しましょう。",
                   },
                 ].map((hint) => (
                   <div
@@ -681,13 +607,13 @@ export default function CodingPage({
         }}
       >
         <span>
-          ブロック数: <span style={{ color: "var(--ink)", fontWeight: 700 }}>5</span>
+          ルール数: <span style={{ color: "var(--ink)", fontWeight: 700 }}>{stats.rules}</span>
         </span>
         <span>
-          ネスト深度: <span style={{ color: "var(--ink)", fontWeight: 700 }}>2</span>
+          ブロック数: <span style={{ color: "var(--ink)", fontWeight: 700 }}>{stats.blocks}</span>
         </span>
         <span>
-          アクション/ターン: <span style={{ color: "var(--ink)", fontWeight: 700 }}>2</span>
+          「もし」ネスト深度: <span style={{ color: "var(--ink)", fontWeight: 700 }}>{stats.depth}</span>
         </span>
         <span style={{ color: "var(--line-2)" }}>|</span>
         <span>AP: 全アクション 1</span>
@@ -743,11 +669,11 @@ export default function CodingPage({
             >
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
                 <span style={{ color: "var(--ink-soft)" }}>ルール数</span>
-                <span style={{ fontWeight: 700 }}>2 ルール</span>
+                <span style={{ fontWeight: 700 }}>{stats.rules} ルール</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
                 <span style={{ color: "var(--ink-soft)" }}>使用ブロック</span>
-                <span style={{ fontWeight: 700 }}>5 ブロック</span>
+                <span style={{ fontWeight: 700 }}>{stats.blocks} ブロック</span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                 <span style={{ color: "var(--ink-soft)" }}>全ルール不一致時</span>
