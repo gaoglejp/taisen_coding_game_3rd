@@ -54,6 +54,14 @@ interface PendingBattle {
 // Cleared once the simulation kicks off (or the timeout fires).
 const pendingBattles = new Map<string, PendingBattle>();
 
+// matchId → set of player userIds whose battle_ready arrived BEFORE the
+// pending battle was created (i.e. the player parked on /match/.../battle
+// while the room was still in CODING). We replay these into pending.ready
+// when the second lock finally stages the battle. Without this the early
+// signal would be silently dropped and we'd have to wait for the 20 s
+// fallback timeout to start the match.
+const earlyBattleReady = new Map<string, Set<string>>();
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -262,7 +270,36 @@ app.prepare().then(() => {
                 );
               }, BATTLE_READY_TIMEOUT_MS),
             };
+            // Replay any battle_ready signals that arrived BEFORE the second
+            // lock created this pending entry (e.g. a player parked on the
+            // battle page during coding). Without this they'd have to wait
+            // for the 20 s fallback before the simulation kicks off.
+            const early = earlyBattleReady.get(matchId);
+            if (early) {
+              for (const u of early) pending.ready.add(u);
+              earlyBattleReady.delete(matchId);
+            }
             pendingBattles.set(matchId, pending);
+
+            // If both signals already arrived before staging, start now.
+            const bothEarly =
+              (!pending.p1Id || pending.ready.has(pending.p1Id)) &&
+              (!pending.p2Id || pending.ready.has(pending.p2Id));
+            if (bothEarly) {
+              pending.started = true;
+              clearTimeout(pending.timeout);
+              pendingBattles.delete(matchId);
+              runMatch(
+                matchId,
+                pending.p1Id,
+                pending.p2Id,
+                pending.strategy1,
+                pending.strategy2,
+                pending.rulePreset
+              ).catch((err) =>
+                console.error(`Match ${matchId} simulation failed:`, err)
+              );
+            }
           }
         }
       }
@@ -276,7 +313,16 @@ app.prepare().then(() => {
       const userId = socket.data.userId as string | undefined;
       if (!userId || !matchId) return;
       const pending = pendingBattles.get(matchId);
-      if (!pending || pending.started) return;
+      if (!pending) {
+        // The battle page mounted before the second lock created the
+        // pending entry. Record the signal so we can apply it when the
+        // pending battle is staged.
+        const set = earlyBattleReady.get(matchId) ?? new Set<string>();
+        set.add(userId);
+        earlyBattleReady.set(matchId, set);
+        return;
+      }
+      if (pending.started) return;
       const isParticipant = userId === pending.p1Id || userId === pending.p2Id;
       if (!isParticipant) return;
       pending.ready.add(userId);

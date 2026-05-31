@@ -479,8 +479,6 @@ export default function RoomMatchesPage({ params }: { params: Promise<{ roomId: 
           {/* Round-robin view */}
           {viewMode === "ROUND_ROBIN" && <RoundRobinView matches={matches} />}
 
-          {/* State gallery */}
-          <StateGallery />
         </main>
       </div>
 
@@ -1147,143 +1145,6 @@ function RoundRobinView({ matches }: { matches: Match[] }) {
   );
 }
 
-function StateGallery() {
-  return (
-    <section style={{ margin: "30px 0 32px" }} aria-label="状態バリエーション">
-      <div style={{ borderTop: "1px solid var(--line)", paddingTop: 24, marginBottom: 18, display: "flex", alignItems: "baseline", gap: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 14, fontFamily: "JetBrains Mono, monospace", color: "var(--ink)" }}>{"// state variations"}</h2>
-        <p style={{ margin: 0, fontSize: 12, color: "var(--ink-soft)" }}>通常 / マッチゼロ / 進行中ゼロ / 一括生成直後 / 観戦不許可ルーム</p>
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0,1fr))", gap: 14 }}>
-        {/* Normal */}
-        <article style={stateCardStyle}>
-          <header style={stateHeadStyle}>
-            <span style={stateNameStyle}>通常</span>
-            <span style={stateTagStyle}>ok</span>
-          </header>
-          <div style={stateBodyStyle}>
-            <MiniRow nm="#M-22064" status="CODING" />
-            <MiniRow nm="#M-22062" status="BATTLING" />
-            <MiniRow nm="#M-22055" status="FINISHED" />
-            <MiniRow nm="#M-22054" status="FINISHED" />
-            <MiniRow nm="#M-22070" status="WAITING" last />
-          </div>
-        </article>
-
-        {/* Zero */}
-        <article style={stateCardStyle}>
-          <header style={stateHeadStyle}>
-            <span style={stateNameStyle}>マッチゼロ</span>
-            <span style={stateTagStyle}>empty</span>
-          </header>
-          <div style={stateBodyStyle}>
-            <div style={miniEmptyStyle}>
-              <div style={miniIllStyle} aria-hidden>▦</div>
-              <strong style={{ display: "block", color: "var(--ink)", fontSize: 11.5, marginBottom: 2 }}>まだマッチがありません</strong>
-              <p style={{ margin: 0, fontSize: 10.5, lineHeight: 1.45 }}>「＋ マッチカードを作成」から<br />最初のマッチを発行しましょう。</p>
-              <button style={{ background: "var(--room-admin-accent)", color: "#fff", border: "none", padding: "5px 11px", fontSize: 10.5, fontWeight: 700, borderRadius: 5, marginTop: 7, cursor: "pointer" }}>＋ 作成する</button>
-            </div>
-          </div>
-        </article>
-
-        {/* No active */}
-        <article style={stateCardStyle}>
-          <header style={stateHeadStyle}>
-            <span style={stateNameStyle}>進行中ゼロ</span>
-            <span style={stateTagStyle}>idle</span>
-          </header>
-          <div style={stateBodyStyle}>
-            <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 10, color: "var(--ink-soft)", marginBottom: 5 }}>{"// 進行中: 0"}</div>
-            <div style={miniEmptyStyle}>
-              <div style={miniIllStyle} aria-hidden>⏸</div>
-              <strong style={{ display: "block", color: "var(--ink)", fontSize: 11.5, marginBottom: 2 }}>進行中マッチなし</strong>
-              <p style={{ margin: 0, fontSize: 10.5, lineHeight: 1.45 }}>すべて終了済みです。</p>
-            </div>
-            <div style={{ marginTop: 6 }}>
-              <MiniRow nm="#M-22055" status="FINISHED" />
-              <MiniRow nm="#M-22054" status="FINISHED" last />
-            </div>
-          </div>
-        </article>
-
-        {/* Bulk created */}
-        <article style={stateCardStyle}>
-          <header style={stateHeadStyle}>
-            <span style={stateNameStyle}>一括生成直後</span>
-            <span style={stateTagStyle}>201</span>
-          </header>
-          <div style={stateBodyStyle}>
-            <div style={{ background: "#ecfdf5", border: "1px solid #a7f3d0", color: "var(--success, #15803d)", borderRadius: 6, padding: "7px 9px", fontSize: 10.5, marginBottom: 6 }}>
-              <strong style={{ display: "block", fontSize: 11.5 }}>✓ 15 試合を発行</strong>
-              総当たり: 6 名 / 公開: 既定
-            </div>
-            <MiniRow nm="#M-22091" status="WAITING" />
-            <MiniRow nm="#M-22092" status="WAITING" />
-            <MiniRow nm="#M-22093" status="WAITING" />
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "none", fontSize: 10.5 }}>
-              <span style={{ fontFamily: "JetBrains Mono, monospace" }}>… +12</span>
-              <span style={{ color: "var(--ink-soft)", fontFamily: "JetBrains Mono, monospace", fontSize: 9.5 }}>WAITING</span>
-            </div>
-          </div>
-        </article>
-
-        {/* Spectate disabled */}
-        <article style={stateCardStyle}>
-          <header style={stateHeadStyle}>
-            <span style={stateNameStyle}>観戦不許可</span>
-            <span style={stateTagStyle}>no-watch</span>
-          </header>
-          <div style={stateBodyStyle}>
-            <div style={{ background: "#fef3c7", border: "1px solid #fbd9a5", color: "#92400e", borderRadius: 6, padding: "6px 8px", fontSize: 10.5, marginBottom: 6, lineHeight: 1.45 }}>
-              <strong style={{ display: "block", fontSize: 11 }}>🔒 観戦無効化中</strong>
-              このルームでは観戦 CTA を表示しません。
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "1px dashed var(--line)", fontSize: 10.5 }}>
-              <span style={{ fontFamily: "JetBrains Mono, monospace" }}>#M-22064</span>
-              <span style={{ display: "flex", gap: 3 }}>
-                <MiniStatus status="CODING" />
-                <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 8.5, color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 3, padding: "1px 4px" }}>詳細のみ</span>
-              </span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: "none", fontSize: 10.5 }}>
-              <span style={{ fontFamily: "JetBrains Mono, monospace" }}>#M-22062</span>
-              <span style={{ display: "flex", gap: 3 }}>
-                <MiniStatus status="BATTLING" />
-                <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 8.5, color: "var(--ink-soft)", border: "1px solid var(--line)", borderRadius: 3, padding: "1px 4px" }}>詳細のみ</span>
-              </span>
-            </div>
-          </div>
-        </article>
-      </div>
-    </section>
-  );
-}
-
-function MiniRow({ nm, status, last }: { nm: string; status: MatchStatus; last?: boolean }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderBottom: last ? "none" : "1px dashed var(--line)", fontSize: 10.5 }}>
-      <span style={{ fontFamily: "JetBrains Mono, monospace" }}>{nm}</span>
-      <MiniStatus status={status} />
-    </div>
-  );
-}
-
-function MiniStatus({ status }: { status: MatchStatus }) {
-  const map: Record<MatchStatus, { bg: string; color: string; border: string }> = {
-    WAITING: { bg: "#efece3", color: "#4b5563", border: "#d8d3c2" },
-    CODING: { bg: "#fef3c7", color: "#92400e", border: "#fbd9a5" },
-    BATTLING: { bg: "#fee2e2", color: "#7f1d1d", border: "#fbb6b6" },
-    FINISHED: { bg: "#ecfdf5", color: "#15803d", border: "#a7f3d0" },
-    CANCELED: { bg: "#fef2f2", color: "#dc2626", border: "#fbb6b6" },
-  };
-  const cfg = map[status];
-  return (
-    <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 9, padding: "1px 5px", borderRadius: 3, letterSpacing: "0.04em", fontWeight: 700, background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
-      {status}
-    </span>
-  );
-}
-
 function ModalOverlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
     <div
@@ -1676,55 +1537,6 @@ const matrixAvMiniStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
-const stateCardStyle: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid var(--line)",
-  borderRadius: 12,
-  overflow: "hidden",
-  fontSize: 12,
-};
-
-const stateHeadStyle: React.CSSProperties = {
-  padding: "9px 11px",
-  background: "var(--bg)",
-  borderBottom: "1px solid var(--line)",
-  display: "flex",
-  justifyContent: "space-between",
-  alignItems: "center",
-};
-
-const stateNameStyle: React.CSSProperties = { fontWeight: 700, fontSize: 11, color: "var(--ink)" };
-
-const stateTagStyle: React.CSSProperties = {
-  fontFamily: "JetBrains Mono, monospace",
-  fontSize: 9,
-  padding: "2px 5px",
-  borderRadius: 4,
-  background: "#fff",
-  border: "1px solid var(--line)",
-  color: "var(--ink-soft)",
-};
-
-const stateBodyStyle: React.CSSProperties = { padding: 10 };
-
-const miniEmptyStyle: React.CSSProperties = {
-  textAlign: "center",
-  padding: "18px 6px 12px",
-  color: "var(--ink-soft)",
-};
-
-const miniIllStyle: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  borderRadius: "50%",
-  background: "#efece3",
-  border: "1px dashed #d8d3c2",
-  margin: "0 auto 6px",
-  display: "grid",
-  placeItems: "center",
-  fontFamily: "JetBrains Mono, monospace",
-  fontSize: 16,
-};
 
 const modalCloseStyle: React.CSSProperties = {
   background: "transparent",
