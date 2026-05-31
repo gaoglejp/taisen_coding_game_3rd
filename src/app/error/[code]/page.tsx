@@ -90,6 +90,20 @@ const VARIANTS: Record<string, Variant> = {
     ),
     toneColor: "var(--danger)",
   },
+  "403-admin": {
+    tone: "403-admin",
+    code: "403",
+    glyph: "!",
+    title: "このルームには権限がありません",
+    lead: (
+      <>
+        あなたが管理するルームではありません。
+        <br />
+        管理ホームから対象を確認してください。
+      </>
+    ),
+    toneColor: "var(--accent)",
+  },
 };
 
 export default function ErrorPage() {
@@ -297,6 +311,16 @@ function HeroCard({ variant }: { variant: Variant }) {
               <button style={btnPrimary("var(--room-admin-accent)", "#0e7490")}>
                 ↻ 状態を再取得
               </button>
+            )}
+            {variant.tone === "403-admin" && (
+              <>
+                <Link href="/admin" style={btnPrimary("var(--admin-accent, #7c3aed)", "#5b21b6")}>
+                  ⌂ 管理ホーム
+                </Link>
+                <Link href="/admin" style={btnSecondary}>
+                  監査ログを見る
+                </Link>
+              </>
             )}
           </div>
 
