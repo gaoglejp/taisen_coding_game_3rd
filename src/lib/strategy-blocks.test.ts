@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import * as Blockly from "blockly";
 import {
+  createStrategyToolbox,
   defineStrategyBlocks,
   DEFAULT_WORKSPACE_STATE,
   STRATEGY_TOOLBOX,
@@ -44,6 +45,20 @@ describe("workspaceToStrategy", () => {
     const toolboxText = JSON.stringify(STRATEGY_TOOLBOX);
     expect(toolboxText).toContain("tank_rule");
     expect(toolboxText).toContain("tank_rule_always");
+  });
+
+  it("can restrict the toolbox by category and block type", () => {
+    const toolbox = createStrategyToolbox({
+      allowedCategories: ["行動", "ルール"],
+      allowedBlockTypes: ["tank_act_move_forward", "tank_rule_always"],
+    });
+    const toolboxText = JSON.stringify(toolbox);
+
+    expect(toolbox.contents.map((category) => category.name)).toEqual(["行動", "ルール"]);
+    expect(toolboxText).toContain("tank_act_move_forward");
+    expect(toolboxText).toContain("tank_rule_always");
+    expect(toolboxText).not.toContain("tank_act_shoot_forward");
+    expect(toolboxText).not.toContain("tank_rule\"");
   });
 
   it("defaults fallback to WAIT when the workspace has no fallback block", () => {

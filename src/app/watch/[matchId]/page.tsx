@@ -27,6 +27,12 @@ const META_DEFAULTS = {
   totalTurns: 20,
   currentTurn: 0,
 };
+const DEFAULT_ROOM_INITIAL_HP = 50;
+
+function numberPresetValue(preset: Record<string, unknown> | null | undefined, key: string): number | undefined {
+  const value = preset?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
 
 function initialsFor(name: string | null | undefined, fallback: string): string {
   if (!name) return fallback;
@@ -37,13 +43,15 @@ function initialsFor(name: string | null | undefined, fallback: string): string 
 }
 
 // Obstacles and items are still mock — the simulator doesn't model them yet.
+// Obstacles stay within the middle 4 rows (vertical split 3:4:3); columns use
+// the full board width.
 // Tank positions are now driven by the latest turn_event (passed into Board
 // as a prop). Shot line is left out until the simulator surfaces shot rays.
 const BOARD = {
   width: 10,
   height: 10,
   obstacles: [
-    [2, 6], [2, 7], [4, 4], [4, 5], [7, 3], [7, 4], [1, 2], [8, 7], [5, 8],
+    [0, 3], [1, 5], [2, 4], [4, 6], [5, 3], [6, 5], [7, 6], [8, 3], [9, 5],
   ] as [number, number][],
   items: [
     { x: 5, y: 5, kind: "CROSS" as const },
@@ -630,7 +638,13 @@ interface PublicMatch {
   isPublicWatch: boolean;
   player1: { id: string; username: string; displayName: string | null } | null;
   player2: { id: string; username: string; displayName: string | null } | null;
-  room: { name: string; roomNumber: string; watchingPublic: string; replayShareEnabled: boolean };
+  room: {
+    name: string;
+    roomNumber: string;
+    watchingPublic: string;
+    replayShareEnabled: boolean;
+    rulePreset?: Record<string, unknown> | null;
+  };
 }
 interface ReplayPayload {
   replayData?: { turns?: TurnSnapshot[] };
@@ -756,12 +770,19 @@ export default function WatchPage() {
   // never renders blank while data is loading.
   const p1Name = publicData?.player1?.displayName ?? publicData?.player1?.username ?? META_DEFAULTS.p1.name;
   const p2Name = publicData?.player2?.displayName ?? publicData?.player2?.username ?? META_DEFAULTS.p2.name;
+  const rulePreset = publicData?.room?.rulePreset;
+  const totalTurns =
+    numberPresetValue(rulePreset, "maxTurns") ??
+    numberPresetValue(rulePreset, "maxTurn") ??
+    META_DEFAULTS.totalTurns;
+  const initialHp = numberPresetValue(rulePreset, "initialHp") ?? DEFAULT_ROOM_INITIAL_HP;
   const meta = {
     ...META_DEFAULTS,
     matchId: publicData?.matchId ?? matchId,
     roomName: publicData?.room?.name ?? META_DEFAULTS.roomName,
     p1: { id: "P1", name: p1Name, initials: initialsFor(p1Name, "P1") },
     p2: { id: "P2", name: p2Name, initials: initialsFor(p2Name, "P2") },
+    totalTurns,
     viewerCount,
     currentTurn: displayedTurn,
     mode: (ended ? "ENDED" : "LIVE") as "LIVE" | "REPLAY" | "ENDED",
@@ -790,8 +811,8 @@ export default function WatchPage() {
     x: latest?.p1.x ?? 0,
     y: latest?.p1.y ?? 9,
     dir: latest ? DIR_LABEL[latest.p1.dir] : "↑ NORTH",
-    hp: latest?.p1.hp ?? 100,
-    maxHp: 100,
+    hp: latest?.p1.hp ?? initialHp,
+    maxHp: initialHp,
     detected: latest?.p1.scan_detected && latest.p1.detected_targets[0]
       ? `forward: +${latest.p1.detected_targets[0].distance}`
       : "—",
@@ -814,8 +835,8 @@ export default function WatchPage() {
     x: latest?.p2.x ?? 9,
     y: latest?.p2.y ?? 0,
     dir: latest ? DIR_LABEL[latest.p2.dir] : "↓ SOUTH",
-    hp: latest?.p2.hp ?? 100,
-    maxHp: 100,
+    hp: latest?.p2.hp ?? initialHp,
+    maxHp: initialHp,
     detected: latest?.p2.scan_detected && latest.p2.detected_targets[0]
       ? `forward: +${latest.p2.detected_targets[0].distance}`
       : "—",

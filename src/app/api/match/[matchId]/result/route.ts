@@ -9,7 +9,8 @@ type ReplayPlayerTurn = {
   action?: string;
 };
 type ReplayTurn = { turn?: number; p1?: ReplayPlayerTurn; p2?: ReplayPlayerTurn };
-type ReplayData = { turns?: ReplayTurn[] } | null;
+type ReplayData = { turns?: ReplayTurn[]; config?: { initialHp?: unknown } } | null;
+const DEFAULT_REPLAY_INITIAL_HP = 100;
 
 interface PlayerStats {
   finalHp: number;
@@ -24,7 +25,8 @@ interface PlayerStats {
 
 function statsFor(
   player: "p1" | "p2",
-  turns: ReplayTurn[]
+  turns: ReplayTurn[],
+  initialHp: number
 ): PlayerStats {
   const opponent: "p1" | "p2" = player === "p1" ? "p2" : "p1";
   let damageDealt = 0;
@@ -33,7 +35,7 @@ function statsFor(
   let hits = 0;
   let scans = 0;
   let moves = 0;
-  let finalHp = 100;
+  let finalHp = initialHp;
 
   for (const t of turns) {
     const me = t[player];
@@ -61,6 +63,13 @@ function statsFor(
     scans,
     moves,
   };
+}
+
+function initialHpFromReplay(replay: ReplayData): number {
+  const value = replay?.config?.initialHp;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : DEFAULT_REPLAY_INITIAL_HP;
 }
 
 type Params = { params: Promise<{ matchId: string }> };
@@ -118,9 +127,11 @@ export async function GET(_req: NextRequest, { params }: Params) {
       ? match.endedAt.getTime() - match.startedAt.getTime()
       : null;
 
-  const turns = ((match.replayData as ReplayData)?.turns ?? []) as ReplayTurn[];
-  const p1Stats = statsFor("p1", turns);
-  const p2Stats = statsFor("p2", turns);
+  const replay = match.replayData as ReplayData;
+  const initialHp = initialHpFromReplay(replay);
+  const turns = (replay?.turns ?? []) as ReplayTurn[];
+  const p1Stats = statsFor("p1", turns, initialHp);
+  const p2Stats = statsFor("p2", turns, initialHp);
 
   // First damage: first turn where either player took damage. Attribution goes
   // to whichever side dealt it (i.e. whoever didn't take damage that turn).
@@ -139,9 +150,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
     }
   }
 
-  const hpTimeline: Array<[number, number]> = [[100, 100]];
+  const hpTimeline: Array<[number, number]> = [[initialHp, initialHp]];
   for (const t of turns) {
-    hpTimeline.push([t.p1?.hp ?? 100, t.p2?.hp ?? 100]);
+    hpTimeline.push([t.p1?.hp ?? initialHp, t.p2?.hp ?? initialHp]);
   }
 
   return NextResponse.json({
@@ -164,6 +175,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       totalTurns: turns.length,
       p1: p1Stats,
       p2: p2Stats,
+      initialHp,
       firstDamageTurn,
       firstDamageBy,
       hpTimeline,

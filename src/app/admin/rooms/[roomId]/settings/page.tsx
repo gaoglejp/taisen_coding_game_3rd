@@ -36,7 +36,8 @@ interface RoomSettings {
   rule: {
     width: number;
     height: number;
-    maxTurn: number;
+    maxTurns: number;
+    initialHp: number;
     apPerTurn: number;
     scanRange: number;
     obstacles: number;
@@ -65,7 +66,8 @@ const DEFAULT_SETTINGS: RoomSettings = {
   rule: {
     width: 10,
     height: 10,
-    maxTurn: 20,
+    maxTurns: 20,
+    initialHp: 50,
     apPerTurn: 2,
     scanRange: 3,
     obstacles: 9,
@@ -127,10 +129,11 @@ interface ApiRoom {
 }
 
 // Build the form model from the API room. Rule/coding/items live in the
-// freeform rulePreset blob (still simulator-inert), so they fall back to the
-// defaults when the preset is empty.
+// freeform rulePreset blob, so they fall back to the defaults when the preset
+// is empty. `maxTurn` is a legacy key; live matches read `maxTurns`.
 function settingsFromApi(room: ApiRoom): RoomSettings {
   const preset = (room.rulePreset ?? {}) as Partial<RoomSettings["rule"]> & {
+    maxTurn?: number;
     items?: RoomSettings["rule"]["items"];
     coding?: RoomSettings["coding"];
   };
@@ -143,7 +146,8 @@ function settingsFromApi(room: ApiRoom): RoomSettings {
     rule: {
       width: preset.width ?? DEFAULT_SETTINGS.rule.width,
       height: preset.height ?? DEFAULT_SETTINGS.rule.height,
-      maxTurn: preset.maxTurn ?? DEFAULT_SETTINGS.rule.maxTurn,
+      maxTurns: preset.maxTurns ?? preset.maxTurn ?? DEFAULT_SETTINGS.rule.maxTurns,
+      initialHp: preset.initialHp ?? DEFAULT_SETTINGS.rule.initialHp,
       apPerTurn: preset.apPerTurn ?? DEFAULT_SETTINGS.rule.apPerTurn,
       scanRange: preset.scanRange ?? DEFAULT_SETTINGS.rule.scanRange,
       obstacles: preset.obstacles ?? DEFAULT_SETTINGS.rule.obstacles,
@@ -232,8 +236,8 @@ export default function RoomSettingsPage({ params }: { params: Promise<{ roomId:
           watchingPublic: fromVisibility(s.visibility.spectate),
           rankingPublic: fromVisibility(s.visibility.standings),
           replayShareEnabled: s.visibility.replayShare,
-          // Rule/coding/items persist in rulePreset; the simulator doesn't read
-          // them yet (post-v0.2), but they round-trip through this form.
+          // Rule/coding/items persist in rulePreset; live simulation reads
+          // maxTurns and initialHp, while the other fields still round-trip.
           rulePreset: { ...s.rule, coding: s.coding },
         }),
       });
@@ -580,7 +584,7 @@ export default function RoomSettingsPage({ params }: { params: Promise<{ roomId:
             }
           >
             {/* Board / turn / AP */}
-            <FieldRow cols={4}>
+            <FieldRow cols={5}>
               <Field
                 label="盤面幅"
                 required
@@ -625,12 +629,30 @@ export default function RoomSettingsPage({ params }: { params: Promise<{ roomId:
                 <InputWithSuffix
                   suffix="T"
                   type="number"
-                  value={s.rule.maxTurn}
+                  value={s.rule.maxTurns}
                   min={10}
                   max={60}
                   disabled={readOnly}
                   onChange={(v) => {
-                    setS({ ...s, rule: { ...s.rule, maxTurn: Number(v) } });
+                    setS({ ...s, rule: { ...s.rule, maxTurns: Number(v) } });
+                    markDirty("rule");
+                  }}
+                />
+              </Field>
+              <Field
+                label="プレーヤーHP"
+                required
+                hint="各プレーヤーの開始HPです。5〜50で設定します。"
+              >
+                <InputWithSuffix
+                  suffix="HP"
+                  type="number"
+                  value={s.rule.initialHp}
+                  min={5}
+                  max={50}
+                  disabled={readOnly}
+                  onChange={(v) => {
+                    setS({ ...s, rule: { ...s.rule, initialHp: Number(v) } });
                     markDirty("rule");
                   }}
                 />
@@ -739,7 +761,7 @@ export default function RoomSettingsPage({ params }: { params: Promise<{ roomId:
             {/* Preview info row */}
             <InfoRow icon="i">
               <strong>プレビュー:</strong> {s.rule.width}×{s.rule.height} /{" "}
-              {s.rule.maxTurn} ターン / AP {s.rule.apPerTurn} / scan{" "}
+              {s.rule.maxTurns} ターン / HP {s.rule.initialHp} / AP {s.rule.apPerTurn} / scan{" "}
               {s.rule.scanRange} — 標準難度です。授業 1 コマ (45 分) で 1 人
               2〜3 試合こなせます。
             </InfoRow>
@@ -1350,7 +1372,7 @@ function FieldRow({
   cols,
   children,
 }: {
-  cols: 2 | 3 | 4;
+  cols: 2 | 3 | 4 | 5;
   children: React.ReactNode;
 }) {
   return (

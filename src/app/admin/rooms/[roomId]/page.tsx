@@ -35,6 +35,7 @@ const RULE_DEFAULTS = {
   boardWidth: 10,
   boardHeight: 10,
   maxTurns: 20,
+  initialHp: 50,
   ap: 2,
   scanRange: 3,
   obstacleCount: 5,
@@ -183,7 +184,16 @@ export default function RoomOverviewPage({ params }: { params: Promise<{ roomId:
   }
 
   const kind = KIND_CONFIG[room.kind] ?? { label: room.kind, bg: "#f3f4f6", color: "#4b5563" };
-  const rules = { ...RULE_DEFAULTS, ...(room.rulePreset ?? {}) } as typeof RULE_DEFAULTS;
+  const preset = room.rulePreset ?? {};
+  const maxTurns =
+    typeof preset.maxTurns === "number"
+      ? preset.maxTurns
+      : typeof preset.maxTurn === "number"
+        ? preset.maxTurn
+        : RULE_DEFAULTS.maxTurns;
+  const initialHp =
+    typeof preset.initialHp === "number" ? preset.initialHp : RULE_DEFAULTS.initialHp;
+  const rules = { ...RULE_DEFAULTS, ...preset, maxTurns, initialHp } as typeof RULE_DEFAULTS;
   const liveMatchCount = activeMatches.filter((m) => m.status === "BATTLING").length;
 
   return (
@@ -217,6 +227,7 @@ export default function RoomOverviewPage({ params }: { params: Promise<{ roomId:
               {[
                 { label: "盤面", value: `${rules.boardWidth}×${rules.boardHeight}` },
                 { label: "最大ターン", value: `${rules.maxTurns}T` },
+                { label: "HP", value: `${rules.initialHp}` },
                 { label: "AP", value: `${rules.ap}/turn` },
                 { label: "スキャン範囲", value: `${rules.scanRange}マス` },
                 { label: "障害物", value: `${rules.obstacleCount}個` },

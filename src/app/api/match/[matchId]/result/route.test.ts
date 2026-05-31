@@ -95,4 +95,36 @@ describe("GET /api/match/:matchId/result", () => {
     expect(json.winnerSide).toBe("p1");
     expect(json.isDraw).toBe(false);
   });
+
+  it("uses replay config initialHp for HP timeline defaults", async () => {
+    getSessionMock.mockResolvedValue({ id: "viewer", role: "ROOM_USER" });
+    matchFindUniqueMock.mockResolvedValue({
+      id: "m-1",
+      matchNumber: 8,
+      roomId: "room-1",
+      status: "FINISHED",
+      endReason: "TIMEOUT",
+      winnerId: null,
+      replayData: {
+        config: { initialHp: 40 },
+        turns: [{ turn: 1, p1: { action: "WAIT" }, p2: { action: "WAIT" } }],
+      },
+      round: 2,
+      isPublicWatch: true,
+      startedAt: null,
+      endedAt: null,
+      createdAt: new Date("2026-05-24T09:50:00Z"),
+      player1: { id: "p1", username: "a", displayName: "A" },
+      player2: { id: "p2", username: "b", displayName: "B" },
+      room: { id: "room-1", name: "Room", roomNumber: "ROOM-1" },
+    });
+
+    const res = await GET(req, ctx);
+    expect(res.status).toBe(200);
+    const json = await res.json();
+    expect(json.stats.initialHp).toBe(40);
+    expect(json.stats.p1.finalHp).toBe(40);
+    expect(json.stats.p2.finalHp).toBe(40);
+    expect(json.stats.hpTimeline).toEqual([[40, 40], [40, 40]]);
+  });
 });

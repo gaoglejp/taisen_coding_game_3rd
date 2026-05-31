@@ -33,6 +33,8 @@ into the client yet (the server side scaffold exists). See section 4.
 | `/rooms`                                  | Minimal room-picker index (no prototype)  |
 | `/rooms/[roomNumber]`                     | `project/room-top.html`                   |
 | `/practice`                               | Solo practice battle (no prototype)      |
+| `/tutorial`                               | Basic tutorial mission list (no prototype) |
+| `/tutorial/[missionId]`                   | Basic tutorial runner (no prototype)      |
 | `/match/[matchId]/coding`                 | `project/match-coding.html`               |
 | `/match/[matchId]/battle`                 | `project/match-battle.html`               |
 | `/match/[matchId]/result`                 | `project/match-result.html`               |
@@ -69,6 +71,7 @@ All routes use `src/lib/db.ts` (Prisma client) and `src/lib/auth.ts`
 /api/match/[matchId]/result             GET
 /api/match/[matchId]/replay             GET
 /api/practice/simulate                  POST   — standalone solo bot simulation
+/api/tutorial/simulate                  POST   — standalone tutorial mission simulation
 /api/socket                             — (Socket.io path, served by server.ts)
 
 /api/admin/audit                        GET
@@ -186,7 +189,8 @@ These are the calls the previous session made that the next session should
    future resume/persistence (it is not yet stored).
 11. **`src/proxy.ts` is the Next 16 edge auth guard (optimistic).** It
    redirects session-cookie-less requests to `/login` for `/dashboard`,
-   `/rooms`, `/match`, `/admin` (PR #51). It only checks cookie *presence* —
+   `/rooms`, `/match`, `/practice`, `/tutorial`, `/admin` (PR #51 and later
+   additions). It only checks cookie *presence* —
    real validation stays in `getSession` per route/page. **`/watch` is
    deliberately excluded from the matcher**: public spectating is anonymous
    (`/api/match/:id/public` is "no auth required", gated by `isPublicWatch` /
@@ -340,8 +344,25 @@ These are the calls the previous session made that the next session should
    pages intentionally keep **received turns** separate from the **displayed
    turn** so the next turn is not shown until the current action effect has
    cleared. Simulator shooting now uses line-of-sight to the board edge
-   (`GRID_SIZE - 1`) rather than the scan range; true obstacle blocking is still
-   only visual because obstacles are not yet part of `match-simulator.ts`.
+   (`GRID_SIZE - 1`) rather than the scan range. Tutorial runs can also pass
+   fixed `obstaclePositions` into `simulate(...)`; those obstacles block
+   movement, shooting, and scan rays for that run without changing the default
+   live-match behavior.
+20. **Basic tutorial is standalone and local-progress only.** `/tutorial` lists
+   four coding-focused missions and `/tutorial/[missionId]` reuses the real
+   Blockly editor with a mission-filtered toolbox (`createStrategyToolbox`).
+   The client posts `{ missionId, strategy }` to `POST /api/tutorial/simulate`;
+   the API loads mission config from `src/lib/tutorial.ts` and runs one or more
+   fixed verification cases through `simulate(...)` using per-case `maxTurns`,
+   `playerInitialState`, `enemyInitialState`, and `obstaclePositions`. Tutorial
+   progress is stored in `localStorage` under `taisen:tutorial:progress:v1` and
+   does not touch DB, Match history, Socket.io, stats, or room standings.
+   Mission 2 and mission 4 intentionally run multiple cases against the same
+   Blockly strategy so a one-direction hard-code cannot clear the mission.
+   Mission 4 covers forward and right-side enemies; broader strategy practice
+   remains in normal solo practice. The durable tutorial spec, mission table,
+   fixed-board contract, scan-state notes, and manual confirmation checklist now
+   live in `docs/TUTORIAL.md`.
 
 ## 4. Known unfinished work (in priority order)
 
@@ -360,8 +381,9 @@ These are the calls the previous session made that the next session should
    `turn_event` and `match_result` to drive HP/position/direction/turn-log —
    the previous "placeholder console" caveat is resolved by TODO 2.
 2. ~~Run the turn simulation server-side.~~ **Done.** `src/lib/match-simulator.ts`
-   is a pure deterministic simulator: 10×10 grid, two players, up to 20 turns,
-   100 HP each, six action types (`MOVE_FORWARD`, `TURN_LEFT`, `TURN_RIGHT`,
+   is a pure deterministic simulator: 10×10 grid, two players, configurable
+   live-room `maxTurns`, configurable live-room `initialHp` (5..50; room
+   default 50, simulator fallback 100), six action types (`MOVE_FORWARD`, `TURN_LEFT`, `TURN_RIGHT`,
    `SHOOT_FORWARD`, `SCAN`, `WAIT`). Strategies are evaluated rule-by-rule;
    the first matching rule's first action runs (no AP budget yet). After
    `match_started`, `server.ts` calls `simulate()`, walks the turns with a
@@ -442,8 +464,10 @@ These are the calls the previous session made that the next session should
 6. **Ruleset simulation note updated.** PR #19 left `rulePreset` as
    round-trip but simulator-inert; PR #39 wires `rulePreset.maxTurns` into
    live `simulate(...)` runs (`coding_lock` → `runMatch`) with defensive JSON
-   parsing. Other ruleset fields (`ap`, `obstacles`, `items`) remain
-   intentionally post-v0.2.
+   parsing. Later fixes canonicalized the settings page to save `maxTurns`
+   (while still reading legacy `maxTurn`) and added live `initialHp` support
+   with a settings range of 5..50. Other ruleset fields (`ap`, `obstacles`,
+   `items`) remain intentionally post-v0.2.
 7. ~~CI is not set up.~~ **Done.** `.github/workflows/ci.yml` runs lint,
    `tsc --noEmit`, and `next build` on every PR (PR #4).
 

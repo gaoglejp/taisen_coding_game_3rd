@@ -44,6 +44,7 @@ interface ApiResult {
       scans: number;
       moves: number;
     };
+    initialHp: number;
     firstDamageTurn: number | null;
     firstDamageBy: "p1" | "p2" | null;
     hpTimeline: Array<[number, number]>;
@@ -94,9 +95,11 @@ ELSE
 function HpTimelineSVG({
   timeline,
   firstDamageTurn,
+  maxHp,
 }: {
   timeline: Array<[number, number]>;
   firstDamageTurn: number | null;
+  maxHp: number;
 }) {
   const W = 420;
   const H = 120;
@@ -109,7 +112,7 @@ function HpTimelineSVG({
   const points = (side: 0 | 1) =>
     timeline.map((d, i) => ({
       x: PAD.l + (i / (turns - 1)) * chartW,
-      y: PAD.t + (1 - d[side] / 100) * chartH,
+      y: PAD.t + (1 - d[side] / maxHp) * chartH,
     }));
   const p1Pts = points(0);
   const p2Pts = points(1);
@@ -147,11 +150,11 @@ function HpTimelineSVG({
         </>
       )}
       <line x1={endX} y1={PAD.t} x2={endX} y2={PAD.t + chartH} stroke="#374151" strokeWidth={1.5} strokeDasharray="4,3" />
-      {[0, 50, 100].map((val) => (
+      {[0, Math.round(maxHp / 2), maxHp].map((val) => (
         <text
           key={val}
           x={PAD.l - 4}
-          y={PAD.t + (1 - val / 100) * chartH + 4}
+          y={PAD.t + (1 - val / maxHp) * chartH + 4}
           fontSize={8}
           textAnchor="end"
           fill="#9ca3af"
@@ -551,7 +554,11 @@ export default function ResultPage({ params }: { params: Promise<{ matchId: stri
               }}
             >
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>HPタイムライン</div>
-              <HpTimelineSVG timeline={data.stats.hpTimeline} firstDamageTurn={data.stats.firstDamageTurn} />
+              <HpTimelineSVG
+                timeline={data.stats.hpTimeline}
+                firstDamageTurn={data.stats.firstDamageTurn}
+                maxHp={data.stats.initialHp}
+              />
               <div style={{ display: "flex", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
                 {[
                   { color: "#2563eb", label: `P1 ${p1Name}` },

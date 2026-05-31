@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { simulate, normalizeMaxTurns, MAX_TURNS, INITIAL_HP, type Strategy } from "./match-simulator";
+import {
+  simulate,
+  normalizeInitialHp,
+  normalizeMaxTurns,
+  MAX_INITIAL_HP,
+  MAX_TURNS,
+  MIN_INITIAL_HP,
+  INITIAL_HP,
+  type Strategy,
+} from "./match-simulator";
 
 const waitOnly: Strategy = { fallbackActions: [{ type: "WAIT" }] };
 const alwaysMove: Strategy = { fallbackActions: [{ type: "MOVE_FORWARD" }] };
@@ -205,6 +214,38 @@ describe("simulate", () => {
   it("keeps default maxTurns when option is omitted", () => {
     const result = simulate(waitOnly, waitOnly);
     expect(result.totalTurns).toBe(MAX_TURNS);
+  });
+
+  it("uses custom initialHp when provided", () => {
+    const result = simulate(waitOnly, waitOnly, { initialHp: 40 });
+    expect(result.turns[0].p1.hp).toBe(40);
+    expect(result.turns[0].p2.hp).toBe(40);
+    expect(result.finalHp).toEqual({ p1: 40, p2: 40 });
+  });
+
+  it("uses fixed initial positions when provided", () => {
+    const result = simulate(alwaysMove, waitOnly, {
+      maxTurns: 1,
+      playerInitialState: { x: 4, y: 4, dir: "N", hp: 30 },
+      enemyInitialState: { x: 8, y: 8, dir: "S", hp: 35 },
+    });
+
+    expect(result.turns[0].p1).toMatchObject({ x: 4, y: 3, dir: "N", hp: 30 });
+    expect(result.turns[0].p2).toMatchObject({ x: 8, y: 8, dir: "S", hp: 35 });
+  });
+
+  it("blocks movement and line of sight with configured obstacles", () => {
+    const shootForward: Strategy = { fallbackActions: [{ type: "SHOOT_FORWARD" }] };
+    const result = simulate(alwaysMove, shootForward, {
+      maxTurns: 1,
+      playerInitialState: { x: 4, y: 4, dir: "N" },
+      enemyInitialState: { x: 4, y: 2, dir: "S" },
+      obstaclePositions: [{ x: 4, y: 3 }],
+    });
+
+    expect(result.turns[0].p1.moved).toBe(false);
+    expect(result.turns[0].p2.shoot_result).toBe("MISS");
+    expect(result.finalHp.p1).toBe(INITIAL_HP);
   });
 });
 
@@ -482,5 +523,21 @@ describe("normalizeMaxTurns", () => {
     expect(normalizeMaxTurns(-10)).toBe(1);
     expect(normalizeMaxTurns(3.9)).toBe(3);
     expect(normalizeMaxTurns(201)).toBe(200);
+  });
+});
+
+describe("normalizeInitialHp", () => {
+  it("returns default INITIAL_HP for undefined, null, or non-finite values", () => {
+    expect(normalizeInitialHp(undefined)).toBe(INITIAL_HP);
+    expect(normalizeInitialHp(null)).toBe(INITIAL_HP);
+    expect(normalizeInitialHp(Number.NaN)).toBe(INITIAL_HP);
+    expect(normalizeInitialHp(Number.POSITIVE_INFINITY)).toBe(INITIAL_HP);
+  });
+
+  it("clamps to supported HP range and truncates decimals", () => {
+    expect(normalizeInitialHp(0)).toBe(MIN_INITIAL_HP);
+    expect(normalizeInitialHp(4)).toBe(MIN_INITIAL_HP);
+    expect(normalizeInitialHp(12.9)).toBe(12);
+    expect(normalizeInitialHp(99)).toBe(MAX_INITIAL_HP);
   });
 });

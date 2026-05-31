@@ -81,6 +81,7 @@ async function main() {
         boardWidth: 10,
         boardHeight: 10,
         maxTurns: 20,
+        initialHp: 50,
         ap: 2,
         scanRange: 3,
         obstacleCount: 5,

@@ -60,6 +60,11 @@ export interface PlayerState {
   hp: number;
 }
 
+export interface BoardPosition {
+  x: number;
+  y: number;
+}
+
 export interface DetectedTarget {
   direction: RelDir;
   distance: number;
@@ -88,6 +93,14 @@ export interface SimulationResult {
   endReason: "HP_ZERO" | "TIMEOUT";
   finalHp: { p1: number; p2: number };
   totalTurns: number;
+}
+
+export interface SimulateOptions {
+  maxTurns?: number;
+  initialHp?: number;
+  playerInitialState?: Partial<PlayerState>;
+  enemyInitialState?: Partial<PlayerState>;
+  obstaclePositions?: BoardPosition[];
 }
 
 // A value node: a number/direction the comparison block reads. `type` selects a
@@ -170,6 +183,8 @@ export interface Strategy {
 export const GRID_SIZE = 10;
 export const MAX_TURNS = 20;
 export const INITIAL_HP = 100;
+export const MIN_INITIAL_HP = 5;
+export const MAX_INITIAL_HP = 50;
 const MIN_TURNS = 1;
 const MAX_TURNS_LIMIT = 200;
 const SHOOT_RANGE = GRID_SIZE - 1;
@@ -428,6 +443,46 @@ function inBounds(x: number, y: number): boolean {
   return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
 }
 
+function cellKey(x: number, y: number): string {
+  return `${x},${y}`;
+}
+
+function isBlocked(x: number, y: number, obstacles: ReadonlySet<string>): boolean {
+  return obstacles.has(cellKey(x, y));
+}
+
+function buildObstacleSet(
+  positions: BoardPosition[] | null | undefined,
+  p1: BoardPosition,
+  p2: BoardPosition
+): Set<string> {
+  const obstacles = new Set<string>();
+  for (const pos of positions ?? []) {
+    if (!Number.isInteger(pos?.x) || !Number.isInteger(pos?.y)) continue;
+    if (!inBounds(pos.x, pos.y)) continue;
+    if ((pos.x === p1.x && pos.y === p1.y) || (pos.x === p2.x && pos.y === p2.y)) continue;
+    obstacles.add(cellKey(pos.x, pos.y));
+  }
+  return obstacles;
+}
+
+function normalizePlayerState(
+  value: Partial<PlayerState> | null | undefined,
+  fallback: PlayerState,
+  hp: number
+): PlayerState {
+  const rawX = value?.x;
+  const rawY = value?.y;
+  const x = typeof rawX === "number" && Number.isInteger(rawX) && inBounds(rawX, fallback.y) ? rawX : fallback.x;
+  const y = typeof rawY === "number" && Number.isInteger(rawY) && inBounds(x, rawY) ? rawY : fallback.y;
+  const dir = isDirection(value?.dir) ? value.dir : fallback.dir;
+  const stateHp =
+    typeof value?.hp === "number" && Number.isFinite(value.hp)
+      ? Math.max(0, Math.trunc(value.hp))
+      : hp;
+  return { x, y, dir, hp: stateHp };
+}
+
 // Cell one step from `player` in relative direction `rel`.
 function relCell(player: PlayerState, rel: RelDir): [number, number] {
   const [dx, dy] = relDelta(player.dir, rel);
@@ -440,13 +495,15 @@ function rayDistance(
   shooter: PlayerState,
   target: PlayerState,
   delta: [number, number],
-  range: number
+  range: number,
+  obstacles: ReadonlySet<string>
 ): number {
   const [dx, dy] = delta;
   for (let step = 1; step <= range; step++) {
     const x = shooter.x + dx * step;
     const y = shooter.y + dy * step;
     if (!inBounds(x, y)) return 0;
+    if (isBlocked(x, y, obstacles)) return 0;
     if (target.x === x && target.y === y) return step;
   }
   return 0;
@@ -454,9 +511,14 @@ function rayDistance(
 
 // Whether `self` could step into its relative cell (in bounds, not the
 // opponent's current cell).
-function canMove(self: PlayerState, opponent: PlayerState, rel: RelDir): boolean {
+function canMove(
+  self: PlayerState,
+  opponent: PlayerState,
+  rel: RelDir,
+  obstacles: ReadonlySet<string>
+): boolean {
   const [x, y] = relCell(self, rel);
-  return inBounds(x, y) && !(x === opponent.x && y === opponent.y);
+  return inBounds(x, y) && !isBlocked(x, y, obstacles) && !(x === opponent.x && y === opponent.y);
 }
 
 function buildPerception(
@@ -466,7 +528,8 @@ function buildPerception(
   damaged: number,
   moved: boolean,
   shot_hit: boolean,
-  turnsLeft: number
+  turnsLeft: number,
+  obstacles: ReadonlySet<string>
 ): Perception {
   const dx = opponent.x - self.x;
   const dy = opponent.y - self.y;
@@ -477,10 +540,10 @@ function buildPerception(
     damaged,
     moved,
     shot_hit,
-    can_move_forward: canMove(self, opponent, "FORWARD"),
-    can_move_back: canMove(self, opponent, "BACK"),
-    can_move_left: canMove(self, opponent, "LEFT"),
-    can_move_right: canMove(self, opponent, "RIGHT"),
+    can_move_forward: canMove(self, opponent, "FORWARD", obstacles),
+    can_move_back: canMove(self, opponent, "BACK", obstacles),
+    can_move_left: canMove(self, opponent, "LEFT", obstacles),
+    can_move_right: canMove(self, opponent, "RIGHT", obstacles),
     self_hp: self.hp,
     turns_left: turnsLeft,
     self_facing: self.dir,
@@ -524,13 +587,27 @@ function logLine(
 export function simulate(
   strategy1: Strategy | null | undefined,
   strategy2: Strategy | null | undefined,
-  options?: { maxTurns?: number }
+  options?: SimulateOptions
 ): SimulationResult {
   const maxTurns = normalizeMaxTurns(options?.maxTurns);
-  const p1: PlayerState = { x: 0, y: GRID_SIZE - 1, dir: "N", hp: INITIAL_HP };
-  const p2: PlayerState = { x: GRID_SIZE - 1, y: 0, dir: "S", hp: INITIAL_HP };
-  let perception1: Perception = buildPerception(p1, p2, false, 0, false, false, maxTurns);
-  let perception2: Perception = buildPerception(p2, p1, false, 0, false, false, maxTurns);
+  const initialHp = normalizeInitialHp(options?.initialHp);
+  const p1 = normalizePlayerState(
+    options?.playerInitialState,
+    { x: 0, y: GRID_SIZE - 1, dir: "N", hp: initialHp },
+    initialHp
+  );
+  const p2 = normalizePlayerState(
+    options?.enemyInitialState,
+    { x: GRID_SIZE - 1, y: 0, dir: "S", hp: initialHp },
+    initialHp
+  );
+  if (p1.x === p2.x && p1.y === p2.y) {
+    p2.x = GRID_SIZE - 1;
+    p2.y = 0;
+  }
+  const obstacles = buildObstacleSet(options?.obstaclePositions, p1, p2);
+  let perception1: Perception = buildPerception(p1, p2, false, 0, false, false, maxTurns, obstacles);
+  let perception2: Perception = buildPerception(p2, p1, false, 0, false, false, maxTurns, obstacles);
   const vars1: Vars = {};
   const vars2: Vars = {};
 
@@ -549,8 +626,16 @@ export function simulate(
     const moveRel2 = MOVE_ACTIONS[action2];
     const move1 = moveRel1 ? relCell(p1, moveRel1) : null;
     const move2 = moveRel2 ? relCell(p2, moveRel2) : null;
-    const validMove1 = move1 && inBounds(...move1) && !(move1[0] === p2.x && move1[1] === p2.y);
-    const validMove2 = move2 && inBounds(...move2) && !(move2[0] === p1.x && move2[1] === p1.y);
+    const validMove1 =
+      move1 &&
+      inBounds(...move1) &&
+      !isBlocked(move1[0], move1[1], obstacles) &&
+      !(move1[0] === p2.x && move1[1] === p2.y);
+    const validMove2 =
+      move2 &&
+      inBounds(...move2) &&
+      !isBlocked(move2[0], move2[1], obstacles) &&
+      !(move2[0] === p1.x && move2[1] === p1.y);
     const collision = validMove1 && validMove2 && move1![0] === move2![0] && move1![1] === move2![1];
     const moved1 = !!validMove1 && !collision;
     const moved2 = !!validMove2 && !collision;
@@ -568,8 +653,8 @@ export function simulate(
     // Shoots and scans use post-move positions.
     const shootRel1 = SHOOT_ACTIONS[action1];
     const shootRel2 = SHOOT_ACTIONS[action2];
-    const shootDist1 = shootRel1 ? rayDistance(p1, p2, relDelta(p1.dir, shootRel1), SHOOT_RANGE) : 0;
-    const shootDist2 = shootRel2 ? rayDistance(p2, p1, relDelta(p2.dir, shootRel2), SHOOT_RANGE) : 0;
+    const shootDist1 = shootRel1 ? rayDistance(p1, p2, relDelta(p1.dir, shootRel1), SHOOT_RANGE, obstacles) : 0;
+    const shootDist2 = shootRel2 ? rayDistance(p2, p1, relDelta(p2.dir, shootRel2), SHOOT_RANGE, obstacles) : 0;
     const shootResult1: "HIT" | "MISS" | null = shootRel1 ? (shootDist1 > 0 ? "HIT" : "MISS") : null;
     const shootResult2: "HIT" | "MISS" | null = shootRel2 ? (shootDist2 > 0 ? "HIT" : "MISS") : null;
     const damaged1 = shootDist2 > 0 ? SHOOT_DAMAGE : 0;
@@ -579,13 +664,13 @@ export function simulate(
 
     const targets1: DetectedTarget[] =
       action1 === "SCAN_AROUND"
-        ? REL_DIRS.map((rel) => ({ rel, dist: rayDistance(p1, p2, relDelta(p1.dir, rel), SCAN_RANGE) }))
+        ? REL_DIRS.map((rel) => ({ rel, dist: rayDistance(p1, p2, relDelta(p1.dir, rel), SCAN_RANGE, obstacles) }))
             .filter((o) => o.dist > 0)
             .map((o) => ({ direction: o.rel, distance: o.dist, age: 0 }))
         : [];
     const targets2: DetectedTarget[] =
       action2 === "SCAN_AROUND"
-        ? REL_DIRS.map((rel) => ({ rel, dist: rayDistance(p2, p1, relDelta(p2.dir, rel), SCAN_RANGE) }))
+        ? REL_DIRS.map((rel) => ({ rel, dist: rayDistance(p2, p1, relDelta(p2.dir, rel), SCAN_RANGE, obstacles) }))
             .filter((o) => o.dist > 0)
             .map((o) => ({ direction: o.rel, distance: o.dist, age: 0 }))
         : [];
@@ -618,8 +703,8 @@ export function simulate(
       ],
     });
 
-    perception1 = buildPerception(p1, p2, scan1, damaged1, moved1, shootResult1 === "HIT", maxTurns - turn);
-    perception2 = buildPerception(p2, p1, scan2, damaged2, moved2, shootResult2 === "HIT", maxTurns - turn);
+    perception1 = buildPerception(p1, p2, scan1, damaged1, moved1, shootResult1 === "HIT", maxTurns - turn, obstacles);
+    perception2 = buildPerception(p2, p1, scan2, damaged2, moved2, shootResult2 === "HIT", maxTurns - turn, obstacles);
 
     if (p1.hp <= 0 || p2.hp <= 0) {
       endReason = "HP_ZERO";
@@ -645,5 +730,13 @@ export function normalizeMaxTurns(value: number | null | undefined): number {
   const integer = Math.trunc(value);
   if (integer < MIN_TURNS) return MIN_TURNS;
   if (integer > MAX_TURNS_LIMIT) return MAX_TURNS_LIMIT;
+  return integer;
+}
+
+export function normalizeInitialHp(value: number | null | undefined): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return INITIAL_HP;
+  const integer = Math.trunc(value);
+  if (integer < MIN_INITIAL_HP) return MIN_INITIAL_HP;
+  if (integer > MAX_INITIAL_HP) return MAX_INITIAL_HP;
   return integer;
 }

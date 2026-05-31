@@ -18,21 +18,25 @@ const MOCK_MATCH = {
 const GRID_SIZE = 10;
 const CELL_PX = 44;
 const TURN_EFFECT_MS = 860;
+const DEFAULT_ROOM_INITIAL_HP = 50;
+const SHOW_PLAYER_DEBUG_DETAILS = false;
 
-// 10x10 grid: null=empty, "WALL"=obstacle, "CROSS"=cross attack item, "BARRIER"=barrier item, "REPEAT"=repeat item
+// 10x10 grid: null=empty, "WALL"=obstacle, "CROSS"=cross attack item, "BARRIER"=barrier item, "REPEAT"=repeat item.
+// Obstacles are constrained to the middle 4 rows of the board: vertical split
+// 3:4:3, full horizontal width available.
+const OBSTACLE_CELLS: [number, number][] = [
+  [0, 3],
+  [2, 4],
+  [4, 5],
+  [7, 6],
+  [9, 4],
+];
 const GRID_DATA: Record<string, string> = {
-  "2,3": "WALL",
-  "4,4": "WALL",
-  "6,2": "WALL",
-  "7,7": "WALL",
-  "3,8": "WALL",
+  ...Object.fromEntries(OBSTACLE_CELLS.map(([x, y]) => [`${x},${y}`, "WALL"])),
   "1,4": "CROSS",
   "8,3": "BARRIER",
   "5,6": "REPEAT",
 };
-const OBSTACLE_CELLS = Object.entries(GRID_DATA)
-  .filter(([, value]) => value === "WALL")
-  .map(([key]) => key.split(",").map(Number) as [number, number]);
 
 interface Player {
   x: number;
@@ -42,10 +46,15 @@ interface Player {
   maxHp: number;
 }
 
-const INITIAL_P1: Player = { x: 0, y: 9, dir: "N", hp: 100, maxHp: 100 };
-const INITIAL_P2: Player = { x: 9, y: 0, dir: "S", hp: 100, maxHp: 100 };
+const INITIAL_P1: Omit<Player, "hp" | "maxHp"> = { x: 0, y: 9, dir: "N" };
+const INITIAL_P2: Omit<Player, "hp" | "maxHp"> = { x: 9, y: 0, dir: "S" };
 
 const DIR_ARROW: Record<string, string> = { N: "↑", E: "→", S: "↓", W: "←" };
+
+function numberPresetValue(preset: Record<string, unknown> | null | undefined, key: string): number | undefined {
+  const value = preset?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
 
 function HpBar({ hp, max, color }: { hp: number; max: number; color: string }) {
   return (
@@ -154,16 +163,16 @@ function RecognitionPanel({
   return (
     <div
       style={{
-        width: 320,
+        width: "100%",
+        boxSizing: "border-box",
         flexShrink: 0,
         display: "flex",
         flexDirection: "column",
         gap: 10,
         padding: "12px 16px",
         background: "var(--surface)",
-        borderRight: player === "p1" ? "1px solid var(--line)" : "none",
-        borderLeft: player === "p2" ? "1px solid var(--line)" : "none",
-        overflow: "auto",
+        borderBottom: player === "p1" ? "1px solid var(--line)" : "none",
+        overflow: "hidden",
       }}
     >
       {/* Header */}
@@ -234,6 +243,7 @@ function RecognitionPanel({
         <HpBar hp={playerData.hp} max={playerData.maxHp} color={accentColor} />
       </div>
 
+      <div style={{ display: SHOW_PLAYER_DEBUG_DETAILS ? "contents" : "none" }}>
       {/* Surroundings */}
       <div>
         <div style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-soft)", marginBottom: 6 }}>
@@ -385,6 +395,7 @@ function RecognitionPanel({
           </div>
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -401,13 +412,14 @@ export default function BattlePage({
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
   const [maxTurns, setMaxTurns] = useState<number>(DEFAULT_MAX_TURNS);
+  const [initialHp, setInitialHp] = useState<number>(DEFAULT_ROOM_INITIAL_HP);
   // "p1" / "p2" if the viewer is a participant; "spectator" otherwise. Used to
   // flip the board so the viewer's own piece sits at the bottom of the grid.
   const [viewer, setViewer] = useState<"p1" | "p2" | "spectator">("spectator");
 
-  // Pull viewer identity, the match's player slots, and the room's maxTurns
-  // so the header and the board can render with real values instead of the
-  // prototype mocks. Also signals battle_ready once everything is in place.
+  // Pull viewer identity, the match's player slots, and room rule settings so
+  // the header and board render with real values instead of prototype mocks.
+  // Also signals battle_ready once everything is in place.
   useEffect(() => {
     let cancelled = false;
     Promise.allSettled([
@@ -423,9 +435,14 @@ export default function BattlePage({
       if (stateRes.status === "fulfilled" && stateRes.value.ok) {
         const data = await stateRes.value.json();
         const m = data?.match;
-        const ruleMax = m?.room?.rulePreset?.maxTurns;
+        const preset = m?.room?.rulePreset as Record<string, unknown> | null | undefined;
+        const ruleMax = numberPresetValue(preset, "maxTurns") ?? numberPresetValue(preset, "maxTurn");
         if (typeof ruleMax === "number" && Number.isFinite(ruleMax) && ruleMax > 0) {
           setMaxTurns(ruleMax);
+        }
+        const ruleInitialHp = numberPresetValue(preset, "initialHp") ?? DEFAULT_ROOM_INITIAL_HP;
+        if (ruleInitialHp >= 5 && ruleInitialHp <= 50) {
+          setInitialHp(ruleInitialHp);
         }
         if (myUserId && m?.player1?.id === myUserId) setViewer("p1");
         else if (myUserId && m?.player2?.id === myUserId) setViewer("p2");
@@ -461,11 +478,11 @@ export default function BattlePage({
 
   const activeSnapshot = currentTurn > 0 ? turns[currentTurn - 1] : undefined;
   const p1: Player = activeSnapshot
-    ? { x: activeSnapshot.p1.x, y: activeSnapshot.p1.y, dir: activeSnapshot.p1.dir, hp: activeSnapshot.p1.hp, maxHp: 100 }
-    : INITIAL_P1;
+    ? { x: activeSnapshot.p1.x, y: activeSnapshot.p1.y, dir: activeSnapshot.p1.dir, hp: activeSnapshot.p1.hp, maxHp: initialHp }
+    : { ...INITIAL_P1, hp: initialHp, maxHp: initialHp };
   const p2: Player = activeSnapshot
-    ? { x: activeSnapshot.p2.x, y: activeSnapshot.p2.y, dir: activeSnapshot.p2.dir, hp: activeSnapshot.p2.hp, maxHp: 100 }
-    : INITIAL_P2;
+    ? { x: activeSnapshot.p2.x, y: activeSnapshot.p2.y, dir: activeSnapshot.p2.dir, hp: activeSnapshot.p2.hp, maxHp: initialHp }
+    : { ...INITIAL_P2, hp: initialHp, maxHp: initialHp };
 
   useEffect(() => {
     if (!playing || turns.length === 0) return;
@@ -567,27 +584,56 @@ export default function BattlePage({
         </div>
       </header>
 
-      {/* Main 3-column layout */}
+      {/* Main battle layout */}
       <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
-        {/* P1 Panel */}
-        <RecognitionPanel
-          player="p1"
-          playerData={p1}
-          accentColor="var(--p1)"
-          softColor="var(--p1-soft)"
-          inkColor="var(--p1-ink)"
-        />
+        {/* Player panels */}
+        <div
+          style={{
+            width: 320,
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            background: "var(--surface)",
+            borderRight: "1px solid var(--line)",
+            overflow: "hidden",
+          }}
+        >
+          <RecognitionPanel
+            player="p1"
+            playerData={p1}
+            accentColor="var(--p1)"
+            softColor="var(--p1-soft)"
+            inkColor="var(--p1-ink)"
+          />
+          <RecognitionPanel
+            player="p2"
+            playerData={p2}
+            accentColor="var(--p2)"
+            softColor="var(--p2-soft)"
+            inkColor="var(--p2-ink)"
+          />
+        </div>
 
-        {/* Center: Battle Board */}
+        {/* Board + side controls */}
         <div
           style={{
             flex: 1,
+            minWidth: 0,
             display: "flex",
-            flexDirection: "column",
-            overflow: "auto",
-            padding: "16px 12px",
+            overflow: "hidden",
           }}
         >
+          {/* Battle Board */}
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              overflow: "auto",
+              padding: "16px 12px",
+            }}
+          >
           {/* Turn indicator */}
           <div style={{ textAlign: "center", marginBottom: 12 }}>
             <span
@@ -812,6 +858,19 @@ export default function BattlePage({
               </div>
             ))}
           </div>
+          </div>
+
+          {/* Side controls */}
+          <aside
+            style={{
+              width: 380,
+              flexShrink: 0,
+              borderLeft: "1px solid var(--line)",
+              background: "var(--bg)",
+              padding: "16px 14px",
+              overflow: "auto",
+            }}
+          >
 
           {/* Replay controls */}
           <div
@@ -983,16 +1042,8 @@ export default function BattlePage({
                 ))}
             </div>
           </div>
+          </aside>
         </div>
-
-        {/* P2 Panel */}
-        <RecognitionPanel
-          player="p2"
-          playerData={p2}
-          accentColor="var(--p2)"
-          softColor="var(--p2-soft)"
-          inkColor="var(--p2-ink)"
-        />
       </div>
 
       {/* Timeline bar */}

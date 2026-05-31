@@ -11,7 +11,6 @@ import {
 } from "@/lib/socket-client";
 import {
   GRID_SIZE,
-  INITIAL_HP,
   MAX_TURNS,
   type Strategy,
   type StrategyStmt,
@@ -38,6 +37,13 @@ const EMPTY_STRATEGY: Strategy = {
   rules: [],
   fallbackActions: [{ type: "WAIT", ap: 0 }],
 };
+
+const DEFAULT_ROOM_INITIAL_HP = 50;
+
+function numberPresetValue(preset: Record<string, unknown> | null | undefined, key: string): number | undefined {
+  const value = preset?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
 
 // Statement walkers used by the right tab pane and the bottom status bar to
 // summarize the live strategy (rule count, block count, max if-depth) — these
@@ -116,6 +122,8 @@ export default function CodingPage({
   const [matchMeta, setMatchMeta] = useState<{
     roomName: string;
     matchNumber: number;
+    maxTurns: number;
+    initialHp: number;
     player1: { id: string; displayName: string | null; username: string } | null;
     player2: { id: string; displayName: string | null; username: string } | null;
   } | null>(null);
@@ -146,9 +154,14 @@ export default function CodingPage({
         setCodingDeadlineAt(typeof m?.codingDeadlineAt === "string" ? m.codingDeadlineAt : null);
         setDeadlineLoaded(true);
         if (m?.room?.name) {
+          const preset = m.room.rulePreset as Record<string, unknown> | null | undefined;
+          const maxTurns = numberPresetValue(preset, "maxTurns") ?? numberPresetValue(preset, "maxTurn") ?? MAX_TURNS;
+          const initialHp = numberPresetValue(preset, "initialHp") ?? DEFAULT_ROOM_INITIAL_HP;
           setMatchMeta({
             roomName: m.room.name,
             matchNumber: m.matchNumber,
+            maxTurns,
+            initialHp,
             player1: m.player1 ?? null,
             player2: m.player2 ?? null,
           });
@@ -168,6 +181,8 @@ export default function CodingPage({
   })();
   const roomName = matchMeta?.roomName ?? "…";
   const matchNumber = matchMeta?.matchNumber ?? 0;
+  const maxTurns = matchMeta?.maxTurns ?? MAX_TURNS;
+  const initialHp = matchMeta?.initialHp ?? DEFAULT_ROOM_INITIAL_HP;
   const opponentName = opponent?.displayName ?? opponent?.username ?? "—";
 
   // Wire Socket.io for this match.
@@ -507,8 +522,8 @@ export default function CodingPage({
                   >
                     {[
                       ["盤面", `${GRID_SIZE} × ${GRID_SIZE}`],
-                      ["最大ターン数", `${MAX_TURNS} ターン`],
-                      ["開始 HP", `${INITIAL_HP}`],
+                      ["最大ターン数", `${maxTurns} ターン`],
+                      ["開始 HP", `${initialHp}`],
                       ["1 ターンの行動", "1 アクション"],
                       ["AP", "全アクション 1"],
                     ].map(([label, value]) => (

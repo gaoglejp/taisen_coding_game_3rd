@@ -437,7 +437,7 @@ export default function DashboardPage() {
                 {loading ? <Skeleton w={180} /> : `@${user?.username}`}
               </p>
             </div>
-            <div style={{ display: "flex", gap: 12, flexShrink: 0 }}>
+            <div style={{ display: "flex", gap: 12, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <Link
                 href="/rooms"
                 style={{
@@ -466,10 +466,36 @@ export default function DashboardPage() {
                   fontSize: 14,
                   textDecoration: "none",
                   border: `1px solid ${T.line}`,
-                  display: "inline-block",
+                  display: "inline-flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 2,
+                  lineHeight: 1.15,
                 }}
               >
-                🧩 練習する
+                <span>🧩 練習する</span>
+                <span style={{ fontSize: 11, color: T.inkSoft, fontWeight: 600 }}>一人対戦で試す</span>
+              </Link>
+              <Link
+                href="/tutorial"
+                style={{
+                  padding: "11px 22px",
+                  borderRadius: 10,
+                  background: T.surface,
+                  color: T.ink,
+                  fontWeight: 700,
+                  fontSize: 14,
+                  textDecoration: "none",
+                  border: `1px solid ${T.line}`,
+                  display: "inline-flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 2,
+                  lineHeight: 1.15,
+                }}
+              >
+                <span>📘 チュートリアル</span>
+                <span style={{ fontSize: 11, color: T.inkSoft, fontWeight: 600 }}>基本から学ぶ</span>
               </Link>
             </div>
           </div>

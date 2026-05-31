@@ -419,7 +419,22 @@ export function defineStrategyBlocks(): void {
   defined = true;
 }
 
-export const STRATEGY_TOOLBOX = {
+export type StrategyToolbox = {
+  kind: "categoryToolbox";
+  contents: Array<{
+    kind: "category";
+    name: string;
+    colour: string;
+    contents: Array<{ kind: "block"; type: string }>;
+  }>;
+};
+
+export interface StrategyToolboxFilter {
+  allowedCategories?: string[];
+  allowedBlockTypes?: string[];
+}
+
+export const STRATEGY_TOOLBOX: StrategyToolbox = {
   kind: "categoryToolbox",
   contents: [
     {
@@ -498,6 +513,28 @@ export const STRATEGY_TOOLBOX = {
     },
   ],
 };
+
+export function createStrategyToolbox(filter?: StrategyToolboxFilter | null): StrategyToolbox {
+  const allowedCategories = filter?.allowedCategories
+    ? new Set(filter.allowedCategories)
+    : null;
+  const allowedBlockTypes = filter?.allowedBlockTypes
+    ? new Set(filter.allowedBlockTypes)
+    : null;
+
+  return {
+    kind: "categoryToolbox",
+    contents: STRATEGY_TOOLBOX.contents
+      .filter((category) => !allowedCategories || allowedCategories.has(category.name))
+      .map((category) => ({
+        ...category,
+        contents: category.contents.filter(
+          (block) => !allowedBlockTypes || allowedBlockTypes.has(block.type)
+        ),
+      }))
+      .filter((category) => category.contents.length > 0),
+  };
+}
 
 // Starter workspace: advance forward while possible, otherwise sidestep right.
 // If no rule matches, the serializer supplies WAIT as the implicit fallback.

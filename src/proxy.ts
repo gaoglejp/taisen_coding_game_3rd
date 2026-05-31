@@ -16,6 +16,7 @@ export const config = {
     "/rooms/:path*",
     "/match/:path*",
     "/practice/:path*",
+    "/tutorial/:path*",
     // NOTE: /watch is intentionally NOT guarded — public spectating is
     // anonymous (see /api/match/:id/public, "no auth required"; gated by
     // isPublicWatch / watchingPublic). The watch page handles visibility.

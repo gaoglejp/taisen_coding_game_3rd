@@ -26,6 +26,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
           watchingPublic: true,
           rankingPublic: true,
           replayShareEnabled: true,
+          rulePreset: true,
           name: true,
           roomNumber: true,
         },
@@ -51,6 +52,7 @@ export async function GET(_req: NextRequest, { params }: Params) {
       roomNumber: match.room.roomNumber,
       watchingPublic: match.room.watchingPublic,
       replayShareEnabled: match.room.replayShareEnabled,
+      rulePreset: match.room.rulePreset,
     },
   });
 }

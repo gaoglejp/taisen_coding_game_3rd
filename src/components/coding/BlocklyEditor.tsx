@@ -7,6 +7,7 @@ import {
   STRATEGY_TOOLBOX,
   DEFAULT_WORKSPACE_STATE,
   workspaceToStrategy,
+  type StrategyToolbox,
 } from "@/lib/strategy-blocks";
 import type { Strategy } from "@/lib/match-simulator";
 
@@ -39,9 +40,10 @@ interface Props {
   onChange?: (strategy: Strategy, state: string) => void;
   readOnly?: boolean;
   initialState?: object | null;
+  toolbox?: StrategyToolbox;
 }
 
-export default function BlocklyEditor({ onChange, readOnly = false, initialState }: Props) {
+export default function BlocklyEditor({ onChange, readOnly = false, initialState, toolbox }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const onChangeRef = useRef(onChange);
   useEffect(() => {
@@ -55,7 +57,7 @@ export default function BlocklyEditor({ onChange, readOnly = false, initialState
     if (!container) return;
 
     const workspace = Blockly.inject(container, {
-      toolbox: STRATEGY_TOOLBOX,
+      toolbox: toolbox ?? STRATEGY_TOOLBOX,
       readOnly,
       renderer: "zelos",
       theme: STRATEGY_THEME,
@@ -103,7 +105,7 @@ export default function BlocklyEditor({ onChange, readOnly = false, initialState
       workspace.removeChangeListener(listener);
       workspace.dispose();
     };
-  }, [readOnly]);
+  }, [readOnly, toolbox]);
 
   return (
     <div className="taisen-blockly-editor" style={{ width: "100%", height: "100%" }}>

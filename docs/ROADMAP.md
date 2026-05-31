@@ -59,8 +59,9 @@ Status legend: ✅ done · 🟡 in progress · ⬜ not started
 | Coding countdown bound to `codingDeadlineAt` | ✅ | PR #40 — `src/app/match/[matchId]/coding/page.tsx` now recalculates from `/api/match/:id/state` deadline each tick; null/invalid keeps 300s fallback. |
 | Lock strategy → `match_started` | ✅ | `server.ts` `coding_lock` handler; Scope B E2E covers taro/hanako two-context lock → auto battle transition |
 | Turn simulator (server-side) | ✅ | PR #5, `src/lib/match-simulator.ts` |
-| Room `rulePreset.maxTurns` reflected in live simulation | ✅ | PR #39 — `coding_lock` → `runMatch` now passes validated `maxTurns` to `simulate` |
+| Room `rulePreset.maxTurns` / `initialHp` reflected in live simulation | ✅ | PR #39 wired `maxTurns`; later fix adds legacy `maxTurn` compatibility and configurable `initialHp` (5..50) |
 | Practice solo mode | ✅ | PR #65 — `/practice` reuses Blockly + `simulate()` against built-in bots via `POST /api/practice/simulate`; standalone, no Match/Socket.io/persistence. |
+| Basic tutorial foundation | ✅ | `/tutorial` + `/tutorial/[missionId]` reuse Blockly and `simulate()` with fixed mission config, localStorage progress, filtered toolbox, and four implemented missions. Mission 2/4 run multiple verification cases against the same strategy. Spec and manual checklist: `docs/TUTORIAL.md`. |
 | Battle replay (live `turn_event`) | ✅ | PR #5; Scope B E2E waits through live battle to result link |
 | Result screen (real stats) | ✅ | PR #7; Scope B E2E clicks through to `/result` and asserts real HP/turn data |
 | **Blockly → strategy JSON serializer** | ✅ | PR #23 — real Blockly (v12) editor + `src/lib/strategy-blocks.ts` serializer; coding page submits the live workspace as `Strategy` JSON. Players now run their own strategies. Canvas UX needs manual browser verification. Palette **fully rebuilt** into all mockup categories (行動/状態確認/敵情報/前回結果/自機情報/制御/論理・比較/数値・変数); conditions are a boolean expression tree, 数値・変数 adds numbers + a per-player variable store, and a rule's 「実行」 is an ordered statement body (action / set / nested もし) — so **every palette block is functional** (HANDOFF #16/#17/#18). The 繰り返す block was removed (no loop model yet). |
@@ -159,10 +160,12 @@ scope is **TBD**.
 
 Captured here so they're not silently pulled into v0.2:
 
-- **Simulator depth**: AP budget enforcement, obstacles, items
-  (CROSS / BARRIER / REPEAT), multi-action turns. The `TurnSnapshot` wire
-  format is designed to extend additively (HANDOFF decision #9), so these
-  can land without breaking the client.
+- **Simulator depth**: AP budget enforcement, items (CROSS / BARRIER / REPEAT),
+  multi-action turns, and live-room obstacle rules. Tutorial-only fixed
+  obstacles can already be passed through `simulate(...)`; broader live-match
+  obstacle/item semantics remain post-v0.2. The `TurnSnapshot` wire format is
+  designed to extend additively (HANDOFF decision #9), so these can land without
+  breaking the client.
 - **Live commentary** during spectating.
 - **Real-time room ranking** recomputed on each match end (vs. on-demand
   aggregation today).

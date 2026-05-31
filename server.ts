@@ -5,7 +5,13 @@ import next from "next";
 import { Server as SocketIOServer } from "socket.io";
 import { setSocketServer, getSocketServer } from "./src/lib/socket-server";
 import { prisma } from "./src/lib/db";
-import { simulate, type Strategy } from "./src/lib/match-simulator";
+import {
+  MAX_INITIAL_HP,
+  normalizeInitialHp,
+  simulate,
+  type SimulateOptions,
+  type Strategy,
+} from "./src/lib/match-simulator";
 
 const dev = process.env.NODE_ENV !== "production";
 const hostname = "localhost";
@@ -66,11 +72,22 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function resolveMaxTurns(rulePreset: unknown): number | undefined {
-  if (!rulePreset || typeof rulePreset !== "object" || Array.isArray(rulePreset)) return undefined;
-  const maxTurns = (rulePreset as { maxTurns?: unknown }).maxTurns;
-  if (typeof maxTurns === "number" && Number.isFinite(maxTurns)) return maxTurns;
-  return undefined;
+function numberFromPreset(preset: Record<string, unknown>, key: string): number | undefined {
+  const value = preset[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function resolveMatchOptions(rulePreset: unknown): SimulateOptions {
+  if (!rulePreset || typeof rulePreset !== "object" || Array.isArray(rulePreset)) {
+    return { initialHp: MAX_INITIAL_HP };
+  }
+  const preset = rulePreset as Record<string, unknown>;
+  const maxTurns = numberFromPreset(preset, "maxTurns") ?? numberFromPreset(preset, "maxTurn");
+  const initialHp = normalizeInitialHp(numberFromPreset(preset, "initialHp") ?? MAX_INITIAL_HP);
+  return {
+    ...(maxTurns !== undefined ? { maxTurns } : {}),
+    initialHp,
+  };
 }
 
 async function runMatch(
@@ -81,11 +98,8 @@ async function runMatch(
   strategy2: unknown,
   rulePreset?: unknown
 ): Promise<void> {
-  const maxTurns = resolveMaxTurns(rulePreset);
-  const result =
-    maxTurns === undefined
-      ? simulate(strategy1 as Strategy, strategy2 as Strategy)
-      : simulate(strategy1 as Strategy, strategy2 as Strategy, { maxTurns });
+  const matchOptions = resolveMatchOptions(rulePreset);
+  const result = simulate(strategy1 as Strategy, strategy2 as Strategy, matchOptions);
 
   for (const snapshot of result.turns) {
     // Emit before sleeping so a late-joining client doesn't desync; the
@@ -104,7 +118,7 @@ async function runMatch(
       endReason: result.endReason,
       winnerId,
       endedAt: new Date(),
-      replayData: { turns: result.turns, finalHp: result.finalHp } as object,
+      replayData: { turns: result.turns, finalHp: result.finalHp, config: matchOptions } as object,
     },
   });
 
@@ -114,6 +128,7 @@ async function runMatch(
     endReason: result.endReason,
     finalHp: result.finalHp,
     totalTurns: result.totalTurns,
+    config: matchOptions,
   });
 }
 
